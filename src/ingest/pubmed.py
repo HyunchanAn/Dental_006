@@ -5,7 +5,18 @@ import time
 # Base URL for PubMed E-utilities
 EUTILS_BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
-def fetch_pmids(query, max_ret=100, api_key=None, sort='pub_date', mindate=None, maxdate=None):
+def get_request_headers(email=None):
+    """
+    Constructs HTTP headers with User-Agent and Email contact info.
+    """
+    contact = email if email else "systematic-reviewer-ai@example.com"
+    return {
+        "User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})",
+        "Email": contact
+    }
+
+
+def fetch_pmids(query, max_ret=100, api_key=None, sort='pub_date', mindate=None, maxdate=None, email=None):
     """
     Fetches a list of PubMed IDs (PMIDs) for a given search query.
     Returns a tuple: (list of PMIDs, total count of PMIDs found).
@@ -28,7 +39,7 @@ def fetch_pmids(query, max_ret=100, api_key=None, sort='pub_date', mindate=None,
         params['maxdate'] = maxdate
 
     try:
-        response = requests.get(search_url, params=params)
+        response = requests.get(search_url, params=params, headers=get_request_headers(email))
         response.raise_for_status()
         data = response.json()
         pmids = data.get('esearchresult', {}).get('idlist', [])
@@ -39,13 +50,16 @@ def fetch_pmids(query, max_ret=100, api_key=None, sort='pub_date', mindate=None,
         print(f"An error occurred during PubMed search: {e}")
         return [], 0
 
-def fetch_abstracts(pmids, api_key=None):
+def fetch_abstracts(pmids, api_key=None, email=None):
     """
     Fetches abstracts and other metadata for a list of PMIDs.
 
     Args:
         pmids (list): A list of PubMed IDs.
+    Args:
+        pmids (list): A list of PubMed IDs.
         api_key (str, optional): Your NCBI API key. Defaults to None.
+        email (str, optional): User email for API headers.
 
     Returns:
         dict: A dictionary where keys are PMIDs and values are article metadata.
@@ -67,7 +81,7 @@ def fetch_abstracts(pmids, api_key=None):
         params['api_key'] = api_key
 
     try:
-        response = requests.post(fetch_url, data=params) # Use POST for long lists of IDs
+        response = requests.post(fetch_url, data=params, headers=get_request_headers(email)) # Use POST for long lists of IDs
         response.raise_for_status()
         # Basic XML parsing can be done here, but for robustness, a library like BeautifulSoup or lxml is recommended.
         # For this initial scaffold, we'll just return the raw XML content.

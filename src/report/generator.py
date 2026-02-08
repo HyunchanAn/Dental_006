@@ -76,7 +76,8 @@ graph TD
 """
     return mermaid_code
 
-def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path, lang="EN"):
+
+def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path, lang="EN", synthesis_result=None):
     """
     Generates a comprehensive Markdown report.
     """
@@ -96,6 +97,12 @@ def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path,
                 f.write(f"- **{k.capitalize()}:** {v}\n")
         f.write("\n")
         
+        # Synthesis (New Section)
+        if synthesis_result:
+            f.write(f"## 6. 결론 및 고찰 (Synthesis)\n")
+            f.write(synthesis_result)
+            f.write("\n\n")
+
         # PRISMA Flow
         f.write(f"## {t['prisma_header']}\n")
         f.write(generate_prisma_mermaid(stats, lang=lang))

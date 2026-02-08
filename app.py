@@ -18,6 +18,7 @@ from src.screen import screener
 from src.rob import assessor
 from src.report import generator
 from src.llm import client as llm_client
+from src.llm import synthesizer
 from src.utils import data_manager
 
 # --- Configuration & Setup ---
@@ -92,12 +93,12 @@ TRANSLATIONS = {
         "step3_desc": "This step will perform PDF Download, Parsing, RoB Assessment, and Data Extraction.",
         "screen_first_warning": "Please complete screening in Step 2 first.",
         "no_included": "No included articles to process.",
-        "run_pipeline": "▶️ Run Analysis Pipeline",
-        "downloading_pdfs": "Downloading PDFs...",
-        "parsing_pdfs": "Parsing PDFs with GROBID...",
-        "assessing_rob": "Assessing Risk of Bias...",
-        "extracting_data": "Extracting PICO Data...",
-        "pipeline_complete": "Pipeline Completed!",
+        "download_section": "1. PDF Download",
+        "analysis_section": "2. Analysis Pipeline",
+        "download_btn": "📥 Start PDF Download",
+        "analysis_btn": "⚙️ Start Analysis (Parse, RoB, Extract)",
+        "download_complete": "Download complete! Check for missing files.",
+        "analysis_ready": "Ready for analysis: {count} PDF(s).",
         "analysis_complete": "Analysis complete.",
         "step4_header": "Step 4: Final Report",
         "generate_report": "📄 Generate Report",
@@ -107,7 +108,18 @@ TRANSLATIONS = {
         "intervention": "Intervention",
         "comparison": "Comparison",
         "outcome": "Outcome",
-        "study_design": "Study Design"
+        "outcome": "Outcome",
+        "study_design": "Study Design",
+        "manual_helper_title": "👇 Manual Download Helper (Batch of 5)",
+        "download_failed_warning": "⚠️ {count} PDF(s) failed to download. Please download manually.",
+        "resume_pipeline_btn": "🔄 Resume Pipeline (Process Manual/Fixed Files)",
+        "prev_page": "<< Previous",
+        "next_page": "Next >>",
+        "check_file_btn": "Check File",
+        "skip_file_btn": "Skip",
+        "file_verified": "Verified {pmid}!",
+        "file_skipped": "Skipped {pmid}.",
+        "file_not_found": "File not found: {path}"
     },
     "KO": {
         "title": "🤖 체계적 문헌고찰 AI",
@@ -138,12 +150,12 @@ TRANSLATIONS = {
         "step3_desc": "이 단계에서는 PDF 다운로드, 파싱, 비뚤림 위험(RoB) 평가, 데이터 추출을 수행합니다.",
         "screen_first_warning": "2단계에서 스크리닝을 먼저 완료해주세요.",
         "no_included": "처리를 진행할 포함된 논문이 없습니다.",
-        "run_pipeline": "▶️ 분석 파이프라인 실행",
-        "downloading_pdfs": "PDF 다운로드 중...",
-        "parsing_pdfs": "GROBID로 PDF 파싱 중...",
-        "assessing_rob": "비뚤림 위험(RoB) 평가 중...",
-        "extracting_data": "PICO 데이터 추출 중...",
-        "pipeline_complete": "파이프라인 완료!",
+        "download_section": "1. PDF 다운로드 / Download",
+        "analysis_section": "2. 분석 파이프라인 / Analysis",
+        "download_btn": "📥 PDF 다운로드 시작",
+        "analysis_btn": "⚙️ 분석 시작 (파싱, RoB, 추출)",
+        "download_complete": "다운로드 완료! 누락된 파일을 확인하세요.",
+        "analysis_ready": "분석 준비 완료: {count}개의 PDF 파일.",
         "analysis_complete": "분석이 완료되었습니다.",
         "step4_header": "4단계: 최종 보고서",
         "generate_report": "📄 보고서 생성",
@@ -153,7 +165,18 @@ TRANSLATIONS = {
         "intervention": "중재(Intervention)",
         "comparison": "비교(Comparison)",
         "outcome": "결과(Outcome)",
-        "study_design": "연구 설계(Study Design)"
+        "outcome": "결과(Outcome)",
+        "study_design": "연구 설계(Study Design)",
+        "manual_helper_title": "👇 수동 다운로드 도우미 (5개씩 보기)",
+        "download_failed_warning": "⚠️ {count}개의 PDF 다운로드 실패. 수동 다운로드가 필요합니다.",
+        "resume_pipeline_btn": "🔄 획득한 파일로 분석 재개",
+        "prev_page": "<< 이전 페이지",
+        "next_page": "다음 페이지 >>",
+        "check_file_btn": "파일 확인",
+        "skip_file_btn": "건너뛰기 (Skip)",
+        "file_verified": "{pmid} 파일 확인 완료!",
+        "file_skipped": "{pmid} 건너뜀.",
+        "file_not_found": "파일을 찾을 수 없습니다: {path}"
     }
 }
 
@@ -172,7 +195,16 @@ def init_session_state():
     if 'picos' not in st.session_state:
         st.session_state['picos'] = load_config()
     if 'lang' not in st.session_state:
+        # Default language logic could be improved, but sticking to KO default as requested
         st.session_state['lang'] = 'KO'
+    if 'current_tab_index' not in st.session_state:
+        st.session_state['current_tab_index'] = 0
+    if 'failed_pdfs_page' not in st.session_state:
+        st.session_state['failed_pdfs_page'] = 0
+
+def next_step():
+    st.session_state['current_tab_index'] += 1
+    st.rerun()
 
 # --- Main App Interface ---
 def main():
@@ -186,6 +218,18 @@ def main():
             index=0 if st.session_state['lang'] == 'KO' else 1,
             horizontal=True
         )
+        st.divider()
+        
+        # Email & API Key Input
+        st.subheader("API Settings")
+        email_input = st.text_input("Email (Required for NCBI)", value=st.session_state['picos'].get('email', ''))
+        api_key_input = st.text_input("NCBI API Key (Optional)", value=st.session_state['picos'].get('api_key', ''), type="password")
+        
+        if email_input != st.session_state['picos'].get('email', '') or api_key_input != st.session_state['picos'].get('api_key', ''):
+             st.session_state['picos']['email'] = email_input
+             st.session_state['picos']['api_key'] = api_key_input
+             save_config(st.session_state['picos'])
+             st.toast("Settings saved!", icon="💾")
         st.divider()
 
     st.title(t("title"))
@@ -205,11 +249,39 @@ def main():
         st.subheader(t("current_config"))
         st.json(st.session_state['picos'])
 
-    # --- Tabs ---
-    tab1, tab2, tab3, tab4 = st.tabs(t("tabs"))
+    # --- Navigation ---
+    tabs_labels = t("tabs")
+    
+    # helper for radio button
+    def update_tab_index():
+        # Find which label was selected
+        selected_label = st.session_state['nav_radio']
+        # Update index mapping
+        st.session_state['current_tab_index'] = tabs_labels.index(selected_label)
+
+    # If index changed programmatically (e.g. Next button), sync radio
+    if 'nav_radio' not in st.session_state:
+        st.session_state['nav_radio'] = tabs_labels[0]
+    
+    # Ensure radio state matches current_tab_index (if button changed it)
+    if st.session_state['current_tab_index'] < len(tabs_labels):
+        st.session_state['nav_radio'] = tabs_labels[st.session_state['current_tab_index']]
+
+    st.radio(
+        "", 
+        tabs_labels, 
+        key="nav_radio",
+        index=st.session_state['current_tab_index'],
+        horizontal=True,
+        on_change=update_tab_index,
+        label_visibility="collapsed"
+    )
+    st.divider()
+
+    current_tab = st.session_state['current_tab_index']
 
     # --- Tab 1: PICO & Search ---
-    with tab1:
+    if current_tab == 0:
         st.header(t("step1_header"))
         
         col1, col2 = st.columns(2)
@@ -246,19 +318,39 @@ def main():
                     start_date = (today - timedelta(days=20*365)).strftime("%Y/%m/%d")
                     
                     # 1. Get Count
-                    _, total_count = pubmed.fetch_pmids(query, max_ret=1, mindate=start_date, maxdate=end_date, sort='relevance')
+                    _, total_count = pubmed.fetch_pmids(
+                        query, 
+                        max_ret=1, 
+                        mindate=start_date, 
+                        maxdate=end_date, 
+                        sort='relevance',
+                        email=st.session_state['picos'].get('email'),
+                        api_key=st.session_state['picos'].get('api_key')
+                    )
                     st.session_state['stats']['total_found'] = total_count
                     
                     if total_count > 0:
                         st.info(t("total_found", count=total_count, max=max_ret))
                         # 2. Get Data
-                        pmids, _ = pubmed.fetch_pmids(query, max_ret=max_ret, mindate=start_date, maxdate=end_date, sort='relevance')
+                        pmids, _ = pubmed.fetch_pmids(
+                            query, 
+                            max_ret=max_ret, 
+                            mindate=start_date, 
+                            maxdate=end_date, 
+                            sort='relevance',
+                            email=st.session_state['picos'].get('email'),
+                            api_key=st.session_state['picos'].get('api_key')
+                        )
                         
                         # Save PMIDs
                         pd.DataFrame(pmids, columns=["pmid"]).to_csv(os.path.join(TABLES_DIR, "retrieved_pmids.csv"), index=False)
                         
                         # Fetch Abstracts
-                        articles_xml = pubmed.fetch_abstracts(pmids)
+                        articles_xml = pubmed.fetch_abstracts(
+                            pmids,
+                            email=st.session_state['picos'].get('email'),
+                            api_key=st.session_state['picos'].get('api_key')
+                        )
                         
                         # Filter by Year
                         root = ET.fromstring(articles_xml)
@@ -285,9 +377,18 @@ def main():
                         st.success(t("retrieval_success", count=len(filtered_articles_elements)))
                     else:
                         st.warning(t("no_articles"))
+        # Navigation Button (Step 1 -> Step 2)
+        # Show only if articles have been retrieved
+        csv_path = os.path.join(TABLES_DIR, "articles.csv")
+        if os.path.exists(csv_path) or st.session_state['stats']['total_found'] > 0:
+            st.divider()
+            col_next, _ = st.columns([1, 4])
+            with col_next:
+                if st.button(f"{t('tabs')[1]} >", type="primary", use_container_width=True):
+                     next_step()
 
     # --- Tab 2: Screening ---
-    with tab2:
+    if current_tab == 1:
         st.header(t("step2_header"))
         csv_path = os.path.join(TABLES_DIR, "articles.csv")
         
@@ -318,8 +419,18 @@ def main():
         else:
             st.info(t("search_first"))
 
+        # Navigation Button (Step 2 -> Step 3)
+        # Show only if screening has been performed
+        screening_csv_path = os.path.join(TABLES_DIR, "screening_results.csv")
+        if os.path.exists(screening_csv_path) or st.session_state['stats']['screened'] > 0:
+            st.divider()
+            col_next, _ = st.columns([1, 4])
+            with col_next:
+                if st.button(f"{t('tabs')[2]} >", type="primary", use_container_width=True):
+                     next_step()
+
     # --- Tab 3: Analysis Pipeline ---
-    with tab3:
+    if current_tab == 2:
         st.header(t("step3_header"))
         st.markdown(t("step3_desc"))
         
@@ -335,86 +446,220 @@ def main():
                  if not included_pmids:
                      st.warning(t("no_included"))
                  else:
-                     if st.button(t("run_pipeline")):
-                         progress_bar = st.progress(0)
-                         status_text = st.empty()
+                     if not included_pmids:
+                         st.warning(t("no_included"))
+                     else:
+                         # --- Section 1: PDF Download ---
+                         st.subheader(t("download_section"))
+                         
                          xml_path = os.path.join(RAW_DATA_DIR, "articles.xml")
+                         if st.button(t("download_btn"), type="primary"):
+                             progress_bar = st.progress(0)
+                             status_text = st.empty()
+                             status_text.text(t("downloading_pdfs"))
+                             
+                             pdf_download_status = downloader.download_pdfs_from_xml(
+                                    xml_path, 
+                                    PDF_DIR, 
+                                    allowed_pmids=included_pmids,
+                                    email=st.session_state['picos'].get('email')
+                             )
+                             df['pdf_download_status'] = df['pmid'].astype(str).map(pdf_download_status)
+                             df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                             
+                             downloaded_pdfs = [k for k, v in pdf_download_status.items() if "Downloaded" in v or "Already" in v]
+                             st.session_state['stats']['retrieved'] = len(downloaded_pdfs)
+                             progress_bar.progress(100)
+                             st.success(t("download_complete"))
+                             time.sleep(1)
+                             st.rerun()
 
-                         # 1. Download PDFs
-                         status_text.text(t("downloading_pdfs"))
-                         pdf_download_status = downloader.download_pdfs_from_xml(xml_path, PDF_DIR, allowed_pmids=included_pmids)
-                         df['pdf_download_status'] = df['pmid'].astype(str).map(pdf_download_status)
-                         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                         
-                         downloaded_pdfs = [k for k, v in pdf_download_status.items() if "Downloaded" in v or "Already" in v]
-                         st.session_state['stats']['retrieved'] = len(downloaded_pdfs)
-                         progress_bar.progress(25)
-                         
-                         # 2. GROBID Parsing
-                         status_text.text(t("parsing_pdfs"))
-                         for pmid in downloaded_pdfs:
-                             pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
-                             if os.path.exists(pdf_path):
-                                 tei_xml = grobid_client.process_pdf(pdf_path)
-                                 if tei_xml:
-                                     with open(os.path.join(TEI_DIR, f"{pmid}.xml"), 'w', encoding='utf-8') as f:
-                                         f.write(tei_xml)
-                         progress_bar.progress(50)
+                         # --- Check for missing files & Manual Helper ---
+                         if os.path.exists(csv_path):
+                            try:
+                                df = pd.read_csv(csv_path)
+                                if 'pdf_download_status' in df.columns:
+                                    failed_mask = ~df['pdf_download_status'].astype(str).str.contains(r'Downloaded|Exists|Skipped', case=False, na=False)
+                                    failed_df = df[failed_mask]
+                                    
+                                    if not failed_df.empty:
+                                        st.divider()
+                                        st.warning(t("download_failed_warning", count=len(failed_df)))
+                                        # Manual Helper UI
+                                        st.info(t("manual_helper_title"))
+                                        
+                                        # Pagination
+                                        batch_size = 5
+                                        total_failed = len(failed_df)
+                                        total_pages = (total_failed - 1) // batch_size + 1
+                                        current_page = st.session_state.get('failed_pdfs_page', 0)
+                                        
+                                        if current_page >= total_pages: current_page = total_pages - 1
+                                        if current_page < 0: current_page = 0
+                                        st.session_state['failed_pdfs_page'] = current_page
+                                        
+                                        start_idx = current_page * batch_size
+                                        end_idx = start_idx + batch_size
+                                        batch_df = failed_df.iloc[start_idx:end_idx]
+                                        
+                                        col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
+                                        with col_p1:
+                                            if st.button(t("prev_page"), disabled=(current_page == 0)):
+                                                st.session_state['failed_pdfs_page'] -= 1
+                                                st.rerun()
+                                        with col_p2:
+                                            st.markdown(f"**Page {current_page + 1} / {total_pages}**")
+                                        with col_p3:
+                                            if st.button(t("next_page"), disabled=(current_page == total_pages - 1)):
+                                                st.session_state['failed_pdfs_page'] += 1
+                                                st.rerun()
+                                        
+                                        for _, row in batch_df.iterrows():
+                                            with st.container(border=True):
+                                                pmid = str(row['pmid'])
+                                                title = row.get('title', 'No Title')
+                                                doi = row.get('doi')
+                                                pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                                                if isinstance(doi, str) and doi.strip():
+                                                    sci_hub_link = f"https://sci-hub.st/{doi}"
+                                                else:
+                                                    sci_hub_link = f"https://sci-hub.st/{pubmed_link}"
+                                                st.markdown(f"**{title}**")
+                                                st.markdown(f"[PubMed]({pubmed_link}) | [Sci-Hub]({sci_hub_link}) (PMID: {pmid})")
+                                                st.code(f"{pmid}.pdf", language="text")
+                                                c1, c2 = st.columns(2)
+                                                with c1:
+                                                    if st.button(f"{t('check_file_btn')} ({pmid})", key=f"check_{pmid}"):
+                                                        target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+                                                        if os.path.exists(target_path):
+                                                            df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual)"
+                                                            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                            st.toast(t("file_verified", pmid=pmid), icon="✅")
+                                                            time.sleep(0.5)
+                                                            st.rerun()
+                                                        else:
+                                                            st.error(t("file_not_found", path=target_path))
+                                                with c2:
+                                                    if st.button(f"{t('skip_file_btn')} ({pmid})", key=f"skip_{pmid}"):
+                                                        df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Skipped_User"
+                                                        df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                        st.toast(t("file_skipped", pmid=pmid), icon="⏭️")
+                                                        time.sleep(0.5)
+                                                        st.rerun()
+                            except Exception as e:
+                                st.error(f"Error loading helper: {e}")
 
-                         # 3. RoB Assessment
-                         status_text.text(t("assessing_rob"))
-                         if os.path.exists(TEI_DIR) and os.listdir(TEI_DIR):
-                             assessor.batch_assess_rob(TEI_DIR, os.path.join(TABLES_DIR, "rob_assessment.csv"))
-                         progress_bar.progress(75)
+                         # --- Section 2: Analysis ---
+                         st.divider()
+                         st.subheader(t("analysis_section"))
+                         
+                         # Count ready files
+                         ready_count = 0
+                         if os.path.exists(csv_path):
+                             df = pd.read_csv(csv_path)
+                             if 'pdf_download_status' in df.columns:
+                                 ready_mask = df['pdf_download_status'].astype(str).str.contains(r'Downloaded|Exists', case=False, na=False)
+                                 ready_count = len(df[ready_mask])
+                         
+                         st.info(t("analysis_ready", count=ready_count))
+                         
+                         if st.button(t("analysis_btn"), type="primary"):
+                             progress_bar = st.progress(0)
+                             status_text = st.empty()
+                             
+                             # Re-read DF
+                             df = pd.read_csv(csv_path)
+                             doc_ready_mask = df['pdf_download_status'].astype(str).str.contains(r'Downloaded|Exists', case=False, na=False)
+                             ready_pmids = df[doc_ready_mask]['pmid'].astype(str).tolist()
+                             
+                             # 2. GROBID Parsing
+                             status_text.text(t("parsing_pdfs"))
+                             for pmid in ready_pmids:
+                                  pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+                                  tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
+                                  if os.path.exists(pdf_path) and not os.path.exists(tei_path): 
+                                      tei_xml = grobid_client.process_pdf(pdf_path)
+                                      if tei_xml:
+                                          with open(tei_path, 'w', encoding='utf-8') as f:
+                                              f.write(tei_xml)
+                             progress_bar.progress(50)
 
-                         # 4. Data Extraction
-                         status_text.text(t("extracting_data"))
-                         llm = llm_client.LLMClient()
-                         tei_files = [f for f in os.listdir(TEI_DIR) if f.endswith('.xml')]
-                         extracted_data = []
-                         
-                         if tei_files:
-                            for tei_file in tei_files:
-                                pmid = tei_file.replace('.xml', '')
-                                full_text = tei_parser.extract_text_from_tei(os.path.join(TEI_DIR, tei_file))
-                                if full_text:
-                                    text_snippet = (full_text[:8000] + '...') if len(full_text) > 8000 else full_text
-                                    user_prompt = f"Extract PICO + Study Design in JSON with keys: population, intervention, comparison, outcome, study_design. Text: {text_snippet}"
-                                    messages = [{"role": "system", "content": "You are a biomedical expert."}, {"role": "user", "content": user_prompt}]
-                                    resp = llm.get_completion(messages)
-                                    # Simple parsing attempt (reuse logic from main.py or make robust later)
-                                    try:
-                                        import re, json
-                                        match = re.search(r"({[\s\S]*})", resp)
-                                        if match:
-                                            data = json.loads(match.group(1))
-                                            data['pmid'] = pmid
-                                            extracted_data.append(data)
-                                    except: pass
-                            
-                            if extracted_data:
-                                pd.DataFrame(extracted_data).to_csv(os.path.join(TABLES_DIR, "extracted_pico.csv"), index=False)
-                         
-                         progress_bar.progress(100)
-                         status_text.text(t("pipeline_complete"))
-                         st.success(t("analysis_complete"))
+                             # 3. RoB Assessment
+                             status_text.text(t("assessing_rob"))
+                             if os.path.exists(TEI_DIR):
+                                 assessor.batch_assess_rob(TEI_DIR, os.path.join(TABLES_DIR, "rob_assessment.csv"))
+                             progress_bar.progress(75)
+
+                             # 4. Data Extraction
+                             status_text.text(t("extracting_data"))
+                             llm = llm_client.LLMClient()
+                             tei_files = [f for f in os.listdir(TEI_DIR) if f.endswith('.xml')]
+                             extracted_data = []
+                             
+                             if tei_files:
+                                for tei_file in tei_files:
+                                    pmid = tei_file.replace('.xml', '')
+                                    full_text = tei_parser.extract_text_from_tei(os.path.join(TEI_DIR, tei_file))
+                                    if full_text:
+                                        text_snippet = (full_text[:8000] + '...') if len(full_text) > 8000 else full_text
+                                        user_prompt = f"Extract PICO + Study Design in JSON with keys: population, intervention, comparison, outcome, study_design. Text: {text_snippet}"
+                                        messages = [{"role": "system", "content": "You are a biomedical expert."}, {"role": "user", "content": user_prompt}]
+                                        resp = llm.get_completion(messages)
+                                        try:
+                                            import re, json
+                                            match = re.search(r"({[\s\S]*})", resp)
+                                            if match:
+                                                data = json.loads(match.group(1))
+                                                data['pmid'] = pmid
+                                                extracted_data.append(data)
+                                        except: pass
+                                
+                                if extracted_data:
+                                    pd.DataFrame(extracted_data).to_csv(os.path.join(TABLES_DIR, "extracted_pico.csv"), index=False)
+                             
+                             progress_bar.progress(100)
+                             status_text.text(t("analysis_complete"))
+                             st.success(t("analysis_complete"))
+
+
+        # Navigation Button (Step 3 -> Step 4)
+        # Show only if pipeline output exists (e.g., extracted PICO data)
+        extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
+        if os.path.exists(extracted_csv_path):
+            st.divider()
+            col_next, _ = st.columns([1, 4])
+            with col_next:
+                if st.button(f"{t('tabs')[3]} >", type="primary", use_container_width=True):
+                     next_step()
 
     # --- Tab 4: Reporting ---
-    with tab4:
+    if current_tab == 3:
         st.header(t("step4_header"))
         
         current_lang = st.session_state['lang']
         report_filename = f"report_{current_lang}.md"
         report_path = os.path.join(DATA_DIR, report_filename)
         
+        
         if st.button(t("generate_report")):
+            # 1. Synthesize Answer (New)
+            with st.spinner("AI is synthesizing the answer to your PICO question..."):
+                synthesis_result = synthesizer.synthesize_answer(
+                    st.session_state['picos'],
+                    os.path.join(TABLES_DIR, "extracted_pico.csv"),
+                    os.path.join(TABLES_DIR, "rob_assessment.csv"),
+                    lang=current_lang
+                )
+            
+            # 2. Generate Report
             generator.generate_report(
                 st.session_state['stats'], 
                 st.session_state['picos'], 
                 os.path.join(TABLES_DIR, "extracted_pico.csv"), 
                 os.path.join(TABLES_DIR, "rob_assessment.csv"), 
                 report_path,
-                lang=current_lang
+                lang=current_lang,
+                synthesis_result=synthesis_result
             )
             st.success(t("report_generated"))
             

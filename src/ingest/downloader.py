@@ -3,7 +3,17 @@ import requests
 import xml.etree.ElementTree as ET
 import time
 
-def get_unpaywall_pdf_url(doi):
+def get_request_headers(email=None):
+    """
+    Constructs HTTP headers with User-Agent and Email contact info.
+    """
+    contact = email if email else "systematic-reviewer-ai@example.com"
+    return {
+        "User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})",
+        "Email": contact
+    }
+
+def get_unpaywall_pdf_url(doi, email=None):
     """
     Queries the Unpaywall API to find a direct PDF link for a given DOI.
     """
@@ -11,9 +21,12 @@ def get_unpaywall_pdf_url(doi):
         return None
     try:
         # Using a more compliant email address as recommended by Unpaywall
-        email = "systematic-reviewer-ai@example.com"
-        url = f"https://api.unpaywall.org/v2/{doi}?email={email}"
-        response = requests.get(url, timeout=20)
+        contact_email = email if email else "systematic-reviewer-ai@example.com"
+        url = f"https://api.unpaywall.org/v2/{doi}?email={contact_email}"
+        
+        # We don't strictly need custom headers for Unpaywall based on their docs (just email param),
+        # but good practice to identify anyway.
+        response = requests.get(url, headers=get_request_headers(email), timeout=20)
         response.raise_for_status()
         data = response.json()
         
@@ -26,12 +39,12 @@ def get_unpaywall_pdf_url(doi):
         print(f"  - An unexpected error occurred while processing DOI {doi} with Unpaywall: {e}")
     return None
 
-def download_pdf_from_url(pdf_url, output_path):
+def download_pdf_from_url(pdf_url, output_path, email=None):
     """
     Downloads a PDF from a URL and saves it to the specified path.
     """
     try:
-        response = requests.get(pdf_url, stream=True, timeout=60)
+        response = requests.get(pdf_url, headers=get_request_headers(email), stream=True, timeout=60)
         response.raise_for_status()
         with open(output_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
@@ -41,7 +54,7 @@ def download_pdf_from_url(pdf_url, output_path):
         print(f"  - Failed to download PDF from {pdf_url}: {e}")
     return False
 
-def try_pmc_download(pmcid, output_path, timeout=60):
+def try_pmc_download(pmcid, output_path, email=None, timeout=60):
     """
     Attempts to download a PDF directly from PubMed Central using its PMCID.
     """
@@ -57,7 +70,7 @@ def try_pmc_download(pmcid, output_path, timeout=60):
         'retmode': 'binary'
     }
     try:
-        response = requests.post(fetch_url, data=params, stream=True, timeout=timeout)
+        response = requests.post(fetch_url, data=params, headers=get_request_headers(email), stream=True, timeout=timeout)
         
         if 'application/pdf' not in response.headers.get('Content-Type', ''):
             print(f"  - PMC did not return a PDF. Content-Type: {response.headers.get('Content-Type')}")
@@ -74,7 +87,7 @@ def try_pmc_download(pmcid, output_path, timeout=60):
         print(f"  - Failed to download from PMC: {e}")
         return False
 
-def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None):
+def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None):
     """
     Parses a PubMed XML file, extracts DOIs and PMCIDs, and attempts to download open-access PDFs
     using a fallback strategy (Unpaywall -> PMC).
@@ -84,6 +97,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None):
         output_dir (str): Directory to save downloaded PDFs.
         allowed_pmids (list, optional): List of PMIDs to download. If provided, only articles 
                                         with PMIDs in this list will be processed.
+        email (str, optional): User email for API headers.
                                         
     Returns:
         dict: A dictionary of PMID to download status.
@@ -138,10 +152,10 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None):
         doi_node = article.find(".//ArticleId[@IdType='doi']")
         doi = doi_node.text if doi_node is not None else None
         if doi:
-            pdf_url = get_unpaywall_pdf_url(doi)
+            pdf_url = get_unpaywall_pdf_url(doi, email=email)
             if pdf_url:
                 print(f"  - Found Unpaywall OA link for DOI {doi}. Attempting download...")
-                if download_pdf_from_url(pdf_url, output_filename):
+                if download_pdf_from_url(pdf_url, output_filename, email=email):
                     download_status[pmid] = "Downloaded (Unpaywall)"
                     downloaded = True
                 else:
@@ -152,7 +166,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None):
             pmc_node = article.find(".//ArticleId[@IdType='pmc']")
             pmcid = pmc_node.text if pmc_node is not None else None
             if pmcid:
-                if try_pmc_download(pmcid, output_filename):
+                if try_pmc_download(pmcid, output_filename, email=email):
                     download_status[pmid] = "Downloaded (PMC)"
                     downloaded = True
                 else:

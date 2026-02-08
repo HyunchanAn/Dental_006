@@ -10,11 +10,12 @@
 
 -   문헌 검색 및 수집 (Ingestion): PubMed API를 활용하여 PICO 질문에 기반한 검색 쿼리를 자동 생성하고 문헌 메타데이터를 수집합니다. 미래 출판 예정 논문은 자동으로 필터링됩니다.
 -   자동 스크리닝 (Automated Screening): LLM을 활용하여 수집된 논문의 제목과 초록을 분석하고, 사전에 정의된 PICO 기준에 따라 포함/제외 여부를 자동으로 판별합니다.
--   PDF 다운로드 (PDF Download): Unpaywall 및 PubMed Central(PMC)을 통해 오픈 액세스 PDF를 자동으로 다운로드합니다.
+-   PDF 다운로드 (PDF Download): Unpaywall 및 PubMed Central(PMC)을 통해 오픈 액세스 PDF를 자동으로 다운로드합니다. **다운로드 실패 시 사용자가 직접 파일을 배치하고 검증할 수 있는 수동 다운로드 도우미(Manual Helper)가 제공됩니다.**
 -   PDF 파싱 (Parsing): GROBID를 이용해 PDF를 구조화된 TEI/XML로 변환하여 본문을 추출합니다.
 -   비뚤림 위험 평가 (RoB Assessment): LLM을 활용하여 전체 텍스트(Full Text)에서 5가지 영역(무작위 배정, 중재 이탈, 결측치, 결과 측정, 보고 비뚤림)에 대한 비뚤림 위험을 자동으로 평가합니다.
 -   데이터 추출 (Extraction): PICO 프레임워크 기반의 핵심 정보를 추출하여 CSV로 저장합니다.
--   자동 보고서 생성 (Automated Reporting): 분석된 통계와 추출 결과를 바탕으로 PRISMA 흐름도가 포함된 마크다운(Markdown) 보고서를 생성합니다. 한국어 및 영어 보고서를 지원합니다.
+-   **AI 종합 결론 (Synthesis) [NEW]: 추출된 모든 데이터와 RoB 평가 결과를 바탕으로 AI가 연구 질문에 대한 종합적인 답변(결론, 근거 신뢰도, 임상적 시사점)을 작성합니다.**
+-   자동 보고서 생성 (Automated Reporting): 분석된 통계와 추출 결과를 바탕으로 PRISMA 흐름도가 포함된 마크다운(Markdown) 보고서를 생성합니다. **AI가 도출한 종합 결론(Synthesis) 섹션이 포함됩니다.**
 -   웹 인터페이스 (Web UI): Streamlit 기반의 대시보드를 통해 검색부터 보고서 생성까지의 전 과정을 시각적으로 관리할 수 있습니다.
 
 ## 3. 프로젝트 구조
@@ -28,7 +29,7 @@
 │   ├── parse/        # GROBID 파싱 및 텍스트 추출 모듈.
 │   ├── screen/       # LLM 기반 자동 스크리닝 모듈.
 │   ├── rob/          # 비뚤림 위험(RoB) 평가 모듈.
-│   ├── llm/          # Ollama 클라이언트.
+│   ├── llm/          # Ollama 클라이언트 및 종합 분석(Synthesizer) 모듈.
 │   ├── extract/      # 데이터 추출 모듈.
 │   ├── report/       # 보고서 생성 모듈.
 │   └── utils/        # 공통 유틸리티 함수.
@@ -72,8 +73,10 @@
 3.  주요 탭 기능
     -   1. Search (PICO): 연구 질문(PICO) 입력, 검색 쿼리 생성 및 PubMed 검색 실행.
     -   2. Screening: 검색된 논문을 확인하고 AI 자동 스크리닝 실행.
-    -   3. Analysis Pipeline: PDF 다운로드 -> 파싱 -> RoB 평가 -> 데이터 추출 과정을 순차적으로 실행.
-    -   4. Report: 최종 보고서(PRISMA 다이어그램 포함) 생성 및 다운로드. 한글/영어 토글 지원.
+    -   3. Analysis Pipeline:
+        -   **Phase 1. PDF Download:** PDF 자동 다운로드 시도. 실패 시 **수동 다운로드 도움말**이 나타납니다.
+        -   **Phase 2. Analysis:** GROBID 파싱 -> RoB 평가 -> 데이터 추출 과정을 순차적으로 실행.
+    -   4. Report: **AI 종합 결론(Synthesis)** 도출 및 최종 보고서(PRISMA 다이어그램 포함) 생성. 한글/영어 토글 지원.
 
 ## 6. 사용법 (CLI)
 
@@ -84,13 +87,14 @@ python main.py
 ```
 `picos_config.yaml` 설정을 기반으로 전체 파이프라인을 순차적으로 수행합니다.
 
-## 7. 수동 PDF 추가
+## 7. 수동 PDF 추가 및 검증
 
-자동 다운로드에 실패한 논문은 수동으로 추가하여 처리할 수 있습니다.
-1. PDF 직접 다운로드.
-2. 파일명을 `{PMID}.pdf`로 변경 (예: 12345678.pdf).
-3. `data/pdf/` 폴더로 이동.
-4. 앱 또는 스크립트 재실행 (이미 처리된 단계는 건너뛰고 진행).
+자동 다운로드에 실패한 논문은 쉽게 수동으로 등록할 수 있습니다.
+1. 앱의 **Manual Download Helper** 섹션에서 실패한 논문 목록 확인.
+2. 각 논문의 [Link]를 통해 PDF 직접 다운로드.
+3. 파일명을 가이드에 따라 `{PMID}.pdf`로 변경하여 `data/pdf/` 폴더에 저장.
+4. 앱에서 **[파일 확인]** 버튼 클릭 시 시스템이 파일을 감지하고 분석 대상으로 포함시킵니다.
+5. 구하기 어려운 자료는 **[Skip]** 할 수 있습니다.
 
 ## 8. 개발 로그
 

@@ -1,6 +1,8 @@
 picos:
   population: ''
-  intervention: 'dental implant'
+  intervention: dental implant
   comparison: ''
   outcome: ''
-  study_design: 'randomized controlled trial'
+  study_design: randomized controlled trial
+  email: chemahc94@pusan.ac.kr
+  api_key: ''
