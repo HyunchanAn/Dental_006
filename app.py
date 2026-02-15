@@ -129,6 +129,11 @@ TRANSLATIONS = {
         "status_failed": "❌ Download Failed",
         "status_manual": "📂 Manual Detected",
         "status_verified": "✅ Verified",
+        "bulk_upload_title": "📤 Bulk PDF Upload (Auto-matching)",
+        "bulk_upload_desc": "Upload multiple PDFs. PMID (8 digits) will be automatically detected from filenames.",
+        "match_success": "✅ Matched {pmid} from {filename}",
+        "match_failed": "⚠️ Could not find PMID in {filename}",
+        "view_pubmed": "PubMed",
     },
     "KO": {
         "title": "🤖 체계적 문헌고찰 AI",
@@ -195,6 +200,11 @@ TRANSLATIONS = {
         "status_failed": "❌ 다운로드 실패",
         "status_manual": "📂 수동 파일 감지",
         "status_verified": "✅ 확인됨",
+        "bulk_upload_title": "📤 일괄 PDF 업로드 (자동 매칭)",
+        "bulk_upload_desc": "여러 PDF 파일을 한꺼번에 업로드하세요. 파일명에서 8자리 PMID를 자동 추출합니다.",
+        "match_success": "✅ {filename} -> PMID {pmid} 매칭 완료",
+        "match_failed": "⚠️ {filename}에서 PMID를 추출하지 못했습니다.",
+        "view_pubmed": "PubMed",
     }
 }
 
@@ -219,6 +229,41 @@ def init_session_state():
         st.session_state['current_tab_index'] = 0
     if 'failed_pdfs_page' not in st.session_state:
         st.session_state['failed_pdfs_page'] = 0
+    if 'file_cache' not in st.session_state:
+        st.session_state['file_cache'] = {}
+
+def handle_bulk_upload(uploaded_files, df, csv_path):
+    import re
+    success_count = 0
+    results = []
+    
+    for uploaded_file in uploaded_files:
+        filename = uploaded_file.name
+        # Search for 8-digit PMID in filename
+        match = re.search(r'(\d{8})', filename)
+        if match:
+            pmid = match.group(1)
+            target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+            
+            # Check if this PMID is in our database
+            if pmid in df['pmid'].astype(str).values:
+                with open(target_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Bulk Match)"
+                success_count += 1
+                results.append(t("match_success", filename=filename, pmid=pmid))
+                # Update session state cache immediately
+                st.session_state['file_cache'][f"exists_{pmid}"] = True
+            else:
+                results.append(f"⚠️ {filename}: PMID {pmid} not found in project.")
+        else:
+            results.append(t("match_failed", filename=filename))
+            
+    if success_count > 0:
+        df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+        
+    return results, success_count
 
 def next_step():
     st.session_state['current_tab_index'] += 1
@@ -506,6 +551,21 @@ def main():
                                         st.warning(t("download_failed_warning", count=len(failed_df)))
                                         # Manual Helper UI
                                         st.info(t("manual_helper_title"))
+                                        
+                                        # Bulk Uploader Section
+                                        with st.expander(t("bulk_upload_title"), expanded=False):
+                                            st.write(t("bulk_upload_desc"))
+                                            bulk_files = st.file_uploader(t("bulk_upload_title"), type="pdf", accept_multiple_files=True, key="bulk_pdf_uploader")
+                                            if bulk_files:
+                                                results, count = handle_bulk_upload(bulk_files, df, csv_path)
+                                                for res in results:
+                                                    if "✅" in res: st.success(res)
+                                                    else: st.warning(res)
+                                                if count > 0:
+                                                    st.toast(f"Successfully matched {count} files!", icon="🚀")
+                                                    time.sleep(1)
+                                                    st.rerun()
+
                                         st.warning(t("ai_proposal_warning"))
                                         
                                         # Pagination
@@ -556,26 +616,43 @@ def main():
                                                  # Status Badge & File Detection
                                                  status = str(row.get('pdf_download_status', 'Failed'))
                                                  
+                                                 # Use session state cache for file existence to speed up UI
+                                                 cache_key = f"exists_{pmid}"
+                                                 if cache_key not in st.session_state['file_cache']:
+                                                     st.session_state['file_cache'][cache_key] = os.path.exists(target_path)
+                                                 file_exists = st.session_state['file_cache'][cache_key]
+                                                 
                                                  if file_exists:
                                                      if "Manual" not in status and "Downloaded" not in status and "Exists" not in status:
                                                          st.info(f"{t('status_manual')} (Auto-detected)")
                                                          # Auto-update status in CSV if detected
                                                          df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Detected)"
                                                          df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                         # Update cache and stats potentially
+                                                         st.session_state['file_cache'][cache_key] = True
                                                      else:
                                                          st.success(t("status_verified"))
                                                  else:
                                                      st.error(t("status_failed"))
 
                                                  # Action Buttons
-                                                 c_info, c_search = st.columns([2, 1])
+                                                 c_info, c_search = st.columns([1.5, 1.5])
                                                  with c_info:
                                                      st.markdown(f"PMID: `{pmid}`")
                                                      st.code(f"{pmid}.pdf", language="text")
+                                                     st.link_button(t("view_pubmed"), pubmed_link, use_container_width=True, type="primary")
                                                  with c_search:
-                                                     st.link_button(t("search_scholar"), scholar_link, use_container_width=True)
-                                                     if doi_link:
-                                                         st.link_button(t("search_doi"), doi_link, use_container_width=True)
+                                                     # Row 1: Primary Search
+                                                     s_col1, s_col2 = st.columns(2)
+                                                     with s_col1:
+                                                         st.link_button(t("search_scholar"), scholar_link, use_container_width=True)
+                                                     with s_col2:
+                                                         if doi_link:
+                                                             st.link_button(t("search_doi"), doi_link, use_container_width=True)
+                                                         else:
+                                                             st.button("No DOI", disabled=True, use_container_width=True)
+                                                     
+                                                     # Row 2: Sci-Hub (Alternative)
                                                      st.link_button(t("search_scihub"), sci_hub_link, use_container_width=True)
                                                  
                                                  # File Uploader
@@ -585,6 +662,7 @@ def main():
                                                          f.write(uploaded_file.getbuffer())
                                                      df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual Upload)"
                                                      df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                     st.session_state['file_cache'][cache_key] = True
                                                      st.success(f"{pmid}.pdf saved!")
                                                      time.sleep(0.5)
                                                      st.rerun()
@@ -592,7 +670,10 @@ def main():
                                                  c1, c2 = st.columns(2)
                                                  with c1:
                                                      if st.button(f"{t('check_file_btn')} ({pmid})", key=f"check_{pmid}"):
-                                                         if file_exists:
+                                                         # Force re-check on manual button
+                                                         file_exists_physical = os.path.exists(target_path)
+                                                         st.session_state['file_cache'][cache_key] = file_exists_physical
+                                                         if file_exists_physical:
                                                              df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual)"
                                                              df.to_csv(csv_path, index=False, encoding='utf-8-sig')
                                                              st.toast(t("file_verified", pmid=pmid), icon="✅")
