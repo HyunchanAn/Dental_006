@@ -1,8 +1,8 @@
 picos:
-  population: ''
-  intervention: dental implant
-  comparison: ''
-  outcome: ''
-  study_design: randomized controlled trial
+  population: '"Aged, 80 and over"[Mesh]'
+  intervention: '"Dental Implants"[Mesh] OR "Dental Implant*"[tiab]'
+  comparison: '"Denture, Partial, Removable"[Mesh] OR "Denture*"[tiab] OR "Bridge*"[tiab]'
+  outcome: '"Patient Satisfaction"[Mesh] OR "Satisfaction"[tiab]'
+  study_design: '"Comparative Study"[pt]'
   email: chemahc94@pusan.ac.kr
   api_key: ''

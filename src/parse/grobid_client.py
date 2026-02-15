@@ -2,7 +2,7 @@ import os
 import requests
 
 # The default URL for the GROBID service started with docker-compose
-GROBID_URL = "http://localhost:8070"
+GROBID_URL = "http://localhost:8090"
 GROBID_API_URL = f"{GROBID_URL}/api/processFulltextDocument"
 
 def process_pdf(pdf_path, timeout=60):
