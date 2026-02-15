@@ -749,8 +749,9 @@
     
     - 수동 다운로드 사용자 경험(UX) 혁신:
         - Streamlit UI의 'Manual Download Helper'를 대폭 개선함.
-        - 실패 논문별 원클릭 검색 버튼(Google Scholar, DOI) 추가.
+        - 실패 논문별 원클릭 검색 버튼(Google Scholar, DOI, **Sci-Hub**) 추가.
         - `st.file_uploader`를 통합하여 UI 상에서 직접 PDF 업로드 및 자동 분류 기능 구현.
+        - **실시간 파일 감지 엔진 도입**: 사용자가 수동으로 파일을 배치하면 버튼 클릭 없이도 즉시 상태를 [Manual Detected]로 전환하고 CSV를 자동 업데이트함.
         - 논문 상태별 배지(Badge) 시스템 도입: [Download Failed], [Manual Detected], [Verified] 시각화.
     
     - 중복 제거(Deduplication) 로직 정교화:
