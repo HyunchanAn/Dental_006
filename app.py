@@ -19,7 +19,7 @@ from src.rob import assessor
 from src.report import generator
 from src.llm import client as llm_client
 from src.llm import synthesizer
-from src.utils import data_manager
+from src.utils import data_manager, versioning
 
 # --- Configuration & Setup ---
 DATA_DIR = "data"
@@ -100,6 +100,7 @@ TRANSLATIONS = {
         "download_complete": "Download complete! Check for missing files.",
         "analysis_ready": "Ready for analysis: {count} PDF(s).",
         "analysis_complete": "Analysis complete.",
+        "ai_proposal_warning": "⚠️ Note: All RoB assessments and data extractions are AI-generated 'suggestions'. Please verify them for academic rigour.",
         "step4_header": "Step 4: Final Report",
         "generate_report": "📄 Generate Report",
         "report_generated": "Report generated!",
@@ -119,7 +120,15 @@ TRANSLATIONS = {
         "skip_file_btn": "Skip",
         "file_verified": "Verified {pmid}!",
         "file_skipped": "Skipped {pmid}.",
-        "file_not_found": "File not found: {path}"
+        "file_not_found": "File not found: {path}",
+        "upload_pdf": "Upload PDF",
+        "search_scholar": "Search Scholar",
+        "search_doi": "Search DOI",
+        "search_scihub": "Sci-Hub",
+        "copy_filename": "Copy Filename",
+        "status_failed": "❌ Download Failed",
+        "status_manual": "📂 Manual Detected",
+        "status_verified": "✅ Verified",
     },
     "KO": {
         "title": "🤖 체계적 문헌고찰 AI",
@@ -157,6 +166,7 @@ TRANSLATIONS = {
         "download_complete": "다운로드 완료! 누락된 파일을 확인하세요.",
         "analysis_ready": "분석 준비 완료: {count}개의 PDF 파일.",
         "analysis_complete": "분석이 완료되었습니다.",
+        "ai_proposal_warning": "⚠️ 주의: 모든 비뚤림 위험(RoB) 평가 및 데이터 추출 결과는 AI가 생성한 '제안'입니다. 학술적 엄밀성을 위해 반드시 최종 검토를 거쳐주세요.",
         "step4_header": "4단계: 최종 보고서",
         "generate_report": "📄 보고서 생성",
         "report_generated": "보고서가 생성되었습니다!",
@@ -176,7 +186,15 @@ TRANSLATIONS = {
         "skip_file_btn": "건너뛰기 (Skip)",
         "file_verified": "{pmid} 파일 확인 완료!",
         "file_skipped": "{pmid} 건너뜀.",
-        "file_not_found": "파일을 찾을 수 없습니다: {path}"
+        "file_not_found": "파일을 찾을 수 없습니다: {path}",
+        "upload_pdf": "PDF 업로드",
+        "search_scholar": "Google Scholar",
+        "search_doi": "DOI 검색",
+        "search_scihub": "Sci-Hub",
+        "copy_filename": "파일명 복사",
+        "status_failed": "❌ 다운로드 실패",
+        "status_manual": "📂 수동 파일 감지",
+        "status_verified": "✅ 확인됨",
     }
 }
 
@@ -209,6 +227,7 @@ def next_step():
 # --- Main App Interface ---
 def main():
     init_session_state()
+    vm = versioning.VersionManager(DATA_DIR)
     
     # Language Selector in Sidebar (First item)
     with st.sidebar:
@@ -487,6 +506,7 @@ def main():
                                         st.warning(t("download_failed_warning", count=len(failed_df)))
                                         # Manual Helper UI
                                         st.info(t("manual_helper_title"))
+                                        st.warning(t("ai_proposal_warning"))
                                         
                                         # Pagination
                                         batch_size = 5
@@ -516,36 +536,77 @@ def main():
                                         
                                         for _, row in batch_df.iterrows():
                                             with st.container(border=True):
-                                                pmid = str(row['pmid'])
-                                                title = row.get('title', 'No Title')
-                                                doi = row.get('doi')
-                                                pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-                                                if isinstance(doi, str) and doi.strip():
-                                                    sci_hub_link = f"https://sci-hub.st/{doi}"
-                                                else:
-                                                    sci_hub_link = f"https://sci-hub.st/{pubmed_link}"
-                                                st.markdown(f"**{title}**")
-                                                st.markdown(f"[PubMed]({pubmed_link}) | [Sci-Hub]({sci_hub_link}) (PMID: {pmid})")
-                                                st.code(f"{pmid}.pdf", language="text")
-                                                c1, c2 = st.columns(2)
-                                                with c1:
-                                                    if st.button(f"{t('check_file_btn')} ({pmid})", key=f"check_{pmid}"):
-                                                        target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
-                                                        if os.path.exists(target_path):
-                                                            df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual)"
-                                                            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                                                            st.toast(t("file_verified", pmid=pmid), icon="✅")
-                                                            time.sleep(0.5)
-                                                            st.rerun()
-                                                        else:
-                                                            st.error(t("file_not_found", path=target_path))
-                                                with c2:
-                                                    if st.button(f"{t('skip_file_btn')} ({pmid})", key=f"skip_{pmid}"):
-                                                        df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Skipped_User"
-                                                        df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                                                        st.toast(t("file_skipped", pmid=pmid), icon="⏭️")
-                                                        time.sleep(0.5)
-                                                        st.rerun()
+                                                 pmid = str(row['pmid'])
+                                                 title = row.get('title', 'No Title')
+                                                 doi = row.get('doi')
+                                                 target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+                                                 file_exists = os.path.exists(target_path)
+                                                 
+                                                 pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                                                 scholar_link = f"https://scholar.google.com/scholar?q={pmid}"
+                                                 if isinstance(doi, str) and doi.strip():
+                                                     doi_link = f"https://doi.org/{doi}"
+                                                     sci_hub_link = f"https://sci-hub.st/{doi}"
+                                                 else:
+                                                     doi_link = None
+                                                     sci_hub_link = f"https://sci-hub.st/{pmid}"
+                                                 
+                                                 st.markdown(f"**{title}**")
+                                                 
+                                                 # Status Badge & File Detection
+                                                 status = str(row.get('pdf_download_status', 'Failed'))
+                                                 
+                                                 if file_exists:
+                                                     if "Manual" not in status and "Downloaded" not in status and "Exists" not in status:
+                                                         st.info(f"{t('status_manual')} (Auto-detected)")
+                                                         # Auto-update status in CSV if detected
+                                                         df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Detected)"
+                                                         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                     else:
+                                                         st.success(t("status_verified"))
+                                                 else:
+                                                     st.error(t("status_failed"))
+
+                                                 # Action Buttons
+                                                 c_info, c_search = st.columns([2, 1])
+                                                 with c_info:
+                                                     st.markdown(f"PMID: `{pmid}`")
+                                                     st.code(f"{pmid}.pdf", language="text")
+                                                 with c_search:
+                                                     st.link_button(t("search_scholar"), scholar_link, use_container_width=True)
+                                                     if doi_link:
+                                                         st.link_button(t("search_doi"), doi_link, use_container_width=True)
+                                                     st.link_button(t("search_scihub"), sci_hub_link, use_container_width=True)
+                                                 
+                                                 # File Uploader
+                                                 uploaded_file = st.file_uploader(f"{t('upload_pdf')} ({pmid})", type="pdf", key=f"upload_{pmid}")
+                                                 if uploaded_file:
+                                                     with open(target_path, "wb") as f:
+                                                         f.write(uploaded_file.getbuffer())
+                                                     df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual Upload)"
+                                                     df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                     st.success(f"{pmid}.pdf saved!")
+                                                     time.sleep(0.5)
+                                                     st.rerun()
+
+                                                 c1, c2 = st.columns(2)
+                                                 with c1:
+                                                     if st.button(f"{t('check_file_btn')} ({pmid})", key=f"check_{pmid}"):
+                                                         if file_exists:
+                                                             df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual)"
+                                                             df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                             st.toast(t("file_verified", pmid=pmid), icon="✅")
+                                                             time.sleep(0.5)
+                                                             st.rerun()
+                                                         else:
+                                                             st.error(t("file_not_found", path=target_path))
+                                                 with c2:
+                                                     if st.button(f"{t('skip_file_btn')} ({pmid})", key=f"skip_{pmid}"):
+                                                         df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Skipped_User"
+                                                         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+                                                         st.toast(t("file_skipped", pmid=pmid), icon="⏭️")
+                                                         time.sleep(0.5)
+                                                         st.rerun()
                             except Exception as e:
                                 st.error(f"Error loading helper: {e}")
 
@@ -564,6 +625,11 @@ def main():
                          st.info(t("analysis_ready", count=ready_count))
                          
                          if st.button(t("analysis_btn"), type="primary"):
+                             # Create a run version and archive current data
+                             run_path = vm.create_run(st.session_state['picos'])
+                             vm.archive_current_data(run_path, TABLES_DIR, RAW_DATA_DIR)
+                             st.toast(f"Run archived to {os.path.basename(run_path)}", icon="📦")
+
                              progress_bar = st.progress(0)
                              status_text = st.empty()
                              
@@ -635,6 +701,7 @@ def main():
     # --- Tab 4: Reporting ---
     if current_tab == 3:
         st.header(t("step4_header"))
+        st.warning(t("ai_proposal_warning"))
         
         current_lang = st.session_state['lang']
         report_filename = f"report_{current_lang}.md"

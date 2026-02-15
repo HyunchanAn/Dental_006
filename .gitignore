@@ -26,6 +26,7 @@ __pycache__/
 !/data/tables/README.md
 /data/tei/*
 !/data/tei/README.md
+/data/runs/*
 
 # Ignore backup files
 *.bak

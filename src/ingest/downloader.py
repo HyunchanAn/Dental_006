@@ -39,6 +39,27 @@ def get_unpaywall_pdf_url(doi, email=None):
         print(f"  - An unexpected error occurred while processing DOI {doi} with Unpaywall: {e}")
     return None
 
+def get_semantic_scholar_pdf_url(paper_id, email=None):
+    """
+    Queries the Semantic Scholar API to find a direct PDF link.
+    paper_id can be DOI (e.g., 'DOI:10.1038/nature12345') or PMID (e.g., 'PMID:12345').
+    """
+    if not paper_id:
+        return None
+    try:
+        # Semantic Scholar API endpoint for paper details
+        url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}?fields=openAccessPdf"
+        
+        response = requests.get(url, headers=get_request_headers(email), timeout=20)
+        if response.status_code == 200:
+            data = response.json()
+            oa_pdf = data.get("openAccessPdf")
+            if oa_pdf and oa_pdf.get("url"):
+                return oa_pdf["url"]
+    except Exception as e:
+        print(f"  - Error querying Semantic Scholar for {paper_id}: {e}")
+    return None
+
 def download_pdf_from_url(pdf_url, output_path, email=None):
     """
     Downloads a PDF from a URL and saves it to the specified path.
@@ -169,12 +190,21 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
                 if try_pmc_download(pmcid, output_filename, email=email):
                     download_status[pmid] = "Downloaded (PMC)"
                     downloaded = True
-                else:
-                    # Don't set a final failure status yet, let the outer block handle it
-                    pass
-        
+
+        # --- Strategy 3: Try Semantic Scholar (if others failed) ---
         if not downloaded:
-            print("  - No open access source found via Unpaywall or PMC.")
+            # Try by DOI first, then by PMID
+            paper_id = f"DOI:{doi}" if doi else (f"PMID:{pmid}" if pmid else None)
+            if paper_id:
+                pdf_url = get_semantic_scholar_pdf_url(paper_id, email=email)
+                if pdf_url:
+                    print(f"  - Found Semantic Scholar OA link for {paper_id}. Attempting download...")
+                    if download_pdf_from_url(pdf_url, output_filename, email=email):
+                        download_status[pmid] = "Downloaded (SemanticScholar)"
+                        downloaded = True
+
+        if not downloaded:
+            print("  - No open access source found via Unpaywall, PMC, or Semantic Scholar.")
             download_status[pmid] = "No OA Source Found"
 
         if downloaded:

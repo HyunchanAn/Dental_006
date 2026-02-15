@@ -734,3 +734,29 @@
         - `grobid_client.py`의 PDF 처리 로직 안정화.
         - Streamlit 멀티 프로세스 실행으로 인한 리소스 점유 문제를 해결하기 위해 프로세스 정리 및 재시작.
         - `extracted_pico.csv`와 `rob_assessment.csv`의 데이터 불일치(16개 중 2개 파일 파손) 원인을 파악하고 사용자에게 안내함.
+        
+##### 2026.02.15 (10일차) #####
+
+### 26. 파이프라인 고도화 및 학술적 엄밀성 강화
+
+    - Open Access(OA) 문헌 확보 전략 고도화:
+        - `src/ingest/downloader.py`에 Semantic Scholar API 연동을 추가함.
+        - 기존 Unpaywall, PMC API 외에 Semantic Scholar를 통한 3단계 PDF 확보 전략을 구축함.
+    
+    - 데이터 일관성 및 버전 관리(Versioning) 시스템 도입:
+        - `src/utils/versioning.py` 모듈을 신규 개발하여 분석 세션별 데이터 자동 아카이빙 기능을 구현함.
+        - `main.py` 및 `app.py`에서 분석 시작 시 실시간 데이터를 `data/runs/run_<timestamp>` 폴더로 복사하여 연구의 재현성을 확보함.
+    
+    - 수동 다운로드 사용자 경험(UX) 혁신:
+        - Streamlit UI의 'Manual Download Helper'를 대폭 개선함.
+        - 실패 논문별 원클릭 검색 버튼(Google Scholar, DOI) 추가.
+        - `st.file_uploader`를 통합하여 UI 상에서 직접 PDF 업로드 및 자동 분류 기능 구현.
+        - 논문 상태별 배지(Badge) 시스템 도입: [Download Failed], [Manual Detected], [Verified] 시각화.
+    
+    - 중복 제거(Deduplication) 로직 정교화:
+        - `src/parse/pubmed_parser.py`에 DOI 및 제목(Normalized Fuzzy matching) 기반 중복 제거 기능을 추가함.
+        - 여러 DB에서 수집된 중복 레코드를 사전에 필터링하여 데이터 무결성을 강화함.
+    
+    - 학술적 엄밀성 강조 (AI Suggestion 명시):
+        - AI가 생성하는 모든 결과물(RoB 평가, PICO 추출)은 '제안(Suggestion)'임을 UI에 명시함.
+        - 전문가(연구자)의 최종 검토가 필수적임을 안내하는 경고 문구를 각 분석 단계와 보고서 상단에 추가함.
