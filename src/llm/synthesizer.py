@@ -32,9 +32,10 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
                 rob_data += f"\n[Study PMID: {row.get('pmid', 'N/A')}]\n"
                 # Simplify RoB presentation
                 rob_data += f" - Randomization: {row.get('Randomization_Level', 'N/A')}\n"
-                rob_data += f" - Missing Outcome: {row.get('Missing outcome data_Level', 'N/A')}\n"
-                rob_data += f" - Measurement: {row.get('Measurement of the outcome_Level', 'N/A')}\n"
-                rob_data += f" - Overall Confidence: (Subjective based on above)\n"
+                rob_data += f" - Deviations: {row.get('Deviations_Level', 'N/A')}\n"
+                rob_data += f" - Missing Data: {row.get('MissingData_Level', 'N/A')}\n"
+                rob_data += f" - Measurement: {row.get('Measurement_Level', 'N/A')}\n"
+                rob_data += f" - Reporting: {row.get('Reporting_Level', 'N/A')}\n"
         except Exception as e:
             print(f"Error reading RoB CSV: {e}")
             
@@ -44,24 +45,31 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
     # 2. Construct Prompt
     llm = llm_client.LLMClient()
     
-    system_prompt = """You are an expert Systemic Reviewer. 
+    system_prompt = """You are an expert Systematic Reviewer. 
 Your task is to synthesize the provided evidence (Extracted Data and Risk of Bias assessment) to answer the user's research question (PICO).
 Write a comprehensive conclusion in KOREAN.
 
+IMPORTANT:
+- You must write the ACTUAL content based on the provided [Extracted Evidence].
+- Do NOT use placeholders like [Insert Argument Here] or [Effect].
+- Do NOT output a template. Analyze the specific data provided.
+- **Terminology Guide**:
+  - Use professional Korean medical terminology.
+  - Translate "dental implant" as "치과 임플란트" or "임플란트", NOT "치아 이식술".
+  - If a Korean term is ambiguous, keep the English term in parentheses, e.g., "치관 변위 판막술 (Coronally Advanced Flap, CAF)".
+
 Structure your response as follows:
 ## 1. 종합 결론 (Conclusion)
-- Answer the PICO question directly. Is the intervention effective compared to the comparison?
+Answer the PICO question directly. State clearly if the intervention is effective compared to the comparison based on the evidence.
 
 ## 2. 근거 요약 (Summary of Evidence)
-- Summarize the key findings from the included studies.
-- Mention the quantity and design of studies (e.g., "5 RCTs were analyzed...").
+Summarize the key findings from the included studies. Mention the quantity and design of studies (e.g., "5 RCTs were analyzed...").
 
 ## 3. 근거의 신뢰도 (Confidence in Evidence)
-- Discuss the overall Risk of Bias. Are the studies generally high or low quality?
-- How does this affect the certainty of your conclusion?
+Discuss the overall Risk of Bias. Are the studies generally high or low quality? How does this affect the certainty of your conclusion?
 
 ## 4. 임상적 시사점 (Clinical Implications)
-- What does this mean for practice?
+Discuss the implications for clinical practice based on the findings.
 
 Output should be in Markdown format.
 """

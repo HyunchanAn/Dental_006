@@ -52,6 +52,14 @@ def construct_search_query(picos):
     query_parts = []
     def format_part(term, field_tag="[tiab]"):
         if not term: return None
+        term = term.strip()
+        # If term already contains field tags or boolean operators, assume it's a raw query
+        if '[' in term and ']' in term:
+            return f"({term})"
+        if ' OR ' in term or ' AND ' in term:
+            return f"({term})"
+            
+        # Default behavior for simple terms
         if ' ' in term: return f'"{term}"{field_tag}'
         return f'{term}{field_tag}'
 
@@ -335,7 +343,6 @@ def main():
         "", 
         tabs_labels, 
         key="nav_radio",
-        index=st.session_state['current_tab_index'],
         horizontal=True,
         on_change=update_tab_index,
         label_visibility="collapsed"
@@ -348,6 +355,33 @@ def main():
     if current_tab == 0:
         st.header(t("step1_header"))
         
+        # --- AI PICO Extraction ---
+        st.subheader("🤖 AI PICO Assistant")
+        topic_description = st.text_area(
+            "연구 주제를 자유롭게 서술하세요 / Research Topic Description", 
+            placeholder="예: 65세 이상 노인에게 치과 임플란트가 틀니보다 저작 효율이 좋은지 알고 싶어.",
+            height=100
+        )
+        
+        if st.button("✨ PICO 자동 추출 (Auto-extract with AI)"):
+            if topic_description:
+                from src.llm import pico_extractor
+                with st.spinner("AI가 PICO를 분석 중입니다..."):
+                    extracted = pico_extractor.extract_pico_from_description(topic_description)
+                    if extracted:
+                        st.session_state['picos'].update(extracted)
+                        # Sync individual fields to session state to update UI immediately
+                        st.success("PICO 추출 완료! 아래 필드가 업데이트되었습니다.")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("PICO 추출에 실패했습니다.")
+            else:
+                st.warning("먼저 연구 주제를 입력해주세요.")
+        
+        st.divider()
+        st.subheader("PICO Details")
+
         col1, col2 = st.columns(2)
         with col1:
             population = st.text_input(t("population"), value=st.session_state['picos'].get('population', ''))

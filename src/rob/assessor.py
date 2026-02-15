@@ -20,22 +20,26 @@ def assess_risk_of_bias(tei_path):
     text_snippet = (full_text[:12000] + '...') if len(full_text) > 12000 else full_text
 
     system_prompt = """You are an expert in Cochrane Risk of Bias assessment tool (RoB 2) and ROBINS-I.
-Analyze the provided research paper text and assess the risk of bias for the following domains:
-1. Randomization (Selection Bias)
-2. Deviations from intended interventions (Performance Bias)
-3. Missing outcome data (Attrition Bias)
-4. Measurement of the outcome (Detection Bias)
-5. Selection of the reported result (Reporting Bias)
+Analyze the provided research paper text and assess the risk of bias for the following domains.
 
-For each domain, determine the risk level: "Low", "High", or "Unclear/Some Concerns".
-Provide a brief explanation for your judgment.
+Return a JSON object with EXACTLY these 5 keys:
+1. "Randomization" (Selection Bias)
+2. "Deviations" (Performance Bias)
+3. "MissingData" (Attrition Bias)
+4. "Measurement" (Detection Bias)
+5. "Reporting" (Reporting Bias)
 
-Output Format:
-JSON object with keys as domain names (e.g., "Randomization") and values as an object {"level": "...", "explanation": "..."}.
-Example:
+For each domain, provide:
+- "level": "Low", "High", or "Some Concerns"
+- "explanation": A brief justification based on the text.
+
+Example Output:
 {
-  "Randomization": {"level": "Low", "explanation": "The study mentions computer-generated random numbers."},
-  ...
+  "Randomization": {"level": "Low", "explanation": "Random sequence generation was described..."},
+  "Deviations": {"level": "Some Concerns", "explanation": "Blinding of participants was not possible..."},
+  "MissingData": {"level": "Low", "explanation": "Dropout rate was low..."},
+  "Measurement": {"level": "Low", "explanation": "Objective outcome measures used..."},
+  "Reporting": {"level": "Low", "explanation": "All outcomes reported..."}
 }
 """
     user_prompt = f"""
@@ -44,7 +48,7 @@ Papers Text:
 {text_snippet}
 ---
 
-Assess the Risk of Bias. Return JSON.
+Assess the Risk of Bias. Return ONLY the JSON object.
 """
     messages = [
         {"role": "system", "content": system_prompt},
