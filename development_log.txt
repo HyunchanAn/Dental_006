@@ -1,0 +1,48 @@
+[2025-10-13 14:00] 프로젝트 착수 및 기술 스택 기획
+1. 연구 질문(PICO) 기반의 Systematic Review 자동화 파이프라인 설계.
+2. 기술 스택 확정: Python, Ollama(Gemma 2), GROBID(Docker), Streamlit.
+3. 초기 프로젝트 구조(Scaffold) 및 디렉터리 구성 완료.
+
+[2025-10-14 11:30] 데이터 수집 및 초기 파이프라인 구축
+1. PubMed API(E-utilities) 연동을 통한 문헌 수집 모듈 구현.
+2. Unpaywall API 기반 PDF 자동 다운로더(downloader.py) 개발.
+3. 데이터 정제 및 초기화 스크립트(clear_data.py) 추가.
+
+[2025-10-15 16:20] LLM 환경 최적화: .llamafile에서 Ollama로 전환
+1. Windows 보안 정책(App Control) 이슈로 인한 .llamafile 실행 불가 판명.
+2. Ollama 프레임워크 도입 및 gemma2:9b-instruct 모델로의 신속한 전환.
+3. src/llm/client.py 수정 및 로컬 LLM 서버 연결 안정화.
+
+[2025-10-22 18:45] PDF 파싱 및 LLM 기반 정보 추출 연동
+1. GROBID Docker 서비스를 통한 PDF to TEI-XML 변환 파이프라인 구축.
+2. TEI-XML에서 섹션별 본문 텍스트 추출 로직 구현.
+3. LLM을 활용한 PICO 및 주요 결과(Key Findings) 자동 추출 모듈 통합.
+
+[2026-01-25 15:10] 자동 스크리닝 및 RoB 평가 모듈 구현
+1. LLM 기반의 제목/초록 자동 스크리닝(screener.py) 개발.
+2. Cochrane RoB 2 도구 기반 5대 영역 비뚤림 위험 평가(assessor.py) 구현.
+3. Mermaid.js를 활용한 PRISMA Flow Diagram 자동 생성 로직 추가.
+
+[2026-02-08 20:30] Streamlit 기반 웹 UI 고도화 및 분석 합성 기능
+1. 4단계(Search, Screening, Pipeline, Report) 탭 구조의 대화형 UI(app.py) 구축.
+2. AI 종합 결론(Synthesis) 생성 모듈(synthesizer.py) 추가.
+3. PDF 수동 다운로드 도우미(Manual Download Helper)를 통한 파이프라인 유연성 확보.
+
+[2026-02-15 22:15] 파이프라인 견고성 강화 및 사용자 경험(UX) 혁신
+1. Semantic Scholar API 연동으로 PDF 확보율 향상.
+2. 데이터 버전 관리(Versioning) 및 실시간 파일 감지 엔진 도입.
+3. 대량 PDF 일괄 업로드 및 PMID 자동 매칭 엔진 구현 완료.
+4. 다국어(KO/EN) 보고서 생성 기능 및 UI 현지화 적용.
+
+[2026-05-17 00:50] 프로젝트 문서화 및 평가 환경 정비 (Resumption)
+1. README.md 상단 기술 배지(Status, Python, LLM 등) 추가.
+2. 테스트 환경 및 평가 항목/결과 섹션 업데이트.
+3. 프로젝트 루트에 공식 개발 로그(development_log.txt) 생성 및 히스토리 정리.
+4. tests/verify_pipeline.py를 통한 실행 환경 검증 도구 마련.
+
+[향후 과제: Next Steps & Roadmap]
+1. 데이터 원천 다양화: PubMed 외 Embase, Scopus 등 주요 학술 DB 연동 인터페이스 개발.
+2. 스크리닝 정밀도 벤치마크: 전문가 검토 데이터셋을 활용한 AI 성능 지표(Recall/Precision) 산출 및 공개.
+3. UI 인터랙션 강화: AI 추출 데이터의 실시간 편집 및 데이터베이스 반영 기능 (Streamlit State 활용).
+4. 모델 고도화: Gemma 3 적용 및 학술 연구 특화 Low-rank Adaptation (LoRA) 검토.
+5. 인프라 통합: Docker Compose를 활용한 Ollama-GROBID-App 원클릭 배포 환경 구축.

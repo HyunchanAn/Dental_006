@@ -1,5 +1,12 @@
 # Systematic Reviewer AI (SR-Gemma2)
 
+![Status](https://img.shields.io/badge/Status-v1.0--Stable-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+![Ollama](https://img.shields.io/badge/LLM-Ollama-orange)
+![Gemma2](https://img.shields.io/badge/Model-Gemma--2--9B-7D3C98)
+![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B)
+![GROBID](https://img.shields.io/badge/Parsing-GROBID-blueviolet)
+
 ## 1. 개요
 
 이 프로젝트는 체계적 문헌고찰(Systematic Review) 논문 작성 과정의 일부를 자동화하여 연구자의 부담을 경감시키는 AI 보조 파이프라인을 구축하는 것을 목표로 합니다. 로컬에서 구동되는 Ollama 기반의 Gemma 2 언어 모델을 기반으로, 문헌 검색, 스크리닝, 데이터 추출, 비뚤림 위험 평가, 보고서 생성 등의 작업을 효율화합니다.
@@ -100,4 +107,50 @@ python main.py
 
 ## 8. 개발 로그
 
-프로젝트의 상세한 개발 과정은 `reference_materials/Development_log.txt`에 기록되어 있습니다.
+프로젝트의 상세한 개발 과정은 루트 디렉터리의 [development_log.txt](development_log.txt) 및 [reference_materials/Development_log.txt](reference_materials/Development_log.txt)에 기록되어 있습니다.
+
+## 9. 테스트 및 평가 (Testing & Evaluation)
+
+### 9.1 테스트 환경 (Environment)
+본 프로젝트는 아래 하드웨어 사양에서 최적화 및 검증되었습니다.
+- **CPU**: AMD Ryzen 9 9900X (12-Core, 24-Threads)
+- **GPU**: NVIDIA GeForce RTX 5080 (16GB VRAM)
+- **RAM**: 64GB DDR5-5600
+- **OS**: Windows 11 (WSL2 지원)
+
+### 9.2 평가 항목 (Evaluation Items)
+1. **Pipeline Integrity**: 검색부터 보고서 생성까지의 데이터 흐름 및 파일 생성 여부 확인.
+2. **PICO Extraction Accuracy**: LLM이 원문에서 PICO 요소를 정확하게 추출하는지 수동 검토와 비교.
+3. **Screening Performance**: 연구 질문과의 적합성 판정 일관성.
+4. **Parsing Quality**: GROBID를 통한 PDF 구조화(TEI-XML) 및 본문 추출 성공률.
+
+### 9.3 최근 테스트 결과
+- **테스트 일자**: 2026-02-15
+- **테스트 데이터**: 노인 임플란트 만족도 관련 논문 34편
+- **결과 요약**:
+    - PubMed 검색 및 메타데이터 수집 성공률: 100%
+    - PDF 확보율: 약 58% (자동 다운로드 + 수동 보조)
+    - 데이터 추출 및 RoB 평가 완료율: 100% (확보된 PDF 기준)
+    - 최종 종합 보고서 생성 정상 확인.
+
+### 9.4 환경 검증 방법
+아래 스크립트를 실행하여 로컬 환경의 준비 상태를 확인할 수 있습니다.
+```bash
+python tests/verify_pipeline.py
+```
+
+## 10. 향후 과제 및 로드맵 (Roadmap)
+
+### 10.1 기능 고도화
+- **DB 확장**: PubMed 외 Embase, Cochrane Library, Scopus 등 다중 데이터베이스 연동 및 자동 수집 기능.
+- **중복 제거 엔진 정교화**: 여러 DB에서 수집된 논문의 중복 제거(Deduplication) 로직을 Fuzzy Matching 기반으로 고도화.
+- **대화형 데이터 수정**: Streamlit UI 상에서 AI가 추출한 PICO 및 RoB 데이터를 연구자가 직접 수정하고 확정하는 인터랙티브 기능.
+
+### 10.2 성능 및 신뢰성 강화
+- **벤치마크 수행**: Gold Standard 데이터셋(전문가 검토 완료 문헌)을 활용하여 AI 스크리닝의 민감도(Recall) 및 특이도(Specificity) 정밀 측정.
+- **모델 최적화**: Gemma 3 등 최신 로컬 모델 적용 및 학술 논문 특화 프롬프트 엔지니어링 고도화.
+- **RoB 2.0 완전 대응**: 비뚤림 위험 평가 항목을 Cochrane RoB 2.0의 세부 알고리즘과 100% 일치하도록 로직 개선.
+
+### 10.3 협업 및 배포
+- **버전 관리 자동화**: 분석 세션별 데이터 아카이빙 및 재현성 확보를 위한 Git 기반 데이터 트래킹.
+- **컨테이너화**: 전체 파이프라인(Ollama, GROBID, App)을 Docker Compose 하나로 통합 관리하는 패키징 작업.
