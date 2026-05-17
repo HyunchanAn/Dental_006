@@ -1,0 +1,31 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install Linting Tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+        
+    - name: Lint with flake8 (Syntax check)
+      run: |
+        # E9, F63, F7, F82는 심각한 구문 오류 및 선언되지 않은 변수를 검출하여 빌드를 중단시킵니다.
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # 나머지 코드 스타일 및 경고는 참고용으로 출력하되 빌드는 중단하지 않습니다.
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics

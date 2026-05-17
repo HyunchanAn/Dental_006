@@ -1,11 +1,11 @@
 # Systematic Reviewer AI (SR-Gemma2)
 
-![Status](https://img.shields.io/badge/Status-v1.0--Stable-brightgreen)
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
-![Ollama](https://img.shields.io/badge/LLM-Ollama-orange)
-![Gemma2](https://img.shields.io/badge/Model-Gemma--2--9B-7D3C98)
-![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B)
-![GROBID](https://img.shields.io/badge/Parsing-GROBID-blueviolet)
+[![Status](https://img.shields.io/badge/Status-v1.0_Stable-green?style=flat-square)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
+[![Python](https://img.shields.io/badge/Python-3.11+-007ACC?style=flat-square&logo=python&logoColor=white)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
+[![Backend](https://img.shields.io/badge/Backend-Ollama_&_GROBID-D32F2F?style=flat-square&logo=ollama&logoColor=white)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
+[![Hardware](https://img.shields.io/badge/Hardware-RTX_5080-F57C00?style=flat-square&logo=nvidia&logoColor=white)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
+[![UI](https://img.shields.io/badge/UI-Streamlit-007ACC?style=flat-square&logo=streamlit&logoColor=white)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
+[![Python CI](https://img.shields.io/github/actions/workflow/status/HyunchanAn/Systematic_reviewer_AI/python-ci.yml?branch=main&label=Python%20CI&logo=github&style=flat-square)](https://github.com/HyunchanAn/Systematic_reviewer_AI/actions/workflows/python-ci.yml)
 
 ## 1. 개요
 

@@ -40,6 +40,12 @@
 3. 프로젝트 루트에 공식 개발 로그(development_log.txt) 생성 및 히스토리 정리.
 4. tests/verify_pipeline.py를 통한 실행 환경 검증 도구 마련.
 
+[2026-05-18 03:50] 리드미 배지 개편 및 GitHub CI 워크플로우 구축
+1. README.md 상단 기술 배지 영역을 플랫 스퀘어(flat-square) 스타일로 전면 개편.
+2. 각 배지에 프로젝트 관련 최신 기술 스펙(Status, Python, Ollama & GROBID, RTX 5080, Streamlit, Python CI) 적용.
+3. 신규 GitHub Actions CI 워크플로우(.github/workflows/python-ci.yml)를 구축하여 소스 코드 자동 구문 및 오류 검증 자동화.
+4. Python CI 배지를 dynamic status badge 형식으로 구성하여 실제 CI 빌드 상태와 동적 연동 구현.
+
 [향후 과제: Next Steps & Roadmap]
 1. 데이터 원천 다양화: PubMed 외 Embase, Scopus 등 주요 학술 DB 연동 인터페이스 개발.
 2. 스크리닝 정밀도 벤치마크: 전문가 검토 데이터셋을 활용한 AI 성능 지표(Recall/Precision) 산출 및 공개.
