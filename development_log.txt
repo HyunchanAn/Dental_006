@@ -46,6 +46,34 @@
 3. 신규 GitHub Actions CI 워크플로우(.github/workflows/python-ci.yml)를 구축하여 소스 코드 자동 구문 및 오류 검증 자동화.
 4. Python CI 배지를 dynamic status badge 형식으로 구성하여 실제 CI 빌드 상태와 동적 연동 구현.
 
+[2026-05-18 04:00] 프로젝트 기본기 강화 로드맵 수립 및 착수
+1. 프로젝트의 견고성(Robustness) 및 서비스 재현성 향상을 위한 프로덕션 수준의 기술 부채 진단.
+2. 패키지 관리의 표준화(pyproject.toml + uv 도입) 및 핵심 테스트 환경(pytest) 구축 기획.
+3. pydantic-settings 및 .env 기반 환경 변수/비밀 정보 격리 방안 기획.
+4. Docker Compose를 활용한 Ollama, GROBID, Streamlit의 통합 다중 컨테이너 환경 기획.
+5. 회복 탄력성(tenacity 재시도 메커니즘) 및 구조화된 로깅(loguru) 도입 기획.
+6. 공식 구현 계획서(implementation_plan.md)를 작성하여 설계 검토 단계 진입.
+
+[Senior-level Checklist (상급 개발자 업그레이드 체크리스트)]
+1. 문서화 체계화 (Senior Documentation)
+   - [ ] README.md 업그레이드 (Installation, Quick Start, Usage, Mermaid 구조 다이어그램, 한계점 명시)
+   - [/] docs/ 디렉토리 신설 및 ARCHITECTURE.md, PROJECT_PLAN.md, DECISIONS.md (ADR) 작성
+   - [ ] 주요 모듈 내 Google/NumPy 스타일 docstring 작성 및 Type Hints 90% 이상 전면 적용
+2. 코드 품질 표준화 (Code Quality & Standards)
+   - [x] pre-commit-config.yaml 도입 및 로컬 hooks (ruff, mypy 등) 설정
+   - [x] ruff 및 mypy 린팅 CI/CD(python-ci.yml) 파이프라인 결합
+   - [ ] pydantic-settings 및 .env.example 활용 환경 변수 및 보안(Secret) 관리 일원화
+   - [ ] loguru 기반 구조화된 로깅(Structured Logging) 도입
+3. 테스트 고도화 (Advanced Testing)
+   - [x] pytest 도입 및 테스트 디렉토리(tests/) 구조 체계화
+   - [x] GROBID 파서 및 Ollama LLM 모듈 Mocking을 통한 핵심 파이프라인 통합 테스트(test_pipeline.py) 작성
+   - [ ] PRISMA flow diagram 자동 생성 로직 테스트 보완
+   - [ ] 모의 데이터(Synthetic Data)를 활용한 End-to-End 통합 검증 테스트 작성
+4. 패키징 및 릴리즈 관리 (Packaging & Release Management)
+   - [x] pyproject.toml 및 uv 기반 패키지 관리 통합
+   - [ ] Semantic Versioning (SemVer) 준수 및 CHANGELOG.md 관리 자동화 기획
+   - [ ] 의료 문헌용 Model Card 및 RoB 평가 정확도/신뢰성 정량 리포트 작성
+
 [향후 과제: Next Steps & Roadmap]
 1. 데이터 원천 다양화: PubMed 외 Embase, Scopus 등 주요 학술 DB 연동 인터페이스 개발.
 2. 스크리닝 정밀도 벤치마크: 전문가 검토 데이터셋을 활용한 AI 성능 지표(Recall/Precision) 산출 및 공개.

@@ -1,13 +1,14 @@
 import pandas as pd
-import json
+
 from src.llm import client as llm_client
+
 
 def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
     """
     Synthesizes an answer to the PICO question based on extracted data and RoB.
     """
     print("--- Starting Synthesis ---")
-    
+
     # 1. Load Data
     extracted_data = ""
     if extracted_csv_path and pd.io.common.file_exists(extracted_csv_path):
@@ -15,7 +16,7 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
             df = pd.read_csv(extracted_csv_path)
             # Convert to a readable string format
             for index, row in df.iterrows():
-                extracted_data += f"\n[Study {index+1}] PMID: {row.get('pmid', 'N/A')}\n"
+                extracted_data += f"\n[Study {index + 1}] PMID: {row.get('pmid', 'N/A')}\n"
                 extracted_data += f" - Population: {row.get('population', 'N/A')}\n"
                 extracted_data += f" - Intervention: {row.get('intervention', 'N/A')}\n"
                 extracted_data += f" - Comparison: {row.get('comparison', 'N/A')}\n"
@@ -38,13 +39,13 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
                 rob_data += f" - Reporting: {row.get('Reporting_Level', 'N/A')}\n"
         except Exception as e:
             print(f"Error reading RoB CSV: {e}")
-            
+
     if not extracted_data:
         return "No extracted data available to synthesize an answer."
 
     # 2. Construct Prompt
     llm = llm_client.LLMClient()
-    
+
     system_prompt = """You are an expert Systematic Reviewer. 
 Your task is to synthesize the provided evidence (Extracted Data and Risk of Bias assessment) to answer the user's research question (PICO).
 Write a comprehensive conclusion in KOREAN.
@@ -76,10 +77,10 @@ Output should be in Markdown format.
 
     user_prompt = f"""
 Research Question (PICO):
-- Population: {picos.get('population')}
-- Intervention: {picos.get('intervention')}
-- Comparison: {picos.get('comparison')}
-- Outcome: {picos.get('outcome')}
+- Population: {picos.get("population")}
+- Intervention: {picos.get("intervention")}
+- Comparison: {picos.get("comparison")}
+- Outcome: {picos.get("outcome")}
 
 ---
 [Extracted Evidence]
@@ -95,10 +96,7 @@ Based on the above, write the Systemic Review Conclusion (Synthesis) in Korean.
 
     # 3. Call LLM
     try:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
         response = llm.get_completion(messages)
         return response
     except Exception as e:

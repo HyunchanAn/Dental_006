@@ -1,24 +1,24 @@
-import streamlit as st
 import os
-import pandas as pd
-import yaml
-import shutil
-import time
-from datetime import datetime, timedelta
-import xml.etree.ElementTree as ET
 
 # Import existing modules
 # We need to add the project root to sys.path if it's not already there for imports to work
 import sys
+import time
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
+
+import pandas as pd
+import streamlit as st
+import yaml
+
 sys.path.append(os.getcwd())
 
-from src.ingest import pubmed, downloader
-from src.parse import pubmed_parser, grobid_client, tei_parser
-from src.screen import screener
-from src.rob import assessor
+from src.ingest import downloader, pubmed
+from src.llm import client as llm_client, synthesizer
+from src.parse import grobid_client, pubmed_parser, tei_parser
 from src.report import generator
-from src.llm import client as llm_client
-from src.llm import synthesizer
+from src.rob import assessor
+from src.screen import screener
 from src.utils import data_manager, versioning
 
 # --- Configuration & Setup ---
@@ -37,38 +37,45 @@ os.makedirs(PDF_DIR, exist_ok=True)
 
 st.set_page_config(page_title="Systematic Reviewer AI", layout="wide")
 
+
 # --- Helper Functions ---
 def load_config():
     if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f).get('picos', {})
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f).get("picos", {})
     return {}
 
+
 def save_config(picos_data):
-    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
-        yaml.dump({'picos': picos_data}, f, allow_unicode=True, sort_keys=False)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        yaml.dump({"picos": picos_data}, f, allow_unicode=True, sort_keys=False)
+
 
 def construct_search_query(picos):
     query_parts = []
+
     def format_part(term, field_tag="[tiab]"):
-        if not term: return None
+        if not term:
+            return None
         term = term.strip()
         # If term already contains field tags or boolean operators, assume it's a raw query
-        if '[' in term and ']' in term:
+        if "[" in term and "]" in term:
             return f"({term})"
-        if ' OR ' in term or ' AND ' in term:
+        if " OR " in term or " AND " in term:
             return f"({term})"
-            
-        # Default behavior for simple terms
-        if ' ' in term: return f'"{term}"{field_tag}'
-        return f'{term}{field_tag}'
 
-    query_parts.append(format_part(picos.get('population')))
-    query_parts.append(format_part(picos.get('intervention')))
-    query_parts.append(format_part(picos.get('comparison')))
-    query_parts.append(format_part(picos.get('outcome')))
-    query_parts.append(format_part(picos.get('study_design'), "[pt]"))
+        # Default behavior for simple terms
+        if " " in term:
+            return f'"{term}"{field_tag}'
+        return f"{term}{field_tag}"
+
+    query_parts.append(format_part(picos.get("population")))
+    query_parts.append(format_part(picos.get("intervention")))
+    query_parts.append(format_part(picos.get("comparison")))
+    query_parts.append(format_part(picos.get("outcome")))
+    query_parts.append(format_part(picos.get("study_design"), "[pt]"))
     return " AND ".join(filter(None, query_parts))
+
 
 # --- Translations ---
 TRANSLATIONS = {
@@ -213,95 +220,100 @@ TRANSLATIONS = {
         "match_success": "✅ {filename} -> PMID {pmid} 매칭 완료",
         "match_failed": "⚠️ {filename}에서 PMID를 추출하지 못했습니다.",
         "view_pubmed": "PubMed",
-    }
+    },
 }
 
+
 def t(key, **kwargs):
-    lang = st.session_state.get('lang', 'KO') # Default to Korean as requested
+    lang = st.session_state.get("lang", "KO")  # Default to Korean as requested
     text = TRANSLATIONS[lang].get(key, key)
     if kwargs:
         return text.format(**kwargs)
     return text
 
+
 def init_session_state():
-    if 'stats' not in st.session_state:
-        st.session_state['stats'] = {
-            'total_found': 0, 'screened': 0, 'excluded': 0, 'included': 0, 'retrieved': 0
-        }
-    if 'picos' not in st.session_state:
-        st.session_state['picos'] = load_config()
-    if 'lang' not in st.session_state:
+    if "stats" not in st.session_state:
+        st.session_state["stats"] = {"total_found": 0, "screened": 0, "excluded": 0, "included": 0, "retrieved": 0}
+    if "picos" not in st.session_state:
+        st.session_state["picos"] = load_config()
+    if "lang" not in st.session_state:
         # Default language logic could be improved, but sticking to KO default as requested
-        st.session_state['lang'] = 'KO'
-    if 'current_tab_index' not in st.session_state:
-        st.session_state['current_tab_index'] = 0
-    if 'failed_pdfs_page' not in st.session_state:
-        st.session_state['failed_pdfs_page'] = 0
-    if 'file_cache' not in st.session_state:
-        st.session_state['file_cache'] = {}
+        st.session_state["lang"] = "KO"
+    if "current_tab_index" not in st.session_state:
+        st.session_state["current_tab_index"] = 0
+    if "failed_pdfs_page" not in st.session_state:
+        st.session_state["failed_pdfs_page"] = 0
+    if "file_cache" not in st.session_state:
+        st.session_state["file_cache"] = {}
+
 
 def handle_bulk_upload(uploaded_files, df, csv_path):
     import re
+
     success_count = 0
     results = []
-    
+
     for uploaded_file in uploaded_files:
         filename = uploaded_file.name
         # Search for 8-digit PMID in filename
-        match = re.search(r'(\d{8})', filename)
+        match = re.search(r"(\d{8})", filename)
         if match:
             pmid = match.group(1)
             target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
-            
+
             # Check if this PMID is in our database
-            if pmid in df['pmid'].astype(str).values:
+            if pmid in df["pmid"].astype(str).values:
                 with open(target_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
-                
-                df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Bulk Match)"
+
+                df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = "Downloaded (Bulk Match)"
                 success_count += 1
                 results.append(t("match_success", filename=filename, pmid=pmid))
                 # Update session state cache immediately
-                st.session_state['file_cache'][f"exists_{pmid}"] = True
+                st.session_state["file_cache"][f"exists_{pmid}"] = True
             else:
                 results.append(f"⚠️ {filename}: PMID {pmid} not found in project.")
         else:
             results.append(t("match_failed", filename=filename))
-            
+
     if success_count > 0:
-        df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-        
+        df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+
     return results, success_count
 
+
 def next_step():
-    st.session_state['current_tab_index'] += 1
+    st.session_state["current_tab_index"] += 1
     st.rerun()
+
 
 # --- Main App Interface ---
 def main():
     init_session_state()
     vm = versioning.VersionManager(DATA_DIR)
-    
+
     # Language Selector in Sidebar (First item)
     with st.sidebar:
-        st.session_state['lang'] = st.radio(
-            "언어 / Language", 
-            ["KO", "EN"], 
-            index=0 if st.session_state['lang'] == 'KO' else 1,
-            horizontal=True
+        st.session_state["lang"] = st.radio(
+            "언어 / Language", ["KO", "EN"], index=0 if st.session_state["lang"] == "KO" else 1, horizontal=True
         )
         st.divider()
-        
+
         # Email & API Key Input
         st.subheader("API Settings")
-        email_input = st.text_input("Email (Required for NCBI)", value=st.session_state['picos'].get('email', ''))
-        api_key_input = st.text_input("NCBI API Key (Optional)", value=st.session_state['picos'].get('api_key', ''), type="password")
-        
-        if email_input != st.session_state['picos'].get('email', '') or api_key_input != st.session_state['picos'].get('api_key', ''):
-             st.session_state['picos']['email'] = email_input
-             st.session_state['picos']['api_key'] = api_key_input
-             save_config(st.session_state['picos'])
-             st.toast("Settings saved!", icon="💾")
+        email_input = st.text_input("Email (Required for NCBI)", value=st.session_state["picos"].get("email", ""))
+        api_key_input = st.text_input(
+            "NCBI API Key (Optional)", value=st.session_state["picos"].get("api_key", ""), type="password"
+        )
+
+        if email_input != st.session_state["picos"].get("email", "") or api_key_input != st.session_state["picos"].get(
+            "api_key", ""
+        ):
+            st.session_state["picos"]["email"] = email_input
+            st.session_state["picos"]["api_key"] = api_key_input
+            save_config(st.session_state["picos"])
+            st.toast("Settings saved!", icon="💾")
         st.divider()
 
     st.title(t("title"))
@@ -312,64 +324,58 @@ def main():
         st.header(t("project_data"))
         if st.button(t("reset_data"), type="primary"):
             data_manager.clear_generated_data_files()
-            st.session_state['stats'] = {'total_found': 0, 'screened': 0, 'excluded': 0, 'included': 0, 'retrieved': 0}
+            st.session_state["stats"] = {"total_found": 0, "screened": 0, "excluded": 0, "included": 0, "retrieved": 0}
             st.success(t("reset_success"))
             time.sleep(1)
             st.rerun()
-        
+
         st.divider()
         st.subheader(t("current_config"))
-        st.json(st.session_state['picos'])
+        st.json(st.session_state["picos"])
 
     # --- Navigation ---
     tabs_labels = t("tabs")
-    
+
     # helper for radio button
     def update_tab_index():
         # Find which label was selected
-        selected_label = st.session_state['nav_radio']
+        selected_label = st.session_state["nav_radio"]
         # Update index mapping
-        st.session_state['current_tab_index'] = tabs_labels.index(selected_label)
+        st.session_state["current_tab_index"] = tabs_labels.index(selected_label)
 
     # If index changed programmatically (e.g. Next button), sync radio
-    if 'nav_radio' not in st.session_state:
-        st.session_state['nav_radio'] = tabs_labels[0]
-    
-    # Ensure radio state matches current_tab_index (if button changed it)
-    if st.session_state['current_tab_index'] < len(tabs_labels):
-        st.session_state['nav_radio'] = tabs_labels[st.session_state['current_tab_index']]
+    if "nav_radio" not in st.session_state:
+        st.session_state["nav_radio"] = tabs_labels[0]
 
-    st.radio(
-        "", 
-        tabs_labels, 
-        key="nav_radio",
-        horizontal=True,
-        on_change=update_tab_index,
-        label_visibility="collapsed"
-    )
+    # Ensure radio state matches current_tab_index (if button changed it)
+    if st.session_state["current_tab_index"] < len(tabs_labels):
+        st.session_state["nav_radio"] = tabs_labels[st.session_state["current_tab_index"]]
+
+    st.radio("", tabs_labels, key="nav_radio", horizontal=True, on_change=update_tab_index, label_visibility="collapsed")
     st.divider()
 
-    current_tab = st.session_state['current_tab_index']
+    current_tab = st.session_state["current_tab_index"]
 
     # --- Tab 1: PICO & Search ---
     if current_tab == 0:
         st.header(t("step1_header"))
-        
+
         # --- AI PICO Extraction ---
         st.subheader("🤖 AI PICO Assistant")
         topic_description = st.text_area(
-            "연구 주제를 자유롭게 서술하세요 / Research Topic Description", 
+            "연구 주제를 자유롭게 서술하세요 / Research Topic Description",
             placeholder="예: 65세 이상 노인에게 치과 임플란트가 틀니보다 저작 효율이 좋은지 알고 싶어.",
-            height=100
+            height=100,
         )
-        
+
         if st.button("✨ PICO 자동 추출 (Auto-extract with AI)"):
             if topic_description:
                 from src.llm import pico_extractor
+
                 with st.spinner("AI가 PICO를 분석 중입니다..."):
                     extracted = pico_extractor.extract_pico_from_description(topic_description)
                     if extracted:
-                        st.session_state['picos'].update(extracted)
+                        st.session_state["picos"].update(extracted)
                         # Sync individual fields to session state to update UI immediately
                         st.success("PICO 추출 완료! 아래 필드가 업데이트되었습니다.")
                         time.sleep(1)
@@ -378,29 +384,32 @@ def main():
                         st.error("PICO 추출에 실패했습니다.")
             else:
                 st.warning("먼저 연구 주제를 입력해주세요.")
-        
+
         st.divider()
         st.subheader("PICO Details")
 
         col1, col2 = st.columns(2)
         with col1:
-            population = st.text_input(t("population"), value=st.session_state['picos'].get('population', ''))
-            intervention = st.text_input(t("intervention"), value=st.session_state['picos'].get('intervention', ''))
-            comparison = st.text_input(t("comparison"), value=st.session_state['picos'].get('comparison', ''))
+            population = st.text_input(t("population"), value=st.session_state["picos"].get("population", ""))
+            intervention = st.text_input(t("intervention"), value=st.session_state["picos"].get("intervention", ""))
+            comparison = st.text_input(t("comparison"), value=st.session_state["picos"].get("comparison", ""))
         with col2:
-            outcome = st.text_input(t("outcome"), value=st.session_state['picos'].get('outcome', ''))
-            study_design = st.text_input(t("study_design"), value=st.session_state['picos'].get('study_design', ''))
-        
+            outcome = st.text_input(t("outcome"), value=st.session_state["picos"].get("outcome", ""))
+            study_design = st.text_input(t("study_design"), value=st.session_state["picos"].get("study_design", ""))
+
         if st.button(t("save_config")):
             new_picos = {
-                'population': population, 'intervention': intervention, 
-                'comparison': comparison, 'outcome': outcome, 'study_design': study_design
+                "population": population,
+                "intervention": intervention,
+                "comparison": comparison,
+                "outcome": outcome,
+                "study_design": study_design,
             }
             save_config(new_picos)
-            st.session_state['picos'] = new_picos
+            st.session_state["picos"] = new_picos
             st.success(t("config_saved"))
 
-        query = construct_search_query(st.session_state['picos'])
+        query = construct_search_query(st.session_state["picos"])
         st.text_area(t("generated_query"), value=query, height=100)
 
         st.divider()
@@ -408,400 +417,453 @@ def main():
         with col_s1:
             max_ret = st.number_input(t("max_articles"), min_value=1, max_value=1000, value=20)
         with col_s2:
-            st.markdown("<br>", unsafe_allow_html=True) # Spacer
+            st.markdown("<br>", unsafe_allow_html=True)  # Spacer
             if st.button(t("search_button")):
                 with st.spinner(t("searching")):
                     today = datetime.now()
                     end_date = today.strftime("%Y/%m/%d")
-                    start_date = (today - timedelta(days=20*365)).strftime("%Y/%m/%d")
-                    
+                    start_date = (today - timedelta(days=20 * 365)).strftime("%Y/%m/%d")
+
                     # 1. Get Count
                     _, total_count = pubmed.fetch_pmids(
-                        query, 
-                        max_ret=1, 
-                        mindate=start_date, 
-                        maxdate=end_date, 
-                        sort='relevance',
-                        email=st.session_state['picos'].get('email'),
-                        api_key=st.session_state['picos'].get('api_key')
+                        query,
+                        max_ret=1,
+                        mindate=start_date,
+                        maxdate=end_date,
+                        sort="relevance",
+                        email=st.session_state["picos"].get("email"),
+                        api_key=st.session_state["picos"].get("api_key"),
                     )
-                    st.session_state['stats']['total_found'] = total_count
-                    
+                    st.session_state["stats"]["total_found"] = total_count
+
                     if total_count > 0:
                         st.info(t("total_found", count=total_count, max=max_ret))
                         # 2. Get Data
                         pmids, _ = pubmed.fetch_pmids(
-                            query, 
-                            max_ret=max_ret, 
-                            mindate=start_date, 
-                            maxdate=end_date, 
-                            sort='relevance',
-                            email=st.session_state['picos'].get('email'),
-                            api_key=st.session_state['picos'].get('api_key')
+                            query,
+                            max_ret=max_ret,
+                            mindate=start_date,
+                            maxdate=end_date,
+                            sort="relevance",
+                            email=st.session_state["picos"].get("email"),
+                            api_key=st.session_state["picos"].get("api_key"),
                         )
-                        
+
                         # Save PMIDs
-                        pd.DataFrame(pmids, columns=["pmid"]).to_csv(os.path.join(TABLES_DIR, "retrieved_pmids.csv"), index=False)
-                        
+                        pd.DataFrame(pmids, columns=["pmid"]).to_csv(
+                            os.path.join(TABLES_DIR, "retrieved_pmids.csv"), index=False
+                        )
+
                         # Fetch Abstracts
                         articles_xml = pubmed.fetch_abstracts(
                             pmids,
-                            email=st.session_state['picos'].get('email'),
-                            api_key=st.session_state['picos'].get('api_key')
+                            email=st.session_state["picos"].get("email"),
+                            api_key=st.session_state["picos"].get("api_key"),
                         )
-                        
+
                         # Filter by Year
                         root = ET.fromstring(articles_xml)
                         filtered_articles_elements = []
                         current_year = datetime.now().year
                         for article in root.findall(".//PubmedArticle"):
                             pub_year_node = article.find(".//PubDate/Year")
-                            pub_year = int(pub_year_node.text) if pub_year_node is not None and pub_year_node.text.isdigit() else current_year + 1
+                            pub_year = (
+                                int(pub_year_node.text)
+                                if pub_year_node is not None and pub_year_node.text.isdigit()
+                                else current_year + 1
+                            )
                             if pub_year <= current_year:
                                 filtered_articles_elements.append(article)
-                        
+
                         # Reconstruct XML
                         filtered_root = ET.Element("PubmedArticleSet")
                         for article_elem in filtered_articles_elements:
                             filtered_root.append(article_elem)
-                        filtered_articles_xml = ET.tostring(filtered_root, encoding='unicode')
-                        
+                        filtered_articles_xml = ET.tostring(filtered_root, encoding="unicode")
+
                         # Save XML
-                        with open(os.path.join(RAW_DATA_DIR, "articles.xml"), 'w', encoding='utf-8') as f:
+                        with open(os.path.join(RAW_DATA_DIR, "articles.xml"), "w", encoding="utf-8") as f:
                             f.write(filtered_articles_xml)
-                        
+
                         # Parse to CSV
-                        pubmed_parser.parse_and_save_articles_csv(filtered_articles_xml, os.path.join(TABLES_DIR, "articles.csv"))
+                        pubmed_parser.parse_and_save_articles_csv(
+                            filtered_articles_xml, os.path.join(TABLES_DIR, "articles.csv")
+                        )
                         st.success(t("retrieval_success", count=len(filtered_articles_elements)))
                     else:
                         st.warning(t("no_articles"))
         # Navigation Button (Step 1 -> Step 2)
         # Show only if articles have been retrieved
         csv_path = os.path.join(TABLES_DIR, "articles.csv")
-        if os.path.exists(csv_path) or st.session_state['stats']['total_found'] > 0:
+        if os.path.exists(csv_path) or st.session_state["stats"]["total_found"] > 0:
             st.divider()
             col_next, _ = st.columns([1, 4])
             with col_next:
                 if st.button(f"{t('tabs')[1]} >", type="primary", use_container_width=True):
-                     next_step()
+                    next_step()
 
     # --- Tab 2: Screening ---
     if current_tab == 1:
         st.header(t("step2_header"))
         csv_path = os.path.join(TABLES_DIR, "articles.csv")
-        
+
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
-            st.dataframe(df[['pmid', 'title', 'journal', 'pub_year']], use_container_width=True)
-            
+            st.dataframe(df[["pmid", "title", "journal", "pub_year"]], use_container_width=True)
+
             if st.button(t("start_screening")):
                 with st.spinner(t("screening_progress")):
-                    screened_df = screener.screen_abstracts(df, st.session_state['picos'])
-                    
+                    screened_df = screener.screen_abstracts(df, st.session_state["picos"])
+
                     # Save results
-                    screened_df.to_csv(os.path.join(TABLES_DIR, "screening_results.csv"), index=False, encoding='utf-8-sig')
+                    screened_df.to_csv(os.path.join(TABLES_DIR, "screening_results.csv"), index=False, encoding="utf-8-sig")
                     # Update main csv
-                    screened_df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                    
+                    screened_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+
                     # Update stats
-                    st.session_state['stats']['screened'] = len(screened_df)
-                    st.session_state['stats']['included'] = len(screened_df[screened_df['screening_decision'] == 'Included'])
-                    st.session_state['stats']['excluded'] = st.session_state['stats']['screened'] - st.session_state['stats']['included']
-            
+                    st.session_state["stats"]["screened"] = len(screened_df)
+                    st.session_state["stats"]["included"] = len(screened_df[screened_df["screening_decision"] == "Included"])
+                    st.session_state["stats"]["excluded"] = (
+                        st.session_state["stats"]["screened"] - st.session_state["stats"]["included"]
+                    )
+
             # Show Screening Results if available
-            if 'screening_decision' in df.columns:
+            if "screening_decision" in df.columns:
                 st.divider()
                 st.subheader(t("screening_results"))
-                st.metric(t("inclusion_rate"), f"{st.session_state['stats']['included']} / {st.session_state['stats']['screened']}")
-                st.dataframe(df[['pmid', 'title', 'screening_decision', 'screening_reason']], use_container_width=True)
+                st.metric(
+                    t("inclusion_rate"), f"{st.session_state['stats']['included']} / {st.session_state['stats']['screened']}"
+                )
+                st.dataframe(df[["pmid", "title", "screening_decision", "screening_reason"]], use_container_width=True)
         else:
             st.info(t("search_first"))
 
         # Navigation Button (Step 2 -> Step 3)
         # Show only if screening has been performed
         screening_csv_path = os.path.join(TABLES_DIR, "screening_results.csv")
-        if os.path.exists(screening_csv_path) or st.session_state['stats']['screened'] > 0:
+        if os.path.exists(screening_csv_path) or st.session_state["stats"]["screened"] > 0:
             st.divider()
             col_next, _ = st.columns([1, 4])
             with col_next:
                 if st.button(f"{t('tabs')[2]} >", type="primary", use_container_width=True):
-                     next_step()
+                    next_step()
 
     # --- Tab 3: Analysis Pipeline ---
     if current_tab == 2:
         st.header(t("step3_header"))
         st.markdown(t("step3_desc"))
-        
+
         csv_path = os.path.join(TABLES_DIR, "articles.csv")
         if os.path.exists(csv_path):
-             df = pd.read_csv(csv_path)
-             if 'screening_decision' not in df.columns:
-                 st.warning(t("screen_first_warning"))
-             else:
-                 included_df = df[df['screening_decision'] == 'Included']
-                 included_pmids = included_df['pmid'].astype(str).tolist()
-                 
-                 if not included_pmids:
-                     st.warning(t("no_included"))
-                 else:
-                     if not included_pmids:
-                         st.warning(t("no_included"))
-                     else:
-                         # --- Section 1: PDF Download ---
-                         st.subheader(t("download_section"))
-                         
-                         xml_path = os.path.join(RAW_DATA_DIR, "articles.xml")
-                         if st.button(t("download_btn"), type="primary"):
-                             progress_bar = st.progress(0)
-                             status_text = st.empty()
-                             status_text.text(t("downloading_pdfs"))
-                             
-                             pdf_download_status = downloader.download_pdfs_from_xml(
-                                    xml_path, 
-                                    PDF_DIR, 
-                                    allowed_pmids=included_pmids,
-                                    email=st.session_state['picos'].get('email')
-                             )
-                             df['pdf_download_status'] = df['pmid'].astype(str).map(pdf_download_status)
-                             df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                             
-                             downloaded_pdfs = [k for k, v in pdf_download_status.items() if "Downloaded" in v or "Already" in v]
-                             st.session_state['stats']['retrieved'] = len(downloaded_pdfs)
-                             progress_bar.progress(100)
-                             st.success(t("download_complete"))
-                             time.sleep(1)
-                             st.rerun()
+            df = pd.read_csv(csv_path)
+            if "screening_decision" not in df.columns:
+                st.warning(t("screen_first_warning"))
+            else:
+                included_df = df[df["screening_decision"] == "Included"]
+                included_pmids = included_df["pmid"].astype(str).tolist()
 
-                         # --- Check for missing files & Manual Helper ---
-                         if os.path.exists(csv_path):
+                if not included_pmids:
+                    st.warning(t("no_included"))
+                else:
+                    if not included_pmids:
+                        st.warning(t("no_included"))
+                    else:
+                        # --- Section 1: PDF Download ---
+                        st.subheader(t("download_section"))
+
+                        xml_path = os.path.join(RAW_DATA_DIR, "articles.xml")
+                        if st.button(t("download_btn"), type="primary"):
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            status_text.text(t("downloading_pdfs"))
+
+                            pdf_download_status = downloader.download_pdfs_from_xml(
+                                xml_path, PDF_DIR, allowed_pmids=included_pmids, email=st.session_state["picos"].get("email")
+                            )
+                            df["pdf_download_status"] = df["pmid"].astype(str).map(pdf_download_status)
+                            df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+
+                            downloaded_pdfs = [
+                                k for k, v in pdf_download_status.items() if "Downloaded" in v or "Already" in v
+                            ]
+                            st.session_state["stats"]["retrieved"] = len(downloaded_pdfs)
+                            progress_bar.progress(100)
+                            st.success(t("download_complete"))
+                            time.sleep(1)
+                            st.rerun()
+
+                        # --- Check for missing files & Manual Helper ---
+                        if os.path.exists(csv_path):
                             try:
                                 df = pd.read_csv(csv_path)
-                                if 'pdf_download_status' in df.columns:
-                                    failed_mask = ~df['pdf_download_status'].astype(str).str.contains(r'Downloaded|Exists|Skipped', case=False, na=False)
+                                if "pdf_download_status" in df.columns:
+                                    failed_mask = ~df["pdf_download_status"].astype(str).str.contains(
+                                        r"Downloaded|Exists|Skipped", case=False, na=False
+                                    )
                                     failed_df = df[failed_mask]
-                                    
+
                                     if not failed_df.empty:
                                         st.divider()
                                         st.warning(t("download_failed_warning", count=len(failed_df)))
                                         # Manual Helper UI
                                         st.info(t("manual_helper_title"))
-                                        
+
                                         # Bulk Uploader Section
                                         with st.expander(t("bulk_upload_title"), expanded=False):
                                             st.write(t("bulk_upload_desc"))
-                                            bulk_files = st.file_uploader(t("bulk_upload_title"), type="pdf", accept_multiple_files=True, key="bulk_pdf_uploader")
+                                            bulk_files = st.file_uploader(
+                                                t("bulk_upload_title"),
+                                                type="pdf",
+                                                accept_multiple_files=True,
+                                                key="bulk_pdf_uploader",
+                                            )
                                             if bulk_files:
                                                 results, count = handle_bulk_upload(bulk_files, df, csv_path)
                                                 for res in results:
-                                                    if "✅" in res: st.success(res)
-                                                    else: st.warning(res)
+                                                    if "✅" in res:
+                                                        st.success(res)
+                                                    else:
+                                                        st.warning(res)
                                                 if count > 0:
                                                     st.toast(f"Successfully matched {count} files!", icon="🚀")
                                                     time.sleep(1)
                                                     st.rerun()
 
                                         st.warning(t("ai_proposal_warning"))
-                                        
+
                                         # Pagination
                                         batch_size = 5
                                         total_failed = len(failed_df)
                                         total_pages = (total_failed - 1) // batch_size + 1
-                                        current_page = st.session_state.get('failed_pdfs_page', 0)
-                                        
-                                        if current_page >= total_pages: current_page = total_pages - 1
-                                        if current_page < 0: current_page = 0
-                                        st.session_state['failed_pdfs_page'] = current_page
-                                        
+                                        current_page = st.session_state.get("failed_pdfs_page", 0)
+
+                                        if current_page >= total_pages:
+                                            current_page = total_pages - 1
+                                        if current_page < 0:
+                                            current_page = 0
+                                        st.session_state["failed_pdfs_page"] = current_page
+
                                         start_idx = current_page * batch_size
                                         end_idx = start_idx + batch_size
                                         batch_df = failed_df.iloc[start_idx:end_idx]
-                                        
+
                                         col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
                                         with col_p1:
                                             if st.button(t("prev_page"), disabled=(current_page == 0)):
-                                                st.session_state['failed_pdfs_page'] -= 1
+                                                st.session_state["failed_pdfs_page"] -= 1
                                                 st.rerun()
                                         with col_p2:
                                             st.markdown(f"**Page {current_page + 1} / {total_pages}**")
                                         with col_p3:
                                             if st.button(t("next_page"), disabled=(current_page == total_pages - 1)):
-                                                st.session_state['failed_pdfs_page'] += 1
+                                                st.session_state["failed_pdfs_page"] += 1
                                                 st.rerun()
-                                        
+
                                         for _, row in batch_df.iterrows():
                                             with st.container(border=True):
-                                                 pmid = str(row['pmid'])
-                                                 title = row.get('title', 'No Title')
-                                                 doi = row.get('doi')
-                                                 target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
-                                                 file_exists = os.path.exists(target_path)
-                                                 
-                                                 pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-                                                 scholar_link = f"https://scholar.google.com/scholar?q={pmid}"
-                                                 if isinstance(doi, str) and doi.strip():
-                                                     doi_link = f"https://doi.org/{doi}"
-                                                     sci_hub_link = f"https://sci-hub.st/{doi}"
-                                                 else:
-                                                     doi_link = None
-                                                     sci_hub_link = f"https://sci-hub.st/{pmid}"
-                                                 
-                                                 st.markdown(f"**{title}**")
-                                                 
-                                                 # Status Badge & File Detection
-                                                 status = str(row.get('pdf_download_status', 'Failed'))
-                                                 
-                                                 # Use session state cache for file existence to speed up UI
-                                                 cache_key = f"exists_{pmid}"
-                                                 if cache_key not in st.session_state['file_cache']:
-                                                     st.session_state['file_cache'][cache_key] = os.path.exists(target_path)
-                                                 file_exists = st.session_state['file_cache'][cache_key]
-                                                 
-                                                 if file_exists:
-                                                     if "Manual" not in status and "Downloaded" not in status and "Exists" not in status:
-                                                         st.info(f"{t('status_manual')} (Auto-detected)")
-                                                         # Auto-update status in CSV if detected
-                                                         df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Detected)"
-                                                         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                                                         # Update cache and stats potentially
-                                                         st.session_state['file_cache'][cache_key] = True
-                                                     else:
-                                                         st.success(t("status_verified"))
-                                                 else:
-                                                     st.error(t("status_failed"))
+                                                pmid = str(row["pmid"])
+                                                title = row.get("title", "No Title")
+                                                doi = row.get("doi")
+                                                target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+                                                file_exists = os.path.exists(target_path)
 
-                                                 # Action Buttons
-                                                 c_info, c_search = st.columns([1.5, 1.5])
-                                                 with c_info:
-                                                     st.markdown(f"PMID: `{pmid}`")
-                                                     st.code(f"{pmid}.pdf", language="text")
-                                                     st.link_button(t("view_pubmed"), pubmed_link, use_container_width=True, type="primary")
-                                                 with c_search:
-                                                     # Row 1: Primary Search
-                                                     s_col1, s_col2 = st.columns(2)
-                                                     with s_col1:
-                                                         st.link_button(t("search_scholar"), scholar_link, use_container_width=True)
-                                                     with s_col2:
-                                                         if doi_link:
-                                                             st.link_button(t("search_doi"), doi_link, use_container_width=True)
-                                                         else:
-                                                             st.button("No DOI", disabled=True, use_container_width=True)
-                                                     
-                                                     # Row 2: Sci-Hub (Alternative)
-                                                     st.link_button(t("search_scihub"), sci_hub_link, use_container_width=True)
-                                                 
-                                                 # File Uploader
-                                                 uploaded_file = st.file_uploader(f"{t('upload_pdf')} ({pmid})", type="pdf", key=f"upload_{pmid}")
-                                                 if uploaded_file:
-                                                     with open(target_path, "wb") as f:
-                                                         f.write(uploaded_file.getbuffer())
-                                                     df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual Upload)"
-                                                     df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                                                     st.session_state['file_cache'][cache_key] = True
-                                                     st.success(f"{pmid}.pdf saved!")
-                                                     time.sleep(0.5)
-                                                     st.rerun()
+                                                pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                                                scholar_link = f"https://scholar.google.com/scholar?q={pmid}"
+                                                if isinstance(doi, str) and doi.strip():
+                                                    doi_link = f"https://doi.org/{doi}"
+                                                    sci_hub_link = f"https://sci-hub.st/{doi}"
+                                                else:
+                                                    doi_link = None
+                                                    sci_hub_link = f"https://sci-hub.st/{pmid}"
 
-                                                 c1, c2 = st.columns(2)
-                                                 with c1:
-                                                     if st.button(f"{t('check_file_btn')} ({pmid})", key=f"check_{pmid}"):
-                                                         # Force re-check on manual button
-                                                         file_exists_physical = os.path.exists(target_path)
-                                                         st.session_state['file_cache'][cache_key] = file_exists_physical
-                                                         if file_exists_physical:
-                                                             df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Downloaded (Manual)"
-                                                             df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                                                             st.toast(t("file_verified", pmid=pmid), icon="✅")
-                                                             time.sleep(0.5)
-                                                             st.rerun()
-                                                         else:
-                                                             st.error(t("file_not_found", path=target_path))
-                                                 with c2:
-                                                     if st.button(f"{t('skip_file_btn')} ({pmid})", key=f"skip_{pmid}"):
-                                                         df.loc[df['pmid'].astype(str) == pmid, 'pdf_download_status'] = "Skipped_User"
-                                                         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
-                                                         st.toast(t("file_skipped", pmid=pmid), icon="⏭️")
-                                                         time.sleep(0.5)
-                                                         st.rerun()
+                                                st.markdown(f"**{title}**")
+
+                                                # Status Badge & File Detection
+                                                status = str(row.get("pdf_download_status", "Failed"))
+
+                                                # Use session state cache for file existence to speed up UI
+                                                cache_key = f"exists_{pmid}"
+                                                if cache_key not in st.session_state["file_cache"]:
+                                                    st.session_state["file_cache"][cache_key] = os.path.exists(target_path)
+                                                file_exists = st.session_state["file_cache"][cache_key]
+
+                                                if file_exists:
+                                                    if (
+                                                        "Manual" not in status
+                                                        and "Downloaded" not in status
+                                                        and "Exists" not in status
+                                                    ):
+                                                        st.info(f"{t('status_manual')} (Auto-detected)")
+                                                        # Auto-update status in CSV if detected
+                                                        df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = (
+                                                            "Downloaded (Detected)"
+                                                        )
+                                                        df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+                                                        # Update cache and stats potentially
+                                                        st.session_state["file_cache"][cache_key] = True
+                                                    else:
+                                                        st.success(t("status_verified"))
+                                                else:
+                                                    st.error(t("status_failed"))
+
+                                                # Action Buttons
+                                                c_info, c_search = st.columns([1.5, 1.5])
+                                                with c_info:
+                                                    st.markdown(f"PMID: `{pmid}`")
+                                                    st.code(f"{pmid}.pdf", language="text")
+                                                    st.link_button(
+                                                        t("view_pubmed"), pubmed_link, use_container_width=True, type="primary"
+                                                    )
+                                                with c_search:
+                                                    # Row 1: Primary Search
+                                                    s_col1, s_col2 = st.columns(2)
+                                                    with s_col1:
+                                                        st.link_button(
+                                                            t("search_scholar"), scholar_link, use_container_width=True
+                                                        )
+                                                    with s_col2:
+                                                        if doi_link:
+                                                            st.link_button(t("search_doi"), doi_link, use_container_width=True)
+                                                        else:
+                                                            st.button("No DOI", disabled=True, use_container_width=True)
+
+                                                    # Row 2: Sci-Hub (Alternative)
+                                                    st.link_button(t("search_scihub"), sci_hub_link, use_container_width=True)
+
+                                                # File Uploader
+                                                uploaded_file = st.file_uploader(
+                                                    f"{t('upload_pdf')} ({pmid})", type="pdf", key=f"upload_{pmid}"
+                                                )
+                                                if uploaded_file:
+                                                    with open(target_path, "wb") as f:
+                                                        f.write(uploaded_file.getbuffer())
+                                                    df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = (
+                                                        "Downloaded (Manual Upload)"
+                                                    )
+                                                    df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+                                                    st.session_state["file_cache"][cache_key] = True
+                                                    st.success(f"{pmid}.pdf saved!")
+                                                    time.sleep(0.5)
+                                                    st.rerun()
+
+                                                c1, c2 = st.columns(2)
+                                                with c1:
+                                                    if st.button(f"{t('check_file_btn')} ({pmid})", key=f"check_{pmid}"):
+                                                        # Force re-check on manual button
+                                                        file_exists_physical = os.path.exists(target_path)
+                                                        st.session_state["file_cache"][cache_key] = file_exists_physical
+                                                        if file_exists_physical:
+                                                            df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = (
+                                                                "Downloaded (Manual)"
+                                                            )
+                                                            df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+                                                            st.toast(t("file_verified", pmid=pmid), icon="✅")
+                                                            time.sleep(0.5)
+                                                            st.rerun()
+                                                        else:
+                                                            st.error(t("file_not_found", path=target_path))
+                                                with c2:
+                                                    if st.button(f"{t('skip_file_btn')} ({pmid})", key=f"skip_{pmid}"):
+                                                        df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = (
+                                                            "Skipped_User"
+                                                        )
+                                                        df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+                                                        st.toast(t("file_skipped", pmid=pmid), icon="⏭️")
+                                                        time.sleep(0.5)
+                                                        st.rerun()
                             except Exception as e:
                                 st.error(f"Error loading helper: {e}")
 
-                         # --- Section 2: Analysis ---
-                         st.divider()
-                         st.subheader(t("analysis_section"))
-                         
-                         # Count ready files
-                         ready_count = 0
-                         if os.path.exists(csv_path):
-                             df = pd.read_csv(csv_path)
-                             if 'pdf_download_status' in df.columns:
-                                 ready_mask = df['pdf_download_status'].astype(str).str.contains(r'Downloaded|Exists', case=False, na=False)
-                                 ready_count = len(df[ready_mask])
-                         
-                         st.info(t("analysis_ready", count=ready_count))
-                         
-                         if st.button(t("analysis_btn"), type="primary"):
-                             # Create a run version and archive current data
-                             run_path = vm.create_run(st.session_state['picos'])
-                             vm.archive_current_data(run_path, TABLES_DIR, RAW_DATA_DIR)
-                             st.toast(f"Run archived to {os.path.basename(run_path)}", icon="📦")
+                        # --- Section 2: Analysis ---
+                        st.divider()
+                        st.subheader(t("analysis_section"))
 
-                             progress_bar = st.progress(0)
-                             status_text = st.empty()
-                             
-                             # Re-read DF
-                             df = pd.read_csv(csv_path)
-                             doc_ready_mask = df['pdf_download_status'].astype(str).str.contains(r'Downloaded|Exists', case=False, na=False)
-                             ready_pmids = df[doc_ready_mask]['pmid'].astype(str).tolist()
-                             
-                             # 2. GROBID Parsing
-                             status_text.text(t("parsing_pdfs"))
-                             for pmid in ready_pmids:
-                                  pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
-                                  tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
-                                  if os.path.exists(pdf_path) and not os.path.exists(tei_path): 
-                                      tei_xml = grobid_client.process_pdf(pdf_path)
-                                      if tei_xml:
-                                          with open(tei_path, 'w', encoding='utf-8') as f:
-                                              f.write(tei_xml)
-                             progress_bar.progress(50)
+                        # Count ready files
+                        ready_count = 0
+                        if os.path.exists(csv_path):
+                            df = pd.read_csv(csv_path)
+                            if "pdf_download_status" in df.columns:
+                                ready_mask = (
+                                    df["pdf_download_status"]
+                                    .astype(str)
+                                    .str.contains(r"Downloaded|Exists", case=False, na=False)
+                                )
+                                ready_count = len(df[ready_mask])
 
-                             # 3. RoB Assessment
-                             status_text.text(t("assessing_rob"))
-                             if os.path.exists(TEI_DIR):
-                                 assessor.batch_assess_rob(TEI_DIR, os.path.join(TABLES_DIR, "rob_assessment.csv"))
-                             progress_bar.progress(75)
+                        st.info(t("analysis_ready", count=ready_count))
 
-                             # 4. Data Extraction
-                             status_text.text(t("extracting_data"))
-                             llm = llm_client.LLMClient()
-                             tei_files = [f for f in os.listdir(TEI_DIR) if f.endswith('.xml')]
-                             extracted_data = []
-                             
-                             if tei_files:
+                        if st.button(t("analysis_btn"), type="primary"):
+                            # Create a run version and archive current data
+                            run_path = vm.create_run(st.session_state["picos"])
+                            vm.archive_current_data(run_path, TABLES_DIR, RAW_DATA_DIR)
+                            st.toast(f"Run archived to {os.path.basename(run_path)}", icon="📦")
+
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+
+                            # Re-read DF
+                            df = pd.read_csv(csv_path)
+                            doc_ready_mask = (
+                                df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
+                            )
+                            ready_pmids = df[doc_ready_mask]["pmid"].astype(str).tolist()
+
+                            # 2. GROBID Parsing
+                            status_text.text(t("parsing_pdfs"))
+                            for pmid in ready_pmids:
+                                pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+                                tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
+                                if os.path.exists(pdf_path) and not os.path.exists(tei_path):
+                                    tei_xml = grobid_client.process_pdf(pdf_path)
+                                    if tei_xml:
+                                        with open(tei_path, "w", encoding="utf-8") as f:
+                                            f.write(tei_xml)
+                            progress_bar.progress(50)
+
+                            # 3. RoB Assessment
+                            status_text.text(t("assessing_rob"))
+                            if os.path.exists(TEI_DIR):
+                                assessor.batch_assess_rob(TEI_DIR, os.path.join(TABLES_DIR, "rob_assessment.csv"))
+                            progress_bar.progress(75)
+
+                            # 4. Data Extraction
+                            status_text.text(t("extracting_data"))
+                            llm = llm_client.LLMClient()
+                            tei_files = [f for f in os.listdir(TEI_DIR) if f.endswith(".xml")]
+                            extracted_data = []
+
+                            if tei_files:
                                 for tei_file in tei_files:
-                                    pmid = tei_file.replace('.xml', '')
+                                    pmid = tei_file.replace(".xml", "")
                                     full_text = tei_parser.extract_text_from_tei(os.path.join(TEI_DIR, tei_file))
                                     if full_text:
-                                        text_snippet = (full_text[:8000] + '...') if len(full_text) > 8000 else full_text
+                                        text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
                                         user_prompt = f"Extract PICO + Study Design in JSON with keys: population, intervention, comparison, outcome, study_design. Text: {text_snippet}"
-                                        messages = [{"role": "system", "content": "You are a biomedical expert."}, {"role": "user", "content": user_prompt}]
+                                        messages = [
+                                            {"role": "system", "content": "You are a biomedical expert."},
+                                            {"role": "user", "content": user_prompt},
+                                        ]
                                         resp = llm.get_completion(messages)
                                         try:
-                                            import re, json
+                                            import json
+                                            import re
+
                                             match = re.search(r"({[\s\S]*})", resp)
                                             if match:
                                                 data = json.loads(match.group(1))
-                                                data['pmid'] = pmid
+                                                data["pmid"] = pmid
                                                 extracted_data.append(data)
-                                        except: pass
-                                
-                                if extracted_data:
-                                    pd.DataFrame(extracted_data).to_csv(os.path.join(TABLES_DIR, "extracted_pico.csv"), index=False)
-                             
-                             progress_bar.progress(100)
-                             status_text.text(t("analysis_complete"))
-                             st.success(t("analysis_complete"))
+                                        except:
+                                            pass
 
+                                if extracted_data:
+                                    pd.DataFrame(extracted_data).to_csv(
+                                        os.path.join(TABLES_DIR, "extracted_pico.csv"), index=False
+                                    )
+
+                            progress_bar.progress(100)
+                            status_text.text(t("analysis_complete"))
+                            st.success(t("analysis_complete"))
 
         # Navigation Button (Step 3 -> Step 4)
         # Show only if pipeline output exists (e.g., extracted PICO data)
@@ -811,56 +873,53 @@ def main():
             col_next, _ = st.columns([1, 4])
             with col_next:
                 if st.button(f"{t('tabs')[3]} >", type="primary", use_container_width=True):
-                     next_step()
+                    next_step()
 
     # --- Tab 4: Reporting ---
     if current_tab == 3:
         st.header(t("step4_header"))
         st.warning(t("ai_proposal_warning"))
-        
-        current_lang = st.session_state['lang']
+
+        current_lang = st.session_state["lang"]
         report_filename = f"report_{current_lang}.md"
         report_path = os.path.join(DATA_DIR, report_filename)
-        
-        
+
         if st.button(t("generate_report")):
             # 1. Synthesize Answer (New)
             with st.spinner("AI is synthesizing the answer to your PICO question..."):
                 synthesis_result = synthesizer.synthesize_answer(
-                    st.session_state['picos'],
+                    st.session_state["picos"],
                     os.path.join(TABLES_DIR, "extracted_pico.csv"),
                     os.path.join(TABLES_DIR, "rob_assessment.csv"),
-                    lang=current_lang
+                    lang=current_lang,
                 )
-            
+
             # 2. Generate Report
             generator.generate_report(
-                st.session_state['stats'], 
-                st.session_state['picos'], 
-                os.path.join(TABLES_DIR, "extracted_pico.csv"), 
-                os.path.join(TABLES_DIR, "rob_assessment.csv"), 
+                st.session_state["stats"],
+                st.session_state["picos"],
+                os.path.join(TABLES_DIR, "extracted_pico.csv"),
+                os.path.join(TABLES_DIR, "rob_assessment.csv"),
                 report_path,
                 lang=current_lang,
-                synthesis_result=synthesis_result
+                synthesis_result=synthesis_result,
             )
             st.success(t("report_generated"))
-            
+
         # Display report if it exists for the current language
         if os.path.exists(report_path):
-            with open(report_path, 'r', encoding='utf-8') as f:
+            with open(report_path, "r", encoding="utf-8") as f:
                 report_content = f.read()
                 st.markdown(report_content)
-                
+
                 st.download_button(
-                    label=t("download_report"),
-                    data=report_content,
-                    file_name=report_filename,
-                    mime="text/markdown"
+                    label=t("download_report"), data=report_content, file_name=report_filename, mime="text/markdown"
                 )
         else:
             # If current language report doesn't exist but the OTHER one does?
             # Optional: Check for fallback. But for now, just strictly follow the toggle.
             pass
+
 
 if __name__ == "__main__":
     main()

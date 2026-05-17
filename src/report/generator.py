@@ -1,7 +1,7 @@
 import os
-import pandas as pd
 from datetime import datetime
 
+import pandas as pd
 
 REPORT_TRANSLATIONS = {
     "EN": {
@@ -27,7 +27,7 @@ REPORT_TRANSLATIONS = {
         "prisma_sought": "Reports sought for retrieval",
         "prisma_not_retrieved": "Reports not retrieved",
         "prisma_retrieved": "Reports retrieved for eligibility",
-        "prisma_included": "Studies included in review"
+        "prisma_included": "Studies included in review",
     },
     "KO": {
         "title": "체계적 문헌고찰 보고서",
@@ -52,9 +52,10 @@ REPORT_TRANSLATIONS = {
         "prisma_sought": "적합성 평가 대상<br/>(Reports sought)",
         "prisma_not_retrieved": "원문 미확보<br/>(Not retrieved)",
         "prisma_retrieved": "원문 확보됨<br/>(Retrieved)",
-        "prisma_included": "최종 포함<br/>(Included)"
-    }
+        "prisma_included": "최종 포함<br/>(Included)",
+    },
 }
+
 
 def generate_prisma_mermaid(stats, lang="EN"):
     """
@@ -62,16 +63,16 @@ def generate_prisma_mermaid(stats, lang="EN"):
     """
     s = stats
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
-    
+
     mermaid_code = f"""
 ```mermaid
 graph TD
-    A[{t['prisma_id']}<br/>(n = {s.get('total_found', 0)})] --> B[{t['prisma_screened']}<br/>(n = {s.get('screened', 0)})]
-    B --> C[{t['prisma_excluded']}<br/>(n = {s.get('excluded', 0)})]
-    B --> D[{t['prisma_sought']}<br/>(n = {s.get('included', 0)})]
-    D --> E[{t['prisma_not_retrieved']}<br/>(n = {s.get('included', 0) - s.get('retrieved', 0)})]
-    D --> F[{t['prisma_retrieved']}<br/>(n = {s.get('retrieved', 0)})]
-    F --> G[{t['prisma_included']}<br/>(n = {s.get('retrieved', 0)})]
+    A[{t["prisma_id"]}<br/>(n = {s.get("total_found", 0)})] --> B[{t["prisma_screened"]}<br/>(n = {s.get("screened", 0)})]
+    B --> C[{t["prisma_excluded"]}<br/>(n = {s.get("excluded", 0)})]
+    B --> D[{t["prisma_sought"]}<br/>(n = {s.get("included", 0)})]
+    D --> E[{t["prisma_not_retrieved"]}<br/>(n = {s.get("included", 0) - s.get("retrieved", 0)})]
+    D --> F[{t["prisma_retrieved"]}<br/>(n = {s.get("retrieved", 0)})]
+    F --> G[{t["prisma_included"]}<br/>(n = {s.get("retrieved", 0)})]
 ```
 """
     return mermaid_code
@@ -82,24 +83,24 @@ def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path,
     Generates a comprehensive Markdown report.
     """
     print(f"\n--- Generating Final Report ({lang}) ---")
-    
+
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
+
+    with open(output_path, "w", encoding="utf-8") as f:
         # Title and Header
         f.write(f"# {t['title']}\n")
         f.write(f"**{t['date']}:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
-        
+
         # PICO Configuration
         f.write(f"## {t['pico_header']}\n")
         if picos:
             for k, v in picos.items():
                 f.write(f"- **{k.capitalize()}:** {v}\n")
         f.write("\n")
-        
+
         # Synthesis (New Section)
         if synthesis_result:
-            f.write(f"## 6. 결론 및 고찰 (Synthesis)\n")
+            f.write("## 6. 결론 및 고찰 (Synthesis)\n")
             f.write(synthesis_result)
             f.write("\n\n")
 
@@ -107,7 +108,7 @@ def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path,
         f.write(f"## {t['prisma_header']}\n")
         f.write(generate_prisma_mermaid(stats, lang=lang))
         f.write("\n")
-        
+
         # Statistics Summary
         f.write(f"## {t['stats_header']}\n")
         f.write(f"- {t['stat_total']}: {stats.get('total_found', 0)}\n")
@@ -116,7 +117,7 @@ def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path,
         f.write(f"- {t['stat_included']}: {stats.get('included', 0)}\n")
         f.write(f"- {t['stat_retrieved']}: {stats.get('retrieved', 0)}\n")
         f.write("\n")
-        
+
         # Extracted Data Summary
         f.write(f"## {t['extract_header']}\n")
         if os.path.exists(extracted_csv_path):
@@ -138,4 +139,3 @@ def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path,
         f.write("\n")
 
     print(f"Report saved to {output_path}")
-

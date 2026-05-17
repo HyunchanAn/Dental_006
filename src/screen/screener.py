@@ -1,29 +1,33 @@
-import pandas as pd
-import os
 import json
 import re
+
+import pandas as pd
+
 from src.llm import client as llm_client
+
 
 def screen_abstracts(articles_df, picos_data):
     """
     Screens articles based on Title and Abstract using an LLM and PICO criteria.
-    
+
     Args:
         articles_df (pd.DataFrame): DataFrame containing 'pmid', 'title', 'abstract'.
         picos_data (dict): Dictionary containing PICO elements (population, intervention, etc.).
-        
+
     Returns:
         pd.DataFrame: Original DataFrame with added columns 'screening_decision' and 'screening_reason'.
     """
     print("\n--- Starting Automated Screening (Title/Abstract) ---")
-    
+
     llm = llm_client.LLMClient()
-    
+
     # Check LLM connection
     if not llm.get_completion([{"role": "user", "content": "Test"}]):
-        print("LLM not connected. Skipping automated screening. All articles will be marked as 'Included' (Manual Review Needed).")
-        articles_df['screening_decision'] = 'Included'
-        articles_df['screening_reason'] = 'LLM Unavailable'
+        print(
+            "LLM not connected. Skipping automated screening. All articles will be marked as 'Included' (Manual Review Needed)."
+        )
+        articles_df["screening_decision"] = "Included"
+        articles_df["screening_reason"] = "LLM Unavailable"
         return articles_df
 
     system_prompt = """You are an expert systematic reviewer. 
@@ -44,20 +48,20 @@ Criteria for Inclusion:
 """
 
     pico_text = f"""
-    Population: {picos_data.get('population', 'Any')}
-    Intervention: {picos_data.get('intervention', 'Any')}
-    Comparison: {picos_data.get('comparison', 'Any')}
-    Outcome: {picos_data.get('outcome', 'Any')}
-    Study Design: {picos_data.get('study_design', 'Any')}
+    Population: {picos_data.get("population", "Any")}
+    Intervention: {picos_data.get("intervention", "Any")}
+    Comparison: {picos_data.get("comparison", "Any")}
+    Outcome: {picos_data.get("outcome", "Any")}
+    Study Design: {picos_data.get("study_design", "Any")}
     """
 
     results = []
 
     for index, row in articles_df.iterrows():
-        pmid = row.get('pmid', 'Unknown')
-        title = row.get('title', 'No Title')
-        abstract = row.get('abstract', 'No Abstract')
-        
+        pmid = row.get("pmid", "Unknown")
+        title = row.get("title", "No Title")
+        abstract = row.get("abstract", "No Abstract")
+
         print(f"Screening PMID: {pmid}...", end="\r")
 
         user_prompt = f"""
@@ -70,14 +74,11 @@ Abstract: {abstract}
 
 Is this paper relevant? Return JSON.
 """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
+        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
 
         try:
             response = llm.get_completion(messages)
-            decision = "Included" # Default
+            decision = "Included"  # Default
             reason = "Parse Error"
 
             if response:
@@ -89,12 +90,12 @@ Is this paper relevant? Return JSON.
                         decision = data.get("decision", "Included")
                         reason = data.get("reason", "No reason provided")
                     except json.JSONDecodeError:
-                         reason = "JSON Decode Error"
+                        reason = "JSON Decode Error"
                 else:
                     reason = "No JSON found in response"
             else:
                 reason = "No response from LLM"
-            
+
             # Normalize decision
             if "exclude" in decision.lower():
                 decision = "Excluded"
@@ -105,15 +106,15 @@ Is this paper relevant? Return JSON.
             decision = "Included"
             reason = f"Error during screening: {str(e)}"
 
-        results.append({'pmid': pmid, 'screening_decision': decision, 'screening_reason': reason})
+        results.append({"pmid": pmid, "screening_decision": decision, "screening_reason": reason})
 
     print(f"\nScreening complete. Processed {len(articles_df)} articles.")
-    
+
     # Merge results back to DataFrame
     results_df = pd.DataFrame(results)
     # Ensure pmid is same type for merge
-    articles_df['pmid'] = articles_df['pmid'].astype(str)
-    results_df['pmid'] = results_df['pmid'].astype(str)
-    
-    final_df = pd.merge(articles_df, results_df, on='pmid', how='left')
+    articles_df["pmid"] = articles_df["pmid"].astype(str)
+    results_df["pmid"] = results_df["pmid"].astype(str)
+
+    final_df = pd.merge(articles_df, results_df, on="pmid", how="left")
     return final_df

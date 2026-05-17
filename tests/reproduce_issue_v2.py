@@ -1,7 +1,6 @@
-
-import sys
-import os
 import json
+import os
+import sys
 
 # Add project root to path
 sys.path.append(os.getcwd())
@@ -14,6 +13,7 @@ print(f"Input: {description}")
 try:
     result = pico_extractor.extract_pico_from_description(description)
     import json
+
     with open("reproduce_age_fix.json", "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
 except Exception as e:

@@ -1,7 +1,8 @@
-
 import json
 import re
+
 from src.llm import client as llm_client
+
 
 def extract_pico_from_description(description):
     """
@@ -9,7 +10,7 @@ def extract_pico_from_description(description):
     Returns a dictionary with keys: population, intervention, comparison, outcome, study_design.
     """
     llm = llm_client.LLMClient()
-    
+
     system_prompt = """You are an expert Research Librarian and Systematic Reviewer.
 Your task is to analyze the User's research topic description and extract the PICO elements + Study Design.
 
@@ -82,30 +83,27 @@ Research Topic Description:
 Extract PICO. Return ONLY the JSON object. Do not include markdown code blocks.
 """
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
+    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
 
     try:
         response = llm.get_completion(messages)
         if response:
-             # Cleanup specific to common LLM issues (markdown blocks)
-             clean_response = response.replace('```json', '').replace('```', '').strip()
-             
-             # Basic regex to catch json blocks or just the curlies
-             match = re.search(r"({[\s\S]*})", clean_response)
-             if match:
-                 data = json.loads(match.group(1))
-                 # Post-processing: Replace single quotes with double quotes for PubMed
-                 for key in data:
-                     if isinstance(data[key], str):
-                         data[key] = data[key].replace("'", '"')
-                 return data
+            # Cleanup specific to common LLM issues (markdown blocks)
+            clean_response = response.replace("```json", "").replace("```", "").strip()
+
+            # Basic regex to catch json blocks or just the curlies
+            match = re.search(r"({[\s\S]*})", clean_response)
+            if match:
+                data = json.loads(match.group(1))
+                # Post-processing: Replace single quotes with double quotes for PubMed
+                for key in data:
+                    if isinstance(data[key], str):
+                        data[key] = data[key].replace("'", '"')
+                return data
     except Exception as e:
         print(f"Error extracting PICO: {e}")
         with open("pico_debug_error.log", "w", encoding="utf-8") as f:
             f.write(f"Error: {e}\n")
             f.write(f"Raw Response: {response}")
-    
+
     return None

@@ -1,17 +1,17 @@
 import os
-import requests
-import xml.etree.ElementTree as ET
 import time
+import xml.etree.ElementTree as ET
+
+import requests
+
 
 def get_request_headers(email=None):
     """
     Constructs HTTP headers with User-Agent and Email contact info.
     """
     contact = email if email else "systematic-reviewer-ai@example.com"
-    return {
-        "User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})",
-        "Email": contact
-    }
+    return {"User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})", "Email": contact}
+
 
 def get_unpaywall_pdf_url(doi, email=None):
     """
@@ -23,13 +23,13 @@ def get_unpaywall_pdf_url(doi, email=None):
         # Using a more compliant email address as recommended by Unpaywall
         contact_email = email if email else "systematic-reviewer-ai@example.com"
         url = f"https://api.unpaywall.org/v2/{doi}?email={contact_email}"
-        
+
         # We don't strictly need custom headers for Unpaywall based on their docs (just email param),
         # but good practice to identify anyway.
         response = requests.get(url, headers=get_request_headers(email), timeout=20)
         response.raise_for_status()
         data = response.json()
-        
+
         if data.get("best_oa_location") and data["best_oa_location"].get("url_for_pdf"):
             return data["best_oa_location"]["url_for_pdf"]
     except requests.exceptions.RequestException:
@@ -38,6 +38,7 @@ def get_unpaywall_pdf_url(doi, email=None):
     except Exception as e:
         print(f"  - An unexpected error occurred while processing DOI {doi} with Unpaywall: {e}")
     return None
+
 
 def get_semantic_scholar_pdf_url(paper_id, email=None):
     """
@@ -49,7 +50,7 @@ def get_semantic_scholar_pdf_url(paper_id, email=None):
     try:
         # Semantic Scholar API endpoint for paper details
         url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}?fields=openAccessPdf"
-        
+
         response = requests.get(url, headers=get_request_headers(email), timeout=20)
         if response.status_code == 200:
             data = response.json()
@@ -60,6 +61,7 @@ def get_semantic_scholar_pdf_url(paper_id, email=None):
         print(f"  - Error querying Semantic Scholar for {paper_id}: {e}")
     return None
 
+
 def download_pdf_from_url(pdf_url, output_path, email=None):
     """
     Downloads a PDF from a URL and saves it to the specified path.
@@ -67,7 +69,7 @@ def download_pdf_from_url(pdf_url, output_path, email=None):
     try:
         response = requests.get(pdf_url, headers=get_request_headers(email), stream=True, timeout=60)
         response.raise_for_status()
-        with open(output_path, 'wb') as f:
+        with open(output_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         return True
@@ -75,51 +77,48 @@ def download_pdf_from_url(pdf_url, output_path, email=None):
         print(f"  - Failed to download PDF from {pdf_url}: {e}")
     return False
 
+
 def try_pmc_download(pmcid, output_path, email=None, timeout=60):
     """
     Attempts to download a PDF directly from PubMed Central using its PMCID.
     """
     if not pmcid:
         return False
-    
+
     print(f"  - Trying PubMed Central with PMCID: {pmcid}")
     fetch_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-    params = {
-        'db': 'pmc',
-        'id': pmcid,
-        'rettype': 'pdf',
-        'retmode': 'binary'
-    }
+    params = {"db": "pmc", "id": pmcid, "rettype": "pdf", "retmode": "binary"}
     try:
         response = requests.post(fetch_url, data=params, headers=get_request_headers(email), stream=True, timeout=timeout)
-        
-        if 'application/pdf' not in response.headers.get('Content-Type', ''):
+
+        if "application/pdf" not in response.headers.get("Content-Type", ""):
             print(f"  - PMC did not return a PDF. Content-Type: {response.headers.get('Content-Type')}")
             return False
 
         response.raise_for_status()
-        
-        with open(output_path, 'wb') as f:
+
+        with open(output_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        print(f"  - SUCCESS: Downloaded PDF from PMC.")
+        print("  - SUCCESS: Downloaded PDF from PMC.")
         return True
     except requests.exceptions.RequestException as e:
         print(f"  - Failed to download from PMC: {e}")
         return False
 
+
 def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None):
     """
     Parses a PubMed XML file, extracts DOIs and PMCIDs, and attempts to download open-access PDFs
     using a fallback strategy (Unpaywall -> PMC).
-    
+
     Args:
         xml_path (str): Path to the PubMed XML file.
         output_dir (str): Directory to save downloaded PDFs.
-        allowed_pmids (list, optional): List of PMIDs to download. If provided, only articles 
+        allowed_pmids (list, optional): List of PMIDs to download. If provided, only articles
                                         with PMIDs in this list will be processed.
         email (str, optional): User email for API headers.
-                                        
+
     Returns:
         dict: A dictionary of PMID to download status.
     """
@@ -134,7 +133,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
 
     articles = root.findall(".//PubmedArticle")
     total_found_xml = len(articles)
-    
+
     # Filter articles if allowed_pmids is provided
     if allowed_pmids is not None:
         allowed_pmids_set = set(str(p) for p in allowed_pmids)
@@ -146,7 +145,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
                 articles_to_process.append(article)
         articles = articles_to_process
         print(f"Filtered XML from {total_found_xml} to {len(articles)} articles based on screening results.")
-    
+
     total_articles = len(articles)
     if total_articles == 0:
         return {}
@@ -154,11 +153,11 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
     print(f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> PMC)...")
     download_status = {}
     download_count = 0
-    
+
     for i, article in enumerate(articles):
         pmid_node = article.find(".//PMID")
-        pmid = pmid_node.text if pmid_node is not None else f"unknown_{i+1}"
-        print(f"\n[{i+1}/{total_articles}] Processing PMID: {pmid}")
+        pmid = pmid_node.text if pmid_node is not None else f"unknown_{i + 1}"
+        print(f"\n[{i + 1}/{total_articles}] Processing PMID: {pmid}")
 
         output_filename = os.path.join(output_dir, f"{pmid}.pdf")
         if os.path.exists(output_filename):
@@ -168,7 +167,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
             continue
 
         downloaded = False
-        
+
         # --- Strategy 1: Try Unpaywall ---
         doi_node = article.find(".//ArticleId[@IdType='doi']")
         doi = doi_node.text if doi_node is not None else None
@@ -181,7 +180,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
                     downloaded = True
                 else:
                     download_status[pmid] = "Download Failed (Unpaywall)"
-        
+
         # --- Strategy 2: Try PubMed Central (if Unpaywall failed) ---
         if not downloaded:
             pmc_node = article.find(".//ArticleId[@IdType='pmc']")
@@ -210,18 +209,19 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
         if downloaded:
             download_count += 1
 
-        time.sleep(1) # Be polite to APIs
+        time.sleep(1)  # Be polite to APIs
 
     print(f"\nPDF 다운로드 시도 완료: 총 {total_articles}개 중 {download_count}개 성공 또는 이미 존재.")
     return download_status
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # This allows the script to be run directly for testing purposes.
     current_dir = os.path.dirname(__file__)
-    project_root = os.path.abspath(os.path.join(current_dir, '..', '..'))
-    xml_file_path = os.path.join(project_root, 'data', 'raw', 'articles.xml')
-    pdf_output_dir = os.path.join(project_root, 'data', 'pdf')
-    
+    project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+    xml_file_path = os.path.join(project_root, "data", "raw", "articles.xml")
+    pdf_output_dir = os.path.join(project_root, "data", "pdf")
+
     if not os.path.exists(xml_file_path):
         print(f"Error: XML file not found at {xml_file_path}")
         print("Please run main.py first to generate the articles.xml file.")
