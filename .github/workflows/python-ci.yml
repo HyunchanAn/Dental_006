@@ -24,6 +24,7 @@ jobs:
       
     - name: Install Project Dependencies (with Dev and Test extras)
       run: |
+        uv venv
         uv pip install -e ".[dev,test]"
         
     - name: Run Ruff Linter (Style and Quality check)
