@@ -1,61 +1,61 @@
 [2025-10-13 14:00] 프로젝트 착수 및 기술 스택 기획
-1. 연구 질문(PICO) 기반의 Systematic Review 자동화 파이프라인 설계.
-2. 기술 스택 확정: Python, Ollama(Gemma 2), GROBID(Docker), Streamlit.
-3. 초기 프로젝트 구조(Scaffold) 및 디렉터리 구성 완료.
+1. 연구 질문(PICO) 기반의 Systematic Review 자동화 파이프라인을 구상하고 설계 단계를 시작했다.
+2. 기술 스택은 Python, Ollama(Gemma 2), GROBID(Docker), Streamlit으로 확정했다.
+3. 초기 프로젝트 골격(Scaffold)을 잡고 디렉터리 구조 구성을 완료했다.
 
 [2025-10-14 11:30] 데이터 수집 및 초기 파이프라인 구축
-1. PubMed API(E-utilities) 연동을 통한 문헌 수집 모듈 구현.
-2. Unpaywall API 기반 PDF 자동 다운로더(downloader.py) 개발.
-3. 데이터 정제 및 초기화 스크립트(clear_data.py) 추가.
+1. PubMed API(E-utilities)를 연동하여 문헌을 수집하는 모듈을 직접 구현했다.
+2. Unpaywall API를 활용해 PDF를 자동으로 다운로드하는 로직(downloader.py)을 개발했다.
+3. 로컬 데이터 정제 및 초기화를 간편하게 처리하기 위해 clear_data.py 스크립트를 추가했다.
 
 [2025-10-15 16:20] LLM 환경 최적화: .llamafile에서 Ollama로 전환
-1. Windows 보안 정책(App Control) 이슈로 인한 .llamafile 실행 불가 판명.
-2. Ollama 프레임워크 도입 및 gemma2:9b-instruct 모델로의 신속한 전환.
-3. src/llm/client.py 수정 및 로컬 LLM 서버 연결 안정화.
+1. Windows 보안 정책(App Control) 이슈 때문에 .llamafile이 실행되지 않는 문제를 확인했다.
+2. 문제를 우회하기 위해 Ollama 프레임워크를 도입하고 gemma2:9b-instruct 모델로 신속하게 전환을 단행했다.
+3. src/llm/client.py를 수정하여 로컬 LLM 서버와의 연결을 안정화시켰다.
 
 [2025-10-22 18:45] PDF 파싱 및 LLM 기반 정보 추출 연동
-1. GROBID Docker 서비스를 통한 PDF to TEI-XML 변환 파이프라인 구축.
-2. TEI-XML에서 섹션별 본문 텍스트 추출 로직 구현.
-3. LLM을 활용한 PICO 및 주요 결과(Key Findings) 자동 추출 모듈 통합.
+1. GROBID Docker 서비스를 띄우고 PDF를 구조화된 TEI-XML로 변환하는 파이프라인을 구축했다.
+2. 변환된 TEI-XML 파일에서 섹션별 본문 텍스트를 파싱하는 추출 로직을 설계하고 구현했다.
+3. LLM을 활용해 본문에서 PICO 요소와 핵심 결과(Key Findings)를 자동으로 뽑아내는 모듈을 파이프라인에 통합했다.
 
 [2026-01-25 15:10] 자동 스크리닝 및 RoB 평가 모듈 구현
-1. LLM 기반의 제목/초록 자동 스크리닝(screener.py) 개발.
-2. Cochrane RoB 2 도구 기반 5대 영역 비뚤림 위험 평가(assessor.py) 구현.
-3. Mermaid.js를 활용한 PRISMA Flow Diagram 자동 생성 로직 추가.
+1. LLM의 추론 성능을 활용하여 논문 제목과 초록을 기준으로 자동 스크리닝을 수행하는 모듈(screener.py)을 개발했다.
+2. Cochrane RoB 2.0 평가 기준에 맞춰 5가지 도메인의 비뚤림 위험을 평가하는 모듈(assessor.py)을 구현했다.
+3. 문헌 스크리닝 여정을 한눈에 보여주기 위해 Mermaid.js를 연동한 PRISMA Flow Diagram 자동 생성 로직을 추가했다.
 
 [2026-02-08 20:30] Streamlit 기반 웹 UI 고도화 및 분석 합성 기능
-1. 4단계(Search, Screening, Pipeline, Report) 탭 구조의 대화형 UI(app.py) 구축.
-2. AI 종합 결론(Synthesis) 생성 모듈(synthesizer.py) 추가.
-3. PDF 수동 다운로드 도우미(Manual Download Helper)를 통한 파이프라인 유연성 확보.
+1. Streamlit을 사용하여 Search, Screening, Pipeline, Report 4가지 탭으로 구성된 직관적이고 대화형인 웹 대시보드(app.py)를 구축했다.
+2. 여러 문헌의 분석 결과를 하나로 통합하고 요약해 주는 AI 종합 결론 생성 모듈(synthesizer.py)을 추가했다.
+3. 자동 다운로드 실패 건에 대응하기 위해 PDF 수동 다운로드 도우미를 UI에 마련하여 파이프라인의 실용성을 높였다.
 
 [2026-02-15 22:15] 파이프라인 견고성 강화 및 사용자 경험(UX) 혁신
-1. Semantic Scholar API 연동으로 PDF 확보율 향상.
-2. 데이터 버전 관리(Versioning) 및 실시간 파일 감지 엔진 도입.
-3. 대량 PDF 일괄 업로드 및 PMID 자동 매칭 엔진 구현 완료.
-4. 다국어(KO/EN) 보고서 생성 기능 및 UI 현지화 적용.
+1. Unpaywall 외에 Semantic Scholar API를 추가로 연동하여 PDF 원문 확보율을 대폭 향상시켰다.
+2. 파이프라인 내 데이터의 일관성을 유지하기 위해 버전 관리(Versioning) 메커니즘과 실시간 로컬 파일 변경 감지 엔진을 도입했다.
+3. 다량의 PDF 원문을 한 번에 업로드할 때 파일명이나 메타데이터에서 PMID를 자동으로 매칭하는 엔진을 구현했다.
+4. 한국어 및 영어 보고서를 모두 생성할 수 있도록 지원하고 UI 전반에 다국어 처리를 적용했다.
 
 [2026-05-17 00:50] 프로젝트 문서화 및 평가 환경 정비 (Resumption)
-1. README.md 상단 기술 배지(Status, Python, LLM 등) 추가.
-2. 테스트 환경 및 평가 항목/결과 섹션 업데이트.
-3. 프로젝트 루트에 공식 개발 로그(development_log.txt) 생성 및 히스토리 정리.
-4. tests/verify_pipeline.py를 통한 실행 환경 검증 도구 마련.
+1. 프로젝트 현황을 일목요연하게 전달하기 위해 README.md 상단에 주요 기술 스택과 연동 상태를 보여주는 배지들을 추가했다.
+2. 개발 정지 기간 동안 변경된 사항을 반영하여 로컬 테스트 환경을 정비하고 평가 결과 섹션을 업데이트했다.
+3. 프로젝트 루트에 개발 로그(development_log.txt)를 새로 만들어 그동안의 마일스톤과 변경 역사를 꼼꼼하게 정리해 두었다.
+4. 복귀 후 실행 환경이 깨지지 않았는지 신속하게 진단할 수 있도록 tests/verify_pipeline.py 검증 스크립트를 작성했다.
 
 [2026-05-18 03:50] 리드미 배지 개편 및 GitHub CI 워크플로우 구축
-1. README.md 상단 기술 배지 영역을 플랫 스퀘어(flat-square) 스타일로 전면 개편.
-2. 각 배지에 프로젝트 관련 최신 기술 스펙(Status, Python, Ollama & GROBID, RTX 5080, Streamlit, Python CI) 적용.
-3. 신규 GitHub Actions CI 워크플로우(.github/workflows/python-ci.yml)를 구축하여 소스 코드 자동 구문 및 오류 검증 자동화.
-4. Python CI 배지를 dynamic status badge 형식으로 구성하여 실제 CI 빌드 상태와 동적 연동 구현.
+1. README.md 상단 기술 배지 영역의 스타일을 훨씬 깔끔하고 통일감 있는 플랫 스퀘어(flat-square) 형태로 전면 개편했다.
+2. Status, Python 버전, Ollama & GROBID 탑재 정보, RTX 5080 구동 사양, Streamlit 등 최신 기술 스펙을 각 배지에 정확히 매핑했다.
+3. 코드 품질의 상시 검증을 위해 GitHub Actions CI 워크플로우(.github/workflows/python-ci.yml)를 새로 구축하고 Linter와 Formatter 검증을 자동화했다.
+4. GitHub Actions의 실제 빌드 성공 여부가 실시간으로 리드미에 표시되도록 동적 CI 배지 연동을 완료했다.
 
 [2026-05-18 04:00] 프로젝트 기본기 강화 로드맵 수립 및 착수
-1. 프로젝트의 견고성(Robustness) 및 서비스 재현성 향상을 위한 프로덕션 수준의 기술 부채 진단.
-2. 패키지 관리의 표준화(pyproject.toml + uv 도입) 및 핵심 테스트 환경(pytest) 구축 기획.
-3. pydantic-settings 및 .env 기반 환경 변수/비밀 정보 격리 방안 기획.
-4. Docker Compose를 활용한 Ollama, GROBID, Streamlit의 통합 다중 컨테이너 환경 기획.
-5. 회복 탄력성(tenacity 재시도 메커니즘) 및 구조화된 로깅(loguru) 도입 기획.
-6. 공식 구현 계획서(implementation_plan.md)를 작성하여 설계 검토 단계 진입.
+1. 파이프라인의 견고성(Robustness)과 결과 재현성 향상을 목적으로 전반적인 기술 부채를 면밀히 진단했다.
+2. 가볍고 빠른 의존성 관리를 위해 pyproject.toml 통합 및 uv 패키지 매니저 도입을 기획하고, pytest 기반 테스트 인프라 구축을 설정했다.
+3. API 키 등 민감 정보와 환경 변수를 통합 관리하기 위해 pydantic-settings 및 .env 기반의 정보 격리 설계를 진행했다.
+4. Ollama, GROBID, 웹 앱(Streamlit)을 원클릭으로 쉽게 배포하고 연동할 수 있도록 Docker Compose 멀티 컨테이너 아키텍처를 기획했다.
+5. LLM API 오류나 네트워크 지연 시의 회복 탄력성을 위한 tenacity 재시도 메커니즘과 체계적 예외 추적을 위한 loguru 구조화 로깅 도입을 검토했다.
+6. 위 품질 고도화 방안들을 집약한 상세 구현 계획서(implementation_plan.md) 작성을 완료하고 세부 설계를 마쳤다.
 
-[Senior-level Checklist (상급 개발자 업그레이드 체크리스트)]
-1. 문서화 체계화 (Senior Documentation)
+[코드 품질 및 안정성 강화 체크리스트]
+1. 문서화 및 설계 정비
    - [ ] README.md 업그레이드 (Installation, Quick Start, Usage, Mermaid 구조 다이어그램, 한계점 명시)
    - [/] docs/ 디렉토리 신설 및 ARCHITECTURE.md, PROJECT_PLAN.md, DECISIONS.md (ADR) 작성
    - [ ] 주요 모듈 내 Google/NumPy 스타일 docstring 작성 및 Type Hints 90% 이상 전면 적용
