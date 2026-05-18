@@ -29,7 +29,7 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
     if rob_csv_path and pd.io.common.file_exists(rob_csv_path):
         try:
             df = pd.read_csv(rob_csv_path)
-            for index, row in df.iterrows():
+            for _index, row in df.iterrows():
                 rob_data += f"\n[Study PMID: {row.get('pmid', 'N/A')}]\n"
                 # Simplify RoB presentation
                 rob_data += f" - Randomization: {row.get('Randomization_Level', 'N/A')}\n"
@@ -46,7 +46,7 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
     # 2. Construct Prompt
     llm = llm_client.LLMClient()
 
-    system_prompt = """You are an expert Systematic Reviewer. 
+    system_prompt = """You are an expert Systematic Reviewer.
 Your task is to synthesize the provided evidence (Extracted Data and Risk of Bias assessment) to answer the user's research question (PICO).
 Write a comprehensive conclusion in KOREAN.
 

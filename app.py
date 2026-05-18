@@ -124,7 +124,6 @@ TRANSLATIONS = {
         "intervention": "Intervention",
         "comparison": "Comparison",
         "outcome": "Outcome",
-        "outcome": "Outcome",
         "study_design": "Study Design",
         "manual_helper_title": "👇 Manual Download Helper (Batch of 5)",
         "download_failed_warning": "⚠️ {count} PDF(s) failed to download. Please download manually.",
@@ -194,7 +193,6 @@ TRANSLATIONS = {
         "population": "연구 대상(Population)",
         "intervention": "중재(Intervention)",
         "comparison": "비교(Comparison)",
-        "outcome": "결과(Outcome)",
         "outcome": "결과(Outcome)",
         "study_design": "연구 설계(Study Design)",
         "manual_helper_title": "👇 수동 다운로드 도우미 (5개씩 보기)",
@@ -853,7 +851,7 @@ def main():
                                                 data = json.loads(match.group(1))
                                                 data["pmid"] = pmid
                                                 extracted_data.append(data)
-                                        except:
+                                        except Exception:
                                             pass
 
                                 if extracted_data:

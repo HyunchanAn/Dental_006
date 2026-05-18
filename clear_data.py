@@ -6,7 +6,7 @@ import sys
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
-from src.utils import data_manager
+from src.utils import data_manager  # noqa: E402
 
 if __name__ == "__main__":
     print("--- 모든 생성된 데이터를 초기화합니다 ---")

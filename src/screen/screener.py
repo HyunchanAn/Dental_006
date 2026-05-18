@@ -30,7 +30,7 @@ def screen_abstracts(articles_df, picos_data):
         articles_df["screening_reason"] = "LLM Unavailable"
         return articles_df
 
-    system_prompt = """You are an expert systematic reviewer. 
+    system_prompt = """You are an expert systematic reviewer.
 Your task is to screen research papers based on their Title and Abstract to decide if they should be included in a systematic review.
 You will be provided with the PICO criteria (Population, Intervention, Comparison, Outcome) and Study Design.
 Compare the paper's content with these criteria.
@@ -57,7 +57,7 @@ Criteria for Inclusion:
 
     results = []
 
-    for index, row in articles_df.iterrows():
+    for _index, row in articles_df.iterrows():
         pmid = row.get("pmid", "Unknown")
         title = row.get("title", "No Title")
         abstract = row.get("abstract", "No Abstract")
