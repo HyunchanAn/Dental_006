@@ -279,7 +279,7 @@ def init_session_state():
         st.session_state["file_cache"] = {}
 
 
-def handle_bulk_upload(uploaded_files, df, csv_path):
+def handle_bulk_upload(uploaded_files, df):
     import re
 
     from pypdf import PdfReader
@@ -307,6 +307,8 @@ def handle_bulk_upload(uploaded_files, df, csv_path):
                         with open(target_path, "wb") as f:
                             f.write(uploaded_file.getbuffer())
 
+                        from src.utils import db_manager
+                        db_manager.update_article(pmid, pdf_download_status="Downloaded (Bulk Match)")
                         df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = "Downloaded (Bulk Match)"
                         success_count += 1
                         results.append(t("match_success", filename=filename, pmid=pmid))
@@ -320,9 +322,6 @@ def handle_bulk_upload(uploaded_files, df, csv_path):
                 results.append(f"⚠️ {filename}: PMID {pmid} not found in project.")
         else:
             results.append(t("match_failed", filename=filename))
-
-    if success_count > 0:
-        df.to_csv(csv_path, index=False, encoding="utf-8-sig")
 
     return results, success_count
 
@@ -857,7 +856,7 @@ def main():
                                             key="bulk_pdf_uploader",
                                         )
                                         if bulk_files:
-                                            results, count = handle_bulk_upload(bulk_files, df, csv_path)
+                                            results, count = handle_bulk_upload(bulk_files, df)
                                             for res in results:
                                                 if "✅" in res:
                                                     st.success(res)
