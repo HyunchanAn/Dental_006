@@ -723,7 +723,7 @@ def main():
                                                         if doi_link:
                                                             st.link_button(t("search_doi"), doi_link, use_container_width=True)
                                                         else:
-                                                            st.button("No DOI", disabled=True, use_container_width=True)
+                                                            st.button("No DOI", disabled=True, use_container_width=True, key=f"nodoi_{pmid}")
 
                                                     # Row 2: Sci-Hub (Alternative)
                                                     st.link_button(t("search_scihub"), sci_hub_link, use_container_width=True)
