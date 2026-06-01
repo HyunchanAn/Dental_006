@@ -16,9 +16,7 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
             df = pd.read_csv(extracted_csv_path)
             # Convert to a readable string format
             for index, row in df.iterrows():
-                extracted_data += (
-                    f"\n[Study {index + 1}] PMID: {row.get('pmid', 'N/A')}\n"
-                )
+                extracted_data += f"\n[Study {index + 1}] PMID: {row.get('pmid', 'N/A')}\n"
                 extracted_data += f" - Population: {row.get('population', 'N/A')}\n"
                 extracted_data += f" - Intervention: {row.get('intervention', 'N/A')}\n"
                 extracted_data += f" - Comparison: {row.get('comparison', 'N/A')}\n"
@@ -34,9 +32,7 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
             for _index, row in df.iterrows():
                 rob_data += f"\n[Study PMID: {row.get('pmid', 'N/A')}]\n"
                 # Simplify RoB presentation
-                rob_data += (
-                    f" - Randomization: {row.get('Randomization_Level', 'N/A')}\n"
-                )
+                rob_data += f" - Randomization: {row.get('Randomization_Level', 'N/A')}\n"
                 rob_data += f" - Deviations: {row.get('Deviations_Level', 'N/A')}\n"
                 rob_data += f" - Missing Data: {row.get('MissingData_Level', 'N/A')}\n"
                 rob_data += f" - Measurement: {row.get('Measurement_Level', 'N/A')}\n"

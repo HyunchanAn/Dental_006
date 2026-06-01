@@ -28,7 +28,17 @@ def extract_text_from_tei(xml_path, optimize_context=True):
             return ""
 
         if optimize_context:
-            target_keywords = ["method", "result", "analysis", "statistic", "measure", "outcome", "intervention", "design", "participant"]
+            target_keywords = [
+                "method",
+                "result",
+                "analysis",
+                "statistic",
+                "measure",
+                "outcome",
+                "intervention",
+                "design",
+                "participant",
+            ]
             extracted_texts = []
 
             for div in body.findall(".//tei:div", ns):

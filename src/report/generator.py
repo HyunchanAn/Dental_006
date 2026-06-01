@@ -74,7 +74,7 @@ def generate_prisma_mermaid(stats, lang="EN"):
     </div>
     <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
       <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
-        <b>{t['prisma_id']}</b><br/>(n = {s.get('total_found', 0)})
+        <b>{t["prisma_id"]}</b><br/>(n = {s.get("total_found", 0)})
       </div>
     </div>
   </div>
@@ -95,13 +95,13 @@ def generate_prisma_mermaid(stats, lang="EN"):
     </div>
     <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; position: relative; min-height: 80px;">
       <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
-        <b>{t['prisma_screened']}</b><br/>(n = {s.get('screened', 0)})
+        <b>{t["prisma_screened"]}</b><br/>(n = {s.get("screened", 0)})
       </div>
       <div style="width: 50px; height: 2px; background-color: #64748b; position: relative;">
         <div style="position: absolute; right: -2px; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #64748b;"></div>
       </div>
       <div style="border: 1px solid #64748b; padding: 15px; background: #f1f5f9; width: 250px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
-        <b>{t['prisma_excluded']}</b><br/>(n = {s.get('excluded', 0)})
+        <b>{t["prisma_excluded"]}</b><br/>(n = {s.get("excluded", 0)})
       </div>
     </div>
   </div>
@@ -122,13 +122,13 @@ def generate_prisma_mermaid(stats, lang="EN"):
     </div>
     <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; position: relative; min-height: 80px;">
       <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
-        <b>{t['prisma_sought']}</b><br/>(n = {s.get('included', 0)})
+        <b>{t["prisma_sought"]}</b><br/>(n = {s.get("included", 0)})
       </div>
       <div style="width: 50px; height: 2px; background-color: #64748b; position: relative;">
         <div style="position: absolute; right: -2px; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #64748b;"></div>
       </div>
       <div style="border: 1px solid #64748b; padding: 15px; background: #f1f5f9; width: 250px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
-        <b>원문 미확보(Not retrieved)</b><br/>(n = {s.get('included', 0) - s.get('retrieved', 0)})
+        <b>원문 미확보(Not retrieved)</b><br/>(n = {s.get("included", 0) - s.get("retrieved", 0)})
       </div>
     </div>
   </div>
@@ -149,16 +149,14 @@ def generate_prisma_mermaid(stats, lang="EN"):
     </div>
     <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
       <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
-        <b>{t['prisma_retrieved']}</b><br/>(n = {s.get('retrieved', 0)})<br/><br/>
-        <b>{t['prisma_included']}</b><br/>(n = {s.get('retrieved', 0)})
+        <b>{t["prisma_retrieved"]}</b><br/>(n = {s.get("retrieved", 0)})<br/><br/>
+        <b>{t["prisma_included"]}</b><br/>(n = {s.get("retrieved", 0)})
       </div>
     </div>
   </div>
 </div>
 """
     return mermaid_code
-
-
 
 
 def _get_analyzed_pmids(articles_csv_path):
@@ -173,11 +171,7 @@ def _get_analyzed_pmids(articles_csv_path):
     if "pdf_download_status" not in articles_df.columns:
         return set(articles_df["pmid"].astype(str).tolist())
 
-    retrieved_mask = (
-        articles_df["pdf_download_status"]
-        .astype(str)
-        .str.contains(r"Downloaded|Exists", case=False, na=False)
-    )
+    retrieved_mask = articles_df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
     return set(articles_df[retrieved_mask]["pmid"].astype(str).tolist())
 
 
@@ -199,7 +193,9 @@ def translate_dataframe(df, target_lang="KO"):
     translated_rows = []
     for _, row in df.iterrows():
         new_row = dict(row)
-        texts_to_translate = {col: str(row[col]) for col in text_cols if pd.notna(row[col]) and str(row[col]).strip() and str(row[col]) != "nan"}
+        texts_to_translate = {
+            col: str(row[col]) for col in text_cols if pd.notna(row[col]) and str(row[col]).strip() and str(row[col]) != "nan"
+        }
 
         if not texts_to_translate:
             translated_rows.append(new_row)
@@ -221,8 +217,11 @@ Input:
 {json.dumps(texts_to_translate, ensure_ascii=False, indent=2)}"""
 
         messages = [
-            {"role": "system", "content": f"You are a professional medical translator specializing in dentistry and systematic reviews. You MUST translate every single value fully into {lang_name}. Leaving any English text untranslated is unacceptable."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": f"You are a professional medical translator specializing in dentistry and systematic reviews. You MUST translate every single value fully into {lang_name}. Leaving any English text untranslated is unacceptable.",
+            },
+            {"role": "user", "content": prompt},
         ]
 
         try:
@@ -271,12 +270,8 @@ def generate_report(
         if "screening_decision" in articles_df.columns:
             screened_mask = articles_df["screening_decision"].notna()
             recalculated_stats["screened"] = int(screened_mask.sum())
-            recalculated_stats["included"] = int(
-                (articles_df["screening_decision"] == "Included").sum()
-            )
-            recalculated_stats["excluded"] = (
-                recalculated_stats["screened"] - recalculated_stats["included"]
-            )
+            recalculated_stats["included"] = int((articles_df["screening_decision"] == "Included").sum())
+            recalculated_stats["excluded"] = recalculated_stats["screened"] - recalculated_stats["included"]
         else:
             recalculated_stats["screened"] = len(articles_df)
             recalculated_stats["included"] = len(articles_df)
@@ -284,9 +279,7 @@ def generate_report(
 
         if "pdf_download_status" in articles_df.columns:
             retrieved_mask = (
-                articles_df["pdf_download_status"]
-                .astype(str)
-                .str.contains(r"Downloaded|Exists", case=False, na=False)
+                articles_df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
             )
             recalculated_stats["retrieved"] = int(retrieved_mask.sum())
         else:
@@ -366,4 +359,3 @@ def generate_report(
         f.write("\n")
 
     print(f"Report saved to {output_path}")
-

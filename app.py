@@ -289,9 +289,7 @@ def handle_bulk_upload(uploaded_files, df, csv_path):
                         with open(target_path, "wb") as f:
                             f.write(uploaded_file.getbuffer())
 
-                        df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = (
-                            "Downloaded (Bulk Match)"
-                        )
+                        df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = "Downloaded (Bulk Match)"
                         success_count += 1
                         results.append(t("match_success", filename=filename, pmid=pmid))
                         # Update session state cache immediately
@@ -343,9 +341,9 @@ def main():
             type="password",
         )
 
-        if email_input != st.session_state["picos"].get(
-            "email", ""
-        ) or api_key_input != st.session_state["picos"].get("api_key", ""):
+        if email_input != st.session_state["picos"].get("email", "") or api_key_input != st.session_state["picos"].get(
+            "api_key", ""
+        ):
             st.session_state["picos"]["email"] = email_input
             st.session_state["picos"]["api_key"] = api_key_input
             save_config(st.session_state["picos"])
@@ -391,9 +389,7 @@ def main():
 
     # Ensure radio state matches current_tab_index (if button changed it)
     if st.session_state["current_tab_index"] < len(tabs_labels):
-        st.session_state["nav_radio"] = tabs_labels[
-            st.session_state["current_tab_index"]
-        ]
+        st.session_state["nav_radio"] = tabs_labels[st.session_state["current_tab_index"]]
 
     st.radio(
         "",
@@ -424,9 +420,7 @@ def main():
                 from src.llm import pico_extractor
 
                 with st.spinner("AI가 PICO를 분석 중입니다..."):
-                    extracted = pico_extractor.extract_pico_from_description(
-                        topic_description
-                    )
+                    extracted = pico_extractor.extract_pico_from_description(topic_description)
                     if extracted:
                         st.session_state["picos"].update(extracted)
                         # Sync individual fields to session state to update UI immediately
@@ -443,20 +437,14 @@ def main():
 
         col1, col2 = st.columns(2)
         with col1:
-            population = st.text_input(
-                t("population"), value=st.session_state["picos"].get("population", "")
-            )
+            population = st.text_input(t("population"), value=st.session_state["picos"].get("population", ""))
             intervention = st.text_input(
                 t("intervention"),
                 value=st.session_state["picos"].get("intervention", ""),
             )
-            comparison = st.text_input(
-                t("comparison"), value=st.session_state["picos"].get("comparison", "")
-            )
+            comparison = st.text_input(t("comparison"), value=st.session_state["picos"].get("comparison", ""))
         with col2:
-            outcome = st.text_input(
-                t("outcome"), value=st.session_state["picos"].get("outcome", "")
-            )
+            outcome = st.text_input(t("outcome"), value=st.session_state["picos"].get("outcome", ""))
             study_design = st.text_input(
                 t("study_design"),
                 value=st.session_state["picos"].get("study_design", ""),
@@ -480,9 +468,7 @@ def main():
         st.divider()
         col_s1, col_s2 = st.columns([1, 2])
         with col_s1:
-            max_ret = st.number_input(
-                t("max_articles"), min_value=1, max_value=1000, value=20
-            )
+            max_ret = st.number_input(t("max_articles"), min_value=1, max_value=1000, value=20)
         with col_s2:
             st.markdown("<br>", unsafe_allow_html=True)  # Spacer
             if st.button(t("search_button")):
@@ -536,8 +522,7 @@ def main():
                             pub_year_node = article.find(".//PubDate/Year")
                             pub_year = (
                                 int(pub_year_node.text)
-                                if pub_year_node is not None
-                                and pub_year_node.text.isdigit()
+                                if pub_year_node is not None and pub_year_node.text.isdigit()
                                 else current_year + 1
                             )
                             if pub_year <= current_year:
@@ -547,9 +532,7 @@ def main():
                         filtered_root = ET.Element("PubmedArticleSet")
                         for article_elem in filtered_articles_elements:
                             filtered_root.append(article_elem)
-                        filtered_articles_xml = ET.tostring(
-                            filtered_root, encoding="unicode"
-                        )
+                        filtered_articles_xml = ET.tostring(filtered_root, encoding="unicode")
 
                         # Save XML
                         with open(
@@ -582,9 +565,7 @@ def main():
             st.divider()
             col_next, _ = st.columns([1, 4])
             with col_next:
-                if st.button(
-                    f"{t('tabs')[1]} >", type="primary", use_container_width=True
-                ):
+                if st.button(f"{t('tabs')[1]} >", type="primary", use_container_width=True):
                     next_step()
 
     # --- Tab 2: Screening ---
@@ -594,10 +575,7 @@ def main():
         df = db_manager.get_articles_df()
 
         if not df.empty:
-
-            st.dataframe(
-                df[["pmid", "title", "journal", "pub_year"]], use_container_width=True
-            )
+            st.dataframe(df[["pmid", "title", "journal", "pub_year"]], use_container_width=True)
 
             if st.button(t("start_screening")):
                 st.write("스크리닝을 시작합니다. 중단되어도 다시 시작하면 이어서 진행됩니다 (Resume).")
@@ -610,13 +588,15 @@ def main():
                 for current_idx, total_count, pmid, result in screen_gen:
                     progress_bar.progress(current_idx / total_count)
                     if result:
-                        status_text.text(f"[{current_idx}/{total_count}] Screening PMID {pmid}... Decision: {result['screening_decision']}")
+                        status_text.text(
+                            f"[{current_idx}/{total_count}] Screening PMID {pmid}... Decision: {result['screening_decision']}"
+                        )
                         # Write to DB immediately
                         db_manager.update_article(
                             pmid,
                             screening_decision=result["screening_decision"],
                             screening_reason=result["screening_reason"],
-                            pipeline_status=1
+                            pipeline_status=1,
                         )
                     else:
                         status_text.text(f"[{current_idx}/{total_count}] Skipping PMID {pmid} (Already screened)")
@@ -628,12 +608,9 @@ def main():
 
                 # Update stats
                 st.session_state["stats"]["screened"] = len(df[df["screening_decision"].notna()])
-                st.session_state["stats"]["included"] = len(
-                    df[df["screening_decision"] == "Included"]
-                )
+                st.session_state["stats"]["included"] = len(df[df["screening_decision"] == "Included"])
                 st.session_state["stats"]["excluded"] = (
-                    st.session_state["stats"]["screened"]
-                    - st.session_state["stats"]["included"]
+                    st.session_state["stats"]["screened"] - st.session_state["stats"]["included"]
                 )
                 time.sleep(1)
                 st.rerun()
@@ -650,11 +627,13 @@ def main():
                 # PRISMA Flow Diagram rendering
                 st.subheader("PRISMA Flow Diagram")
                 total_found = len(df)
-                total_screened = st.session_state['stats']['screened']
-                total_included = st.session_state['stats']['included']
+                total_screened = st.session_state["stats"]["screened"]
+                total_included = st.session_state["stats"]["included"]
 
                 if "exclusion_category" in df.columns:
-                    exclusion_counts = df[df["screening_decision"] == "Excluded"]["exclusion_category"].value_counts().to_dict()
+                    exclusion_counts = (
+                        df[df["screening_decision"] == "Excluded"]["exclusion_category"].value_counts().to_dict()
+                    )
                     exclusion_html = "".join([f"<li>{k}: {v}</li>" for k, v in exclusion_counts.items() if str(k).strip()])
                 else:
                     exclusion_html = "<li>No category recorded</li>"
@@ -705,16 +684,11 @@ def main():
         # Navigation Button (Step 2 -> Step 3)
         # Show only if screening has been performed
         screening_csv_path = os.path.join(TABLES_DIR, "screening_results.csv")
-        if (
-            os.path.exists(screening_csv_path)
-            or st.session_state["stats"]["screened"] > 0
-        ):
+        if os.path.exists(screening_csv_path) or st.session_state["stats"]["screened"] > 0:
             st.divider()
             col_next, _ = st.columns([1, 4])
             with col_next:
-                if st.button(
-                    f"{t('tabs')[2]} >", type="primary", use_container_width=True
-                ):
+                if st.button(f"{t('tabs')[2]} >", type="primary", use_container_width=True):
                     next_step()
 
     # --- Tab 3: Analysis Pipeline ---
@@ -758,13 +732,9 @@ def main():
                             df = db_manager.get_articles_df()
 
                             downloaded_pdfs = [
-                                k
-                                for k, v in pdf_download_status.items()
-                                if "Downloaded" in v or "Already" in v
+                                k for k, v in pdf_download_status.items() if "Downloaded" in v or "Already" in v
                             ]
-                            st.session_state["stats"]["retrieved"] = len(
-                                downloaded_pdfs
-                            )
+                            st.session_state["stats"]["retrieved"] = len(downloaded_pdfs)
                             progress_bar.progress(100)
                             st.success(t("download_complete"))
                             time.sleep(1)
@@ -775,14 +745,10 @@ def main():
                             try:
                                 df = pd.read_csv(csv_path)
                                 if "pdf_download_status" in df.columns:
-                                    failed_mask = (
-                                        ~df["pdf_download_status"]
-                                        .astype(str)
-                                        .str.contains(
-                                            r"Downloaded|Exists|Skipped",
-                                            case=False,
-                                            na=False,
-                                        )
+                                    failed_mask = ~df["pdf_download_status"].astype(str).str.contains(
+                                        r"Downloaded|Exists|Skipped",
+                                        case=False,
+                                        na=False,
                                     )
                                     failed_df = df[failed_mask]
 
@@ -798,9 +764,7 @@ def main():
                                         st.info(t("manual_helper_title"))
 
                                         # Bulk Uploader Section
-                                        with st.expander(
-                                            t("bulk_upload_title"), expanded=False
-                                        ):
+                                        with st.expander(t("bulk_upload_title"), expanded=False):
                                             st.write(t("bulk_upload_desc"))
                                             bulk_files = st.file_uploader(
                                                 t("bulk_upload_title"),
@@ -809,9 +773,7 @@ def main():
                                                 key="bulk_pdf_uploader",
                                             )
                                             if bulk_files:
-                                                results, count = handle_bulk_upload(
-                                                    bulk_files, df, csv_path
-                                                )
+                                                results, count = handle_bulk_upload(bulk_files, df, csv_path)
                                                 for res in results:
                                                     if "✅" in res:
                                                         st.success(res)
@@ -830,20 +792,14 @@ def main():
                                         # Pagination
                                         batch_size = 5
                                         total_failed = len(failed_df)
-                                        total_pages = (
-                                            total_failed - 1
-                                        ) // batch_size + 1
-                                        current_page = st.session_state.get(
-                                            "failed_pdfs_page", 0
-                                        )
+                                        total_pages = (total_failed - 1) // batch_size + 1
+                                        current_page = st.session_state.get("failed_pdfs_page", 0)
 
                                         if current_page >= total_pages:
                                             current_page = total_pages - 1
                                         if current_page < 0:
                                             current_page = 0
-                                        st.session_state["failed_pdfs_page"] = (
-                                            current_page
-                                        )
+                                        st.session_state["failed_pdfs_page"] = current_page
 
                                         start_idx = current_page * batch_size
                                         end_idx = start_idx + batch_size
@@ -855,24 +811,16 @@ def main():
                                                 t("prev_page"),
                                                 disabled=(current_page == 0),
                                             ):
-                                                st.session_state[
-                                                    "failed_pdfs_page"
-                                                ] -= 1
+                                                st.session_state["failed_pdfs_page"] -= 1
                                                 st.rerun()
                                         with col_p2:
-                                            st.markdown(
-                                                f"**Page {current_page + 1} / {total_pages}**"
-                                            )
+                                            st.markdown(f"**Page {current_page + 1} / {total_pages}**")
                                         with col_p3:
                                             if st.button(
                                                 t("next_page"),
-                                                disabled=(
-                                                    current_page == total_pages - 1
-                                                ),
+                                                disabled=(current_page == total_pages - 1),
                                             ):
-                                                st.session_state[
-                                                    "failed_pdfs_page"
-                                                ] += 1
+                                                st.session_state["failed_pdfs_page"] += 1
                                                 st.rerun()
 
                                         for _, row in batch_df.iterrows():
@@ -880,49 +828,28 @@ def main():
                                                 pmid = str(row["pmid"])
                                                 title = row.get("title", "No Title")
                                                 doi = row.get("doi")
-                                                target_path = os.path.join(
-                                                    PDF_DIR, f"{pmid}.pdf"
-                                                )
-                                                file_exists = os.path.exists(
-                                                    target_path
-                                                )
+                                                target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+                                                file_exists = os.path.exists(target_path)
 
                                                 pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
                                                 scholar_link = f"https://scholar.google.com/scholar?q={pmid}"
                                                 if isinstance(doi, str) and doi.strip():
                                                     doi_link = f"https://doi.org/{doi}"
-                                                    sci_hub_link = (
-                                                        f"https://sci-hub.st/{doi}"
-                                                    )
+                                                    sci_hub_link = f"https://sci-hub.st/{doi}"
                                                 else:
                                                     doi_link = None
-                                                    sci_hub_link = (
-                                                        f"https://sci-hub.st/{pmid}"
-                                                    )
+                                                    sci_hub_link = f"https://sci-hub.st/{pmid}"
 
                                                 st.markdown(f"**{title}**")
 
                                                 # Status Badge & File Detection
-                                                status = str(
-                                                    row.get(
-                                                        "pdf_download_status", "Failed"
-                                                    )
-                                                )
+                                                status = str(row.get("pdf_download_status", "Failed"))
 
                                                 # Use session state cache for file existence to speed up UI
                                                 cache_key = f"exists_{pmid}"
-                                                if (
-                                                    cache_key
-                                                    not in st.session_state[
-                                                        "file_cache"
-                                                    ]
-                                                ):
-                                                    st.session_state["file_cache"][
-                                                        cache_key
-                                                    ] = os.path.exists(target_path)
-                                                file_exists = st.session_state[
-                                                    "file_cache"
-                                                ][cache_key]
+                                                if cache_key not in st.session_state["file_cache"]:
+                                                    st.session_state["file_cache"][cache_key] = os.path.exists(target_path)
+                                                file_exists = st.session_state["file_cache"][cache_key]
 
                                                 if file_exists:
                                                     if (
@@ -930,29 +857,23 @@ def main():
                                                         and "Downloaded" not in status
                                                         and "Exists" not in status
                                                     ):
-                                                        st.info(
-                                                            f"{t('status_manual')} (Auto-detected)"
-                                                        )
+                                                        st.info(f"{t('status_manual')} (Auto-detected)")
                                                         # Auto-update status in DB if detected
-                                                        db_manager.update_article(pmid, pdf_download_status="Downloaded (Detected)")
+                                                        db_manager.update_article(
+                                                            pmid, pdf_download_status="Downloaded (Detected)"
+                                                        )
                                                         # Update cache and stats potentially
-                                                        st.session_state["file_cache"][
-                                                            cache_key
-                                                        ] = True
+                                                        st.session_state["file_cache"][cache_key] = True
                                                     else:
                                                         st.success(t("status_verified"))
                                                 else:
                                                     st.error(t("status_failed"))
 
                                                 # Action Buttons
-                                                c_info, c_search = st.columns(
-                                                    [1.5, 1.5]
-                                                )
+                                                c_info, c_search = st.columns([1.5, 1.5])
                                                 with c_info:
                                                     st.markdown(f"PMID: `{pmid}`")
-                                                    st.code(
-                                                        f"{pmid}.pdf", language="text"
-                                                    )
+                                                    st.code(f"{pmid}.pdf", language="text")
                                                     st.link_button(
                                                         t("view_pubmed"),
                                                         pubmed_link,
@@ -998,13 +919,11 @@ def main():
                                                 )
                                                 if uploaded_file:
                                                     with open(target_path, "wb") as f:
-                                                        f.write(
-                                                            uploaded_file.getbuffer()
-                                                        )
-                                                    db_manager.update_article(pmid, pdf_download_status="Downloaded (Manual Upload)")
-                                                    st.session_state["file_cache"][
-                                                        cache_key
-                                                    ] = True
+                                                        f.write(uploaded_file.getbuffer())
+                                                    db_manager.update_article(
+                                                        pmid, pdf_download_status="Downloaded (Manual Upload)"
+                                                    )
+                                                    st.session_state["file_cache"][cache_key] = True
                                                     st.success(f"{pmid}.pdf saved!")
                                                     time.sleep(0.5)
                                                     st.rerun()
@@ -1016,14 +935,12 @@ def main():
                                                         key=f"check_{pmid}",
                                                     ):
                                                         # Force re-check on manual button
-                                                        file_exists_physical = (
-                                                            os.path.exists(target_path)
-                                                        )
-                                                        st.session_state["file_cache"][
-                                                            cache_key
-                                                        ] = file_exists_physical
+                                                        file_exists_physical = os.path.exists(target_path)
+                                                        st.session_state["file_cache"][cache_key] = file_exists_physical
                                                         if file_exists_physical:
-                                                            db_manager.update_article(pmid, pdf_download_status="Downloaded (Manual)")
+                                                            db_manager.update_article(
+                                                                pmid, pdf_download_status="Downloaded (Manual)"
+                                                            )
                                                             st.toast(
                                                                 t(
                                                                     "file_verified",
@@ -1067,11 +984,7 @@ def main():
                         df = db_manager.get_articles_df()
                         if not df.empty and "pdf_download_status" in df.columns:
                             ready_mask = (
-                                df["pdf_download_status"]
-                                .astype(str)
-                                .str.contains(
-                                    r"Downloaded|Exists", case=False, na=False
-                                )
+                                df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
                             )
                             ready_count = len(df[ready_mask])
 
@@ -1092,34 +1005,31 @@ def main():
                             # Re-read DF from DB
                             df = db_manager.get_articles_df()
                             doc_ready_mask = (
-                                df["pdf_download_status"]
-                                .astype(str)
-                                .str.contains(
-                                    r"Downloaded|Exists", case=False, na=False
-                                )
+                                df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
                             )
-                            ready_pmids = (
-                                df[doc_ready_mask]["pmid"].astype(str).tolist()
-                            )
+                            ready_pmids = df[doc_ready_mask]["pmid"].astype(str).tolist()
 
                             # 2. GROBID Parsing
                             status_text.text(t("parsing_pdfs"))
                             from src.parse import fallback_parser
+
                             for pmid in ready_pmids:
                                 pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
                                 tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
-                                if os.path.exists(pdf_path) and not os.path.exists(
-                                    tei_path
-                                ):
+                                if os.path.exists(pdf_path) and not os.path.exists(tei_path):
                                     tei_xml = grobid_client.process_pdf(pdf_path)
 
                                     # Fallback logic: If GROBID fails or returns very little text
                                     if not tei_xml or len(tei_xml.strip()) < 500:
                                         status_text.text(f"GROBID failed for {pmid}. Using Fallback Parser...")
                                         tei_xml = fallback_parser.extract_text_from_pdf(pdf_path)
-                                        db_manager.update_article(pmid, pdf_download_status="Parsed (Fallback)", pipeline_status=2)
+                                        db_manager.update_article(
+                                            pmid, pdf_download_status="Parsed (Fallback)", pipeline_status=2
+                                        )
                                     else:
-                                        db_manager.update_article(pmid, pdf_download_status="Parsed (GROBID)", pipeline_status=2)
+                                        db_manager.update_article(
+                                            pmid, pdf_download_status="Parsed (GROBID)", pipeline_status=2
+                                        )
 
                                     if tei_xml:
                                         with open(tei_path, "w", encoding="utf-8") as f:
@@ -1129,13 +1039,13 @@ def main():
                             # 3. RoB Assessment
                             if os.path.exists(TEI_DIR):
                                 rob_gen = assessor.batch_assess_rob(
-                                    TEI_DIR,
-                                    os.path.join(TABLES_DIR, "rob_assessment.csv"),
-                                    allowed_pmids=ready_pmids
+                                    TEI_DIR, os.path.join(TABLES_DIR, "rob_assessment.csv"), allowed_pmids=ready_pmids
                                 )
                                 if rob_gen:
                                     for current_idx, total_count, pmid in rob_gen:
-                                        status_text.text(f"[{current_idx}/{total_count}] Assessing Risk of Bias for PMID {pmid}...")
+                                        status_text.text(
+                                            f"[{current_idx}/{total_count}] Assessing Risk of Bias for PMID {pmid}..."
+                                        )
                                         # Calculate progress between 50% and 75%
                                         progress = 50 + int((current_idx / total_count) * 25)
                                         progress_bar.progress(progress)
@@ -1154,7 +1064,7 @@ def main():
                                 total_tei = len(tei_files)
                                 for idx, tei_file in enumerate(tei_files):
                                     pmid = tei_file.replace(".xml", "")
-                                    status_text.text(f"[{idx+1}/{total_tei}] Extracting PICO for PMID {pmid}...")
+                                    status_text.text(f"[{idx + 1}/{total_tei}] Extracting PICO for PMID {pmid}...")
                                     progress = 75 + int(((idx + 1) / total_tei) * 25)
                                     progress_bar.progress(progress)
 
@@ -1163,11 +1073,7 @@ def main():
                                         os.path.join(TEI_DIR, tei_file), optimize_context=True
                                     )
                                     if full_text:
-                                        text_snippet = (
-                                            (full_text[:8000] + "...")
-                                            if len(full_text) > 8000
-                                            else full_text
-                                        )
+                                        text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
 
                                         data = pico_extractor.extract_pico_multi_agent(text_snippet)
                                         if data:
@@ -1205,7 +1111,9 @@ def main():
         if os.path.exists(extracted_csv_path) and os.path.exists(rob_csv_path):
             st.divider()
             st.subheader("🧐 Human-in-the-Loop Verification")
-            st.info("AI가 추출한 데이터를 확인하고 필요한 경우 직접 수정하세요. 수정 완료 후 반드시 '확정 및 저장' 버튼을 눌러야 다음 단계로 진행할 수 있습니다.")
+            st.info(
+                "AI가 추출한 데이터를 확인하고 필요한 경우 직접 수정하세요. 수정 완료 후 반드시 '확정 및 저장' 버튼을 눌러야 다음 단계로 진행할 수 있습니다."
+            )
 
             pico_df = pd.read_csv(extracted_csv_path)
             rob_df = pd.read_csv(rob_csv_path)
@@ -1228,9 +1136,7 @@ def main():
                 st.divider()
                 col_next, _ = st.columns([1, 4])
                 with col_next:
-                    if st.button(
-                        f"{t('tabs')[3]} >", type="primary", use_container_width=True
-                    ):
+                    if st.button(f"{t('tabs')[3]} >", type="primary", use_container_width=True):
                         next_step()
 
     # --- Tab 4: Reporting ---
@@ -1255,6 +1161,7 @@ def main():
 
             # 2. Generate Report
             from src.report import generator
+
             generator.generate_report(
                 st.session_state["stats"],
                 st.session_state["picos"],

@@ -31,9 +31,7 @@ def clear_generated_data_files():
     if os.path.exists(PDF_DIR):
         for item in os.listdir(PDF_DIR):
             item_path = os.path.join(PDF_DIR, item)
-            if os.path.isfile(item_path) and item.lower().endswith(
-                ".pdf"
-            ):  # Only delete PDFs
+            if os.path.isfile(item_path) and item.lower().endswith(".pdf"):  # Only delete PDFs
                 try:
                     os.remove(item_path)
                     print(f" - 삭제됨: {item_path}")
@@ -45,6 +43,7 @@ def clear_generated_data_files():
     # Clear database
     try:
         from src.utils import db_manager
+
         db_manager.clear_db()
         print(" - 데이터베이스 초기화됨.")
     except Exception as e:

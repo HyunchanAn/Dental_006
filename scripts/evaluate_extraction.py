@@ -27,7 +27,7 @@ def evaluate_extraction(prediction_file: str, ground_truth_file: str):
     with open(ground_truth_file, "r", encoding="utf-8") as f:
         truths = json.load(f)
 
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rougeL'], use_stemmer=True)
+    scorer = rouge_scorer.RougeScorer(["rouge1", "rougeL"], use_stemmer=True)
 
     total_rouge1 = 0
     total_rougel = 0
@@ -41,14 +41,14 @@ def evaluate_extraction(prediction_file: str, ground_truth_file: str):
         truth_data = truths[pmid]
 
         # Compare key PICO elements
-        for key in ['population', 'intervention', 'outcome']:
+        for key in ["population", "intervention", "outcome"]:
             if key in pred_data and key in truth_data:
                 pred_text = str(pred_data[key])
                 truth_text = str(truth_data[key])
 
                 scores = scorer.score(truth_text, pred_text)
-                total_rouge1 += scores['rouge1'].fmeasure
-                total_rougel += scores['rougeL'].fmeasure
+                total_rouge1 += scores["rouge1"].fmeasure
+                total_rougel += scores["rougeL"].fmeasure
 
                 pred_toks = pred_text.lower().split()
                 truth_toks = truth_text.lower().split()
@@ -65,6 +65,7 @@ def evaluate_extraction(prediction_file: str, ground_truth_file: str):
     print(f"Average ROUGE-1 F-Measure: {total_rouge1 / count:.4f}")
     print(f"Average ROUGE-L F-Measure: {total_rougel / count:.4f}")
     print(f"Average Token F1 Score:    {total_f1 / count:.4f}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate PICO extraction performance.")

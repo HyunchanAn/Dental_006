@@ -36,9 +36,7 @@ def process_pdf(pdf_path, timeout=60):
                 print("  - Successfully processed by GROBID.")
                 return response.text
             else:
-                print(
-                    f"  - Error processing with GROBID. Status: {response.status_code}, Response: {response.text[:500]}"
-                )
+                print(f"  - Error processing with GROBID. Status: {response.status_code}, Response: {response.text[:500]}")
                 return None
     except requests.exceptions.RequestException as e:
         print(f"  - GROBID service connection failed: {e}")

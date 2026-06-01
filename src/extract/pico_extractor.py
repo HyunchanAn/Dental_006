@@ -37,7 +37,7 @@ Return a JSON object with EXACTLY these keys:
 }"""
     p_messages = [
         {"role": "system", "content": p_system_prompt},
-        {"role": "user", "content": f"Text:\n{text_snippet}\n\nExtract Population and Study Design. Return ONLY JSON."}
+        {"role": "user", "content": f"Text:\n{text_snippet}\n\nExtract Population and Study Design. Return ONLY JSON."},
     ]
 
     # --- Agent 2: I/C-Agent (Intervention & Comparison) ---
@@ -62,7 +62,7 @@ Return a JSON object with EXACTLY these keys:
 }"""
     ic_messages = [
         {"role": "system", "content": ic_system_prompt},
-        {"role": "user", "content": f"Text:\n{text_snippet}\n\nExtract Intervention and Comparison. Return ONLY JSON."}
+        {"role": "user", "content": f"Text:\n{text_snippet}\n\nExtract Intervention and Comparison. Return ONLY JSON."},
     ]
 
     # --- Agent 3: O-Agent (Outcome) ---
@@ -82,7 +82,7 @@ Return a JSON object with EXACTLY these keys:
 }"""
     o_messages = [
         {"role": "system", "content": o_system_prompt},
-        {"role": "user", "content": f"Text:\n{text_snippet}\n\nExtract Outcome. Return ONLY JSON."}
+        {"role": "user", "content": f"Text:\n{text_snippet}\n\nExtract Outcome. Return ONLY JSON."},
     ]
 
     def _call_and_parse(messages):

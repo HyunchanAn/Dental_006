@@ -18,9 +18,7 @@ def test_grobid_llm_integration(sample_pdf_path, mocker):
     Currently mocked to avoid external calls during basic CI tests.
     """
     # Mock GROBID parsing
-    mocker.patch(
-        "src.parse.grobid_client.process_pdf", return_value="<tei>Sample Text</tei>"
-    )
+    mocker.patch("src.parse.grobid_client.process_pdf", return_value="<tei>Sample Text</tei>")
 
     # Mock LLM generation
     mocker.patch(

@@ -36,15 +36,11 @@ class VersionManager:
             return True
         return False
 
-    def archive_current_data(
-        self, run_path, tables_dir="data/tables", raw_dir="data/raw"
-    ):
+    def archive_current_data(self, run_path, tables_dir="data/tables", raw_dir="data/raw"):
         """
         Archives current tables and raw data to the run directory.
         """
         if os.path.exists(tables_dir):
-            shutil.copytree(
-                tables_dir, os.path.join(run_path, "tables"), dirs_exist_ok=True
-            )
+            shutil.copytree(tables_dir, os.path.join(run_path, "tables"), dirs_exist_ok=True)
         if os.path.exists(raw_dir):
             shutil.copytree(raw_dir, os.path.join(run_path, "raw"), dirs_exist_ok=True)

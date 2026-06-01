@@ -11,6 +11,7 @@ DB_PATH = os.path.join(DATA_DIR, "app_state.db")
 # Use threading.local to avoid SQLite 'same thread' errors in Streamlit
 _local = threading.local()
 
+
 def _get_conn():
     if not hasattr(_local, "conn"):
         # Ensure directory exists
@@ -18,6 +19,7 @@ def _get_conn():
         _local.conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         _local.conn.row_factory = sqlite3.Row
     return _local.conn
+
 
 def init_db():
     """Initializes the database schema."""
@@ -39,6 +41,7 @@ def init_db():
     """)
     conn.commit()
 
+
 def clear_db():
     """Clears all records from the database."""
     conn = _get_conn()
@@ -46,6 +49,7 @@ def clear_db():
     c.execute("DROP TABLE IF EXISTS articles")
     conn.commit()
     init_db()
+
 
 def import_pubmed_results(df):
     """
@@ -57,25 +61,29 @@ def import_pubmed_results(df):
 
     conn = _get_conn()
     # Convert dataframe to list of dicts
-    records = df.to_dict('records')
+    records = df.to_dict("records")
 
     c = conn.cursor()
     for row in records:
-        c.execute("""
+        c.execute(
+            """
             INSERT OR IGNORE INTO articles
             (pmid, doi, title, journal, pub_year, abstract, pipeline_status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            str(row.get('pmid', '')),
-            str(row.get('doi', '')),
-            str(row.get('title', '')),
-            str(row.get('journal', '')),
-            str(row.get('pub_year', '')),
-            str(row.get('abstract', '')),
-            0 # Fetched
-        ))
+        """,
+            (
+                str(row.get("pmid", "")),
+                str(row.get("doi", "")),
+                str(row.get("title", "")),
+                str(row.get("journal", "")),
+                str(row.get("pub_year", "")),
+                str(row.get("abstract", "")),
+                0,  # Fetched
+            ),
+        )
     conn.commit()
     _export_to_csv()
+
 
 def update_article(pmid, **kwargs):
     """
@@ -95,6 +103,7 @@ def update_article(pmid, **kwargs):
     c.execute(f"UPDATE articles SET {set_clause} WHERE pmid = ?", values)
     conn.commit()
     _export_to_csv()
+
 
 def get_articles_df(filters=None):
     """
@@ -120,6 +129,7 @@ def get_articles_df(filters=None):
     df = pd.read_sql_query(query, conn, params=params)
     return df
 
+
 def get_article(pmid):
     """Returns a dictionary representation of a single article, or None."""
     conn = _get_conn()
@@ -127,6 +137,7 @@ def get_article(pmid):
     c.execute("SELECT * FROM articles WHERE pmid = ?", (str(pmid),))
     row = c.fetchone()
     return dict(row) if row else None
+
 
 def _export_to_csv():
     """
@@ -137,6 +148,7 @@ def _export_to_csv():
     df = get_articles_df()
     if not df.empty:
         df.to_csv(os.path.join(TABLES_DIR, "articles.csv"), index=False)
+
 
 # Auto-initialize on import
 init_db()

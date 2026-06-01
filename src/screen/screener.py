@@ -36,12 +36,17 @@ def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
     if not llm.get_completion([{"role": "user", "content": "Test"}]):
         for idx, row in articles_df.iterrows():
             pmid = str(row.get("pmid", ""))
-            yield (idx + 1, len(articles_df), pmid, {
-                "pmid": pmid,
-                "screening_decision": "Included",
-                "screening_reason": "LLM Unavailable",
-                "exclusion_category": ""
-            })
+            yield (
+                idx + 1,
+                len(articles_df),
+                pmid,
+                {
+                    "pmid": pmid,
+                    "screening_decision": "Included",
+                    "screening_reason": "LLM Unavailable",
+                    "exclusion_category": "",
+                },
+            )
         return
 
     system_prompt = """You are an expert systematic reviewer.
@@ -78,7 +83,7 @@ Criteria for Inclusion:
         pmid = str(row.get("pmid", "Unknown"))
 
         if pmid in screened_pmids:
-            yield (idx + 1, total, pmid, None) # None indicates skipped
+            yield (idx + 1, total, pmid, None)  # None indicates skipped
             continue
 
         title = row.get("title", "No Title")
@@ -124,9 +129,14 @@ Is this paper relevant? Return JSON.
             if "exclude" in decision.lower():
                 decision = "Excluded"
                 # Validate category
-                valid_cats = ["Wrong Study Design", "Target Population Mismatch", "Inappropriate Intervention", "Insufficient Outcome Data"]
+                valid_cats = [
+                    "Wrong Study Design",
+                    "Target Population Mismatch",
+                    "Inappropriate Intervention",
+                    "Insufficient Outcome Data",
+                ]
                 if category not in valid_cats:
-                    category = "Target Population Mismatch" # default fallback
+                    category = "Target Population Mismatch"  # default fallback
             else:
                 decision = "Included"
                 category = ""
@@ -136,12 +146,7 @@ Is this paper relevant? Return JSON.
             reason = f"Error during screening: {str(e)}"
             category = ""
 
-        result = {
-            "pmid": pmid,
-            "screening_decision": decision,
-            "screening_reason": reason,
-            "exclusion_category": category
-        }
+        result = {"pmid": pmid, "screening_decision": decision, "screening_reason": reason, "exclusion_category": category}
 
         # Checkpointing (save immediately)
         if checkpoint_csv:
@@ -149,6 +154,6 @@ Is this paper relevant? Return JSON.
             if not os.path.exists(checkpoint_csv):
                 res_df.to_csv(checkpoint_csv, index=False, encoding="utf-8-sig")
             else:
-                res_df.to_csv(checkpoint_csv, mode='a', header=False, index=False, encoding="utf-8-sig")
+                res_df.to_csv(checkpoint_csv, mode="a", header=False, index=False, encoding="utf-8-sig")
 
         yield (idx + 1, total, pmid, result)

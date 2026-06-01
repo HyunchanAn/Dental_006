@@ -85,7 +85,5 @@ if __name__ == "__main__":
     if all(results):
         print("Verification SUCCESS: All systems ready.")
     else:
-        print(
-            "Verification PARTIAL: Some services are offline (Expected if Docker is not running)."
-        )
+        print("Verification PARTIAL: Some services are offline (Expected if Docker is not running).")
     print("=" * 50)

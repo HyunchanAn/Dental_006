@@ -21,9 +21,7 @@ RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
 TABLES_DIR = os.path.join(DATA_DIR, "tables")
 TEI_DIR = os.path.join(DATA_DIR, "tei")  # For GROBID output
 CONFIG_PATH = "picos_config.yaml"
-ASREVIEW_PROJECT_PATH = os.path.join(
-    DATA_DIR, "asreview_project.asreview"
-)  # Define ASReview project path
+ASREVIEW_PROJECT_PATH = os.path.join(DATA_DIR, "asreview_project.asreview")  # Define ASReview project path
 
 
 def check_and_clear_previous_run():
@@ -40,9 +38,7 @@ def check_and_clear_previous_run():
             # Also remove the ASReview project file if it exists
             if os.path.exists(ASREVIEW_PROJECT_PATH):
                 os.remove(ASREVIEW_PROJECT_PATH)
-                print(
-                    f"Removed previous ASReview project file: {ASREVIEW_PROJECT_PATH}"
-                )
+                print(f"Removed previous ASReview project file: {ASREVIEW_PROJECT_PATH}")
             return True
         else:
             print("작업을 중단합니다.")
@@ -74,22 +70,16 @@ def load_or_create_picos_config():
         if os.path.exists(CONFIG_PATH):
             print("\n--- Creating new PICOS configuration. ---")
         else:
-            print(
-                "--- PICOS configuration file not found. Starting interactive setup. ---"
-            )
+            print("--- PICOS configuration file not found. Starting interactive setup. ---")
 
         picos = {}
         picos["population"] = input("> Population을 입력하세요: ")
         picos["intervention"] = input("> Intervention을 입력하세요: ")
         picos["comparison"] = input("> Comparison을 입력하세요: ")
         picos["outcome"] = input("> Outcome을 입력하세요: ")
-        picos["study_design"] = input(
-            "> (선택) Study Design을 입력하세요 (없으면 Enter): "
-        )
+        picos["study_design"] = input("> (선택) Study Design을 입력하세요 (없으면 Enter): ")
 
-        save_choice = input(
-            f"\n입력하신 내용으로 {CONFIG_PATH} 파일을 생성/덮어쓰시겠습니까? (y/n): "
-        ).lower()
+        save_choice = input(f"\n입력하신 내용으로 {CONFIG_PATH} 파일을 생성/덮어쓰시겠습니까? (y/n): ").lower()
         if save_choice == "y":
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 yaml.dump({"picos": picos}, f, allow_unicode=True, sort_keys=False)
@@ -191,9 +181,7 @@ def main():
     max_ret_user = 0
     while True:
         try:
-            user_input = input(
-                f"이 중 몇 개의 논문을 가져오시겠습니까? (최대 {total_count}개, 기본값: 20): "
-            )
+            user_input = input(f"이 중 몇 개의 논문을 가져오시겠습니까? (최대 {total_count}개, 기본값: 20): ")
             if not user_input:  # Default to 20 if user just presses Enter
                 max_ret_user = 20
             else:
@@ -202,9 +190,7 @@ def main():
             if max_ret_user <= 0:
                 print("0보다 큰 숫자를 입력해주세요.")
             elif max_ret_user > total_count:
-                print(
-                    f"최대 {total_count}개까지 가져올 수 있습니다. 다시 입력해주세요."
-                )
+                print(f"최대 {total_count}개까지 가져올 수 있습니다. 다시 입력해주세요.")
             else:
                 break
         except ValueError:
@@ -239,20 +225,14 @@ def main():
         for article in root.findall(".//PubmedArticle"):
             pub_year_node = article.find(".//PubDate/Year")
             pub_year = (
-                int(pub_year_node.text)
-                if pub_year_node is not None and pub_year_node.text.isdigit()
-                else current_year + 1
+                int(pub_year_node.text) if pub_year_node is not None and pub_year_node.text.isdigit() else current_year + 1
             )  # Default to future if year is missing or invalid
 
-            if (
-                pub_year <= current_year
-            ):  # Only include articles published up to the current year
+            if pub_year <= current_year:  # Only include articles published up to the current year
                 filtered_articles_elements.append(article)
 
         if not filtered_articles_elements:
-            print(
-                "No articles found after filtering by publication year. Exiting pipeline."
-            )
+            print("No articles found after filtering by publication year. Exiting pipeline.")
             return
 
         # Reconstruct XML string from filtered elements
@@ -261,9 +241,7 @@ def main():
             filtered_root.append(article_elem)
         filtered_articles_xml = ET.tostring(filtered_root, encoding="unicode")
 
-        print(
-            f"Filtered to {len(filtered_articles_elements)} articles with pub_year < {current_year}."
-        )
+        print(f"Filtered to {len(filtered_articles_elements)} articles with pub_year < {current_year}.")
         # --- End Filtering ---
 
         # Save the raw XML (now filtered)
@@ -275,9 +253,7 @@ def main():
         # Parse XML and save as CSV
         print("\nParsing XML and creating articles.csv...")
         csv_path = os.path.join(TABLES_DIR, "articles.csv")
-        pubmed_parser.parse_and_save_articles_csv(
-            filtered_articles_xml, csv_path
-        )  # Use filtered XML
+        pubmed_parser.parse_and_save_articles_csv(filtered_articles_xml, csv_path)  # Use filtered XML
 
         # --- 2.5 Automated Screening (Title/Abstract) --- #
         print("\nStep 2.5: Automated Screening")
@@ -288,9 +264,7 @@ def main():
 
             # Save detailed results
             screening_results_path = os.path.join(TABLES_DIR, "screening_results.csv")
-            screened_df.to_csv(
-                screening_results_path, index=False, encoding="utf-8-sig"
-            )
+            screened_df.to_csv(screening_results_path, index=False, encoding="utf-8-sig")
             print(f"Saved screening results to {screening_results_path}")
 
             # Update stats
@@ -303,9 +277,7 @@ def main():
             stats["included"] = len(included_df)
             stats["excluded"] = stats["screened"] - stats["included"]
 
-            print(
-                f"Screening Result: {len(included_df)} included out of {len(screened_df)} total."
-            )
+            print(f"Screening Result: {len(included_df)} included out of {len(screened_df)} total.")
 
             # Update articles.csv with screening info
             screened_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
@@ -316,9 +288,7 @@ def main():
                 report_path = os.path.join(DATA_DIR, "report.md")
                 extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
                 rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
-                generator.generate_report(
-                    stats, picos_config, extracted_csv_path, rob_csv_path, report_path
-                )
+                generator.generate_report(stats, picos_config, extracted_csv_path, rob_csv_path, report_path)
                 return
         else:
             print("Error: articles.csv not found.")
@@ -329,18 +299,14 @@ def main():
         pdf_dir = os.path.join(DATA_DIR, "pdf")
 
         # Pass included_pmids to filter downloads
-        pdf_download_status = downloader.download_pdfs_from_xml(
-            xml_path, pdf_dir, allowed_pmids=included_pmids
-        )
+        pdf_download_status = downloader.download_pdfs_from_xml(xml_path, pdf_dir, allowed_pmids=included_pmids)
 
         # Update articles.csv with PDF download status
         print("\nUpdating articles.csv with PDF download status...")
         try:
             articles_df = pd.read_csv(csv_path, encoding="utf-8-sig")
             # Map status only for downloaded ones, others might be 'Excluded' effectively (no PDF)
-            articles_df["pdf_download_status"] = (
-                articles_df["pmid"].astype(str).map(pdf_download_status)
-            )
+            articles_df["pdf_download_status"] = articles_df["pmid"].astype(str).map(pdf_download_status)
             articles_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
             print(f"Updated {csv_path} with PDF download status.")
         except Exception as e:
@@ -352,10 +318,7 @@ def main():
         downloaded_pdfs = [
             k
             for k, v in pdf_download_status.items()
-            if v == "Downloaded"
-            or v == "Already Downloaded"
-            or v == "Downloaded (Unpaywall)"
-            or v == "Downloaded (PMC)"
+            if v == "Downloaded" or v == "Already Downloaded" or v == "Downloaded (Unpaywall)" or v == "Downloaded (PMC)"
         ]
         stats["retrieved"] = len(downloaded_pdfs)
 
@@ -403,9 +366,7 @@ def main():
 
     tei_files = []
     if os.path.exists(TEI_DIR):
-        tei_files = [
-            os.path.join(TEI_DIR, f) for f in os.listdir(TEI_DIR) if f.endswith(".xml")
-        ]
+        tei_files = [os.path.join(TEI_DIR, f) for f in os.listdir(TEI_DIR) if f.endswith(".xml")]
 
     if not tei_files:
         print("No TEI XML files found to extract data from.")
@@ -425,9 +386,7 @@ def main():
 
             # Prepare the prompt for the LLM
             # Using a simplified text snippet for brevity in the prompt
-            text_snippet = (
-                (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
-            )
+            text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
 
             user_prompt = f"""
 From the following research paper text, please extract the Population, Intervention, Comparison, and Outcome (PICO) elements.
@@ -453,16 +412,12 @@ TEXT:
                 print("  - Received response from LLM.")
                 try:
                     # Use regex to find the JSON block, even with surrounding text
-                    json_match = re.search(
-                        r"```json\s*([\s\S]*?)\s*```", response_content
-                    )
+                    json_match = re.search(r"```json\s*([\s\S]*?)\s*```", response_content)
                     if json_match:
                         json_str = json_match.group(1)
                     else:
                         # Fallback for when there's no markdown block, just the JSON
-                        json_str = response_content[
-                            response_content.find("{") : response_content.rfind("}") + 1
-                        ]
+                        json_str = response_content[response_content.find("{") : response_content.rfind("}") + 1]
 
                     pico_data = json.loads(json_str)
                     pico_data["pmid"] = pmid  # Add pmid for reference
@@ -490,9 +445,7 @@ TEXT:
     report_path = os.path.join(DATA_DIR, "report.md")
     extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
     rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
-    generator.generate_report(
-        stats, picos_config, extracted_csv_path, rob_csv_path, report_path
-    )
+    generator.generate_report(stats, picos_config, extracted_csv_path, rob_csv_path, report_path)
 
     print("\n--- Project Enhancements Complete---")
     print(f"See {report_path} for the systematic review summary.")

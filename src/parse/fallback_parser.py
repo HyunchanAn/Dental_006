@@ -20,7 +20,7 @@ def extract_text_from_pdf(pdf_path):
         full_text = "\n".join(text_content)
 
         # Clean up null bytes and weird chars
-        full_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]', '', full_text)
+        full_text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]", "", full_text)
 
         # Create a dummy TEI structure so tei_parser doesn't crash completely,
         # or we can just pass the raw text into a standard TEI format.
