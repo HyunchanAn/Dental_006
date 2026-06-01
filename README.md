@@ -64,22 +64,29 @@ graph TD
 └── reference_materials/ # 개발 로그 및 참고 자료.
 ```
 
-## 4. Installation
+## 4. Installation & Deployment
 
-1. 사전 요구사항
-   - Git
-   - Python 3.9 이상
-   - Docker Desktop (GROBID 실행용)
-   - Ollama (LLM 실행용)
-
-2. LLM 및 도구 준비
-   - Ollama 설치 후 gemma4 모델 다운로드: `ollama pull gemma4`
-   - Docker Desktop 실행 및 GROBID 서비스 시작 (제공된 `scripts/start_services.bat` 관리자 권한 실행 권장)
-
-3. Python 의존성 설치
+### 4.1 개발자 환경 구축 (Python)
+1. 사전 요구사항: Git, Python 3.11+, Docker Desktop (GROBID용), Ollama.
+2. Ollama 설치 후 모델 다운로드: `ollama pull gemma4`
+3. GROBID 서비스 시작: 제공된 `scripts/start_services.bat` 관리자 권한 실행
+4. Python 의존성 설치 (uv 권장):
    ```bash
-   pip install -r requirements.txt
+   uv pip install -r requirements.txt
    ```
+
+### 4.2 비개발자용 간편 배포 (Docker Compose)
+비개발자나 배포 환경의 경우, Docker Compose를 사용하여 Streamlit 앱, Ollama, GROBID를 원클릭으로 구동할 수 있습니다.
+1. 사전 요구사항: Docker 및 Docker Compose 설치
+2. 앱 띄우기:
+   ```bash
+   docker-compose up -d
+   ```
+3. (최초 1회) Ollama 컨테이너 내부에 모델 다운로드:
+   ```bash
+   docker exec -it sr_ollama ollama pull gemma4
+   ```
+4. 웹 브라우저에서 `http://localhost:8501` 접속.
 
 ## 5. Quick Start & Usage Example
 

@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  systematic-reviewer-app:
+    build: .
+    container_name: sr_app
+    ports:
+      - "8501:8501"
+    environment:
+      # Use internal docker network hostnames for APIs
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - GROBID_URL=http://grobid:8070
+    depends_on:
+      - ollama
+      - grobid
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sr_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    # You will need to manually pull the model once after starting:
+    # docker exec -it sr_ollama ollama run gemma4
+
+  grobid:
+    image: lfoppiano/grobid:0.8.0
+    container_name: sr_grobid
+    ports:
+      - "8070:8070"
+    restart: unless-stopped
+
+volumes:
+  ollama-data:

@@ -111,3 +111,10 @@
 2026-06-02 03:22:00
 - PRISMA 흐름도를 Mermaid.js 렌더링에서 HTML/CSS 기반의 커스텀 하드코딩 방식으로 교체하여 논문 규격의 레이아웃 완벽 구현
 - app.py 및 src/report/generator.py 파일의 렌더링 로직 수정
+
+2026-06-02 03:26:00
+- Issue #1 해결: 데이터 윤리 및 법적 준수 가이드(DATA_ETHICS.md) 추가
+- Issue #2 해결: 오픈소스 생태계 조성을 위한 LICENSE, SECURITY.md, CITATION.cff 추가
+- Issue #3 해결: 비개발자를 위한 Docker 기반 간편 배포 환경(Dockerfile, docker-compose.yml) 구축 및 README 업데이트
+- Issue #4 해결: 추출 결과의 신뢰도를 측정할 수 있는 ROUGE/F1 기반 평가 자동화 스크립트(evaluate_extraction.py) 및 가이드라인 추가
+- Pull Request #5, #6, #7 병합 완료 (uv, checkout, numpy 버전 업데이트)

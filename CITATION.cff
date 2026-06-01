@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "An"
+    given-names: "Hyunchan"
+    email: "chemahc94@pusan.ac.kr"
+title: "Systematic Reviewer AI: AI-powered Systematic Review assistant using Gemma and GROBID"
+version: 1.0.0
+date-released: 2026-06-02
+url: "https://github.com/HyunchanAn/Systematic_reviewer_AI"
+license: MIT

@@ -24,7 +24,8 @@ dependencies = [
     "asreview-makita>=1.0",
     "streamlit>=1.30.0",
     "loguru>=0.7.2",
-    "pydantic-settings>=2.1.0"
+    "pydantic-settings>=2.1.0",
+    "rouge-score>=0.1.2"
 ]
 
 [project.optional-dependencies]
