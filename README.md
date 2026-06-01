@@ -151,3 +151,11 @@ python main.py
 - **벤치마크 수행 (Gold Standard)**: 전문가 검토가 완료된 Gold Standard 체계적 문헌고찰 데이터셋을 바탕으로 AI 스크리닝 모듈의 민감도(Recall)와 특이도(Specificity) 정밀 측정 평가.
 - **프롬프트 및 모델 최적화**: Gemma 최신 버전에 기반한 학술 논문 특화 프롬프트 엔지니어링 미세 조정.
 - **RoB 2.0 및 ROBINS-I 세분화**: 무작위 임상시험뿐 아니라 관찰 연구 등 다양한 연구 디자인에 대한 비뚤림 평가 체계 고도화 적용.
+
+## 11. References
+본 프로젝트를 개발하며 핵심 파이프라인 구성 및 방법론 설계에 참고/인용한 주요 문헌 및 소프트웨어 레퍼런스는 다음과 같습니다:
+
+- Page, M. J., McKenzie, J. E., Bossuyt, P. M., Boutron, I., Hoffmann, T. C., Mulrow, C. D., ... & Moher, D. (2021). The PRISMA 2020 statement: an updated guideline for reporting systematic reviews. *BMJ*, 372, n71. (PRISMA 가이드라인 기반 리포트 생성)
+- Sterne, J. A., Savović, J., Page, M. J., Elbers, R. G., Blencowe, N. S., Boutron, I., ... & Higgins, J. P. (2019). RoB 2: a revised tool for assessing risk of bias in randomised trials. *BMJ*, 366, l4898. (비뚤림 위험 평가 설계)
+- GROBID (GeneRation Of BIbliographic Data). (2008-2024). https://github.com/kermitt2/grobid (PDF 텍스트 구조화 파싱)
+- Google DeepMind. (2024). Gemma 4 Open Models. (스크리닝 및 PICO 추출 핵심 LLM 백엔드)
