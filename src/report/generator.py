@@ -67,12 +67,12 @@ def generate_prisma_mermaid(stats, lang="EN"):
     mermaid_code = f"""
 ```mermaid
 graph TD
-    A[{t["prisma_id"]}<br/>(n = {s.get("total_found", 0)})] --> B[{t["prisma_screened"]}<br/>(n = {s.get("screened", 0)})]
-    B --> C[{t["prisma_excluded"]}<br/>(n = {s.get("excluded", 0)})]
-    B --> D[{t["prisma_sought"]}<br/>(n = {s.get("included", 0)})]
-    D --> E[{t["prisma_not_retrieved"]}<br/>(n = {s.get("included", 0) - s.get("retrieved", 0)})]
-    D --> F[{t["prisma_retrieved"]}<br/>(n = {s.get("retrieved", 0)})]
-    F --> G[{t["prisma_included"]}<br/>(n = {s.get("retrieved", 0)})]
+    A["{t['prisma_id']}<br/>(n = {s.get('total_found', 0)})"] --> B["{t['prisma_screened']}<br/>(n = {s.get('screened', 0)})"]
+    B --> C["{t['prisma_excluded']}<br/>(n = {s.get('excluded', 0)})"]
+    B --> D["{t['prisma_sought']}<br/>(n = {s.get('included', 0)})"]
+    D --> E["{t['prisma_not_retrieved']}<br/>(n = {s.get('included', 0) - s.get('retrieved', 0)})"]
+    D --> F["{t['prisma_retrieved']}<br/>(n = {s.get('retrieved', 0)})"]
+    F --> G["{t['prisma_included']}<br/>(n = {s.get('retrieved', 0)})"]
 ```
 """
     return mermaid_code

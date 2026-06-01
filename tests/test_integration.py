@@ -15,11 +15,10 @@ def test_grobid_llm_integration(sample_pdf_path, mocker):
     Currently mocked to avoid external calls during basic CI tests.
     """
     # Mock GROBID parsing
-    mocker.patch('src.parse.grobid_client', return_value="<tei>Sample Text</tei>")
+    mocker.patch('src.parse.grobid_client.process_pdf', return_value="<tei>Sample Text</tei>")
 
-    
     # Mock LLM generation
-    mocker.patch('src.llm.ollama_client.generate', return_value="Extracted PICO: Population: Elderly")
+    mocker.patch('src.llm.client.LLMClient.get_completion', return_value="Extracted PICO: Population: Elderly")
     
     # In reality, you would call your pipeline manager here
     # result = pipeline.run_extraction(sample_pdf_path)
