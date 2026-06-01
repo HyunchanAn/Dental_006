@@ -829,237 +829,233 @@ def main():
 
                         # --- Check for missing files & Manual Helper ---
                         if "pdf_download_status" in df.columns:
-                            try:
-                                failed_mask = ~df["pdf_download_status"].astype(str).str.contains(
-                                        r"Downloaded|Exists|Skipped",
-                                        case=False,
-                                        na=False,
-                                    )
-                                    failed_df = df[failed_mask]
+                            failed_mask = ~df["pdf_download_status"].astype(str).str.contains(
+                                r"Downloaded|Exists|Skipped",
+                                case=False,
+                                na=False,
+                            )
+                            failed_df = df[failed_mask]
 
-                                    if not failed_df.empty:
-                                        st.divider()
-                                        st.warning(
-                                            t(
-                                                "download_failed_warning",
-                                                count=len(failed_df),
-                                            )
+                            if not failed_df.empty:
+                                    st.divider()
+                                    st.warning(
+                                        t(
+                                            "download_failed_warning",
+                                            count=len(failed_df),
                                         )
-                                        # Manual Helper UI
-                                        st.info(t("manual_helper_title"))
+                                    )
+                                    # Manual Helper UI
+                                    st.info(t("manual_helper_title"))
 
-                                        # Bulk Uploader Section
-                                        with st.expander(t("bulk_upload_title"), expanded=False):
-                                            st.write(t("bulk_upload_desc"))
-                                            bulk_files = st.file_uploader(
-                                                t("bulk_upload_title"),
-                                                type="pdf",
-                                                accept_multiple_files=True,
-                                                key="bulk_pdf_uploader",
-                                            )
-                                            if bulk_files:
-                                                results, count = handle_bulk_upload(bulk_files, df, csv_path)
-                                                for res in results:
-                                                    if "✅" in res:
-                                                        st.success(res)
-                                                    else:
-                                                        st.warning(res)
-                                                if count > 0:
-                                                    st.toast(
-                                                        f"Successfully matched {count} files!",
-                                                        icon="🚀",
+                                    # Bulk Uploader Section
+                                    with st.expander(t("bulk_upload_title"), expanded=False):
+                                        st.write(t("bulk_upload_desc"))
+                                        bulk_files = st.file_uploader(
+                                            t("bulk_upload_title"),
+                                            type="pdf",
+                                            accept_multiple_files=True,
+                                            key="bulk_pdf_uploader",
+                                        )
+                                        if bulk_files:
+                                            results, count = handle_bulk_upload(bulk_files, df, csv_path)
+                                            for res in results:
+                                                if "✅" in res:
+                                                    st.success(res)
+                                                else:
+                                                    st.warning(res)
+                                            if count > 0:
+                                                st.toast(
+                                                    f"Successfully matched {count} files!",
+                                                    icon="🚀",
+                                                )
+                                                time.sleep(1)
+                                                st.rerun()
+
+                                    st.warning(t("ai_proposal_warning"))
+
+                                    # Pagination
+                                    batch_size = 5
+                                    total_failed = len(failed_df)
+                                    total_pages = (total_failed - 1) // batch_size + 1
+                                    current_page = st.session_state.get("failed_pdfs_page", 0)
+
+                                    if current_page >= total_pages:
+                                        current_page = total_pages - 1
+                                    if current_page < 0:
+                                        current_page = 0
+                                    st.session_state["failed_pdfs_page"] = current_page
+
+                                    start_idx = current_page * batch_size
+                                    end_idx = start_idx + batch_size
+                                    batch_df = failed_df.iloc[start_idx:end_idx]
+
+                                    col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
+                                    with col_p1:
+                                        if st.button(
+                                            t("prev_page"),
+                                            disabled=(current_page == 0),
+                                        ):
+                                            st.session_state["failed_pdfs_page"] -= 1
+                                            st.rerun()
+                                    with col_p2:
+                                        st.markdown(f"**Page {current_page + 1} / {total_pages}**")
+                                    with col_p3:
+                                        if st.button(
+                                            t("next_page"),
+                                            disabled=(current_page == total_pages - 1),
+                                        ):
+                                            st.session_state["failed_pdfs_page"] += 1
+                                            st.rerun()
+
+                                    for _, row in batch_df.iterrows():
+                                        with st.container(border=True):
+                                            pmid = str(row["pmid"])
+                                            title = row.get("title", "No Title")
+                                            doi = row.get("doi")
+                                            target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
+                                            file_exists = os.path.exists(target_path)
+
+                                            pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                                            scholar_link = f"https://scholar.google.com/scholar?q={pmid}"
+                                            if isinstance(doi, str) and doi.strip():
+                                                doi_link = f"https://doi.org/{doi}"
+                                                sci_hub_link = f"https://sci-hub.st/{doi}"
+                                            else:
+                                                doi_link = None
+                                                sci_hub_link = f"https://sci-hub.st/{pmid}"
+
+                                            st.markdown(f"**{title}**")
+
+                                            # Status Badge & File Detection
+                                            status = str(row.get("pdf_download_status", "Failed"))
+
+                                            # Use session state cache for file existence to speed up UI
+                                            cache_key = f"exists_{pmid}"
+                                            if cache_key not in st.session_state["file_cache"]:
+                                                st.session_state["file_cache"][cache_key] = os.path.exists(target_path)
+                                            file_exists = st.session_state["file_cache"][cache_key]
+
+                                            if file_exists:
+                                                if (
+                                                    "Manual" not in status
+                                                    and "Downloaded" not in status
+                                                    and "Exists" not in status
+                                                ):
+                                                    st.info(f"{t('status_manual')} (Auto-detected)")
+                                                    # Auto-update status in DB if detected
+                                                    db_manager.update_article(
+                                                        pmid, pdf_download_status="Downloaded (Detected)"
                                                     )
-                                                    time.sleep(1)
-                                                    st.rerun()
-
-                                        st.warning(t("ai_proposal_warning"))
-
-                                        # Pagination
-                                        batch_size = 5
-                                        total_failed = len(failed_df)
-                                        total_pages = (total_failed - 1) // batch_size + 1
-                                        current_page = st.session_state.get("failed_pdfs_page", 0)
-
-                                        if current_page >= total_pages:
-                                            current_page = total_pages - 1
-                                        if current_page < 0:
-                                            current_page = 0
-                                        st.session_state["failed_pdfs_page"] = current_page
-
-                                        start_idx = current_page * batch_size
-                                        end_idx = start_idx + batch_size
-                                        batch_df = failed_df.iloc[start_idx:end_idx]
-
-                                        col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
-                                        with col_p1:
-                                            if st.button(
-                                                t("prev_page"),
-                                                disabled=(current_page == 0),
-                                            ):
-                                                st.session_state["failed_pdfs_page"] -= 1
-                                                st.rerun()
-                                        with col_p2:
-                                            st.markdown(f"**Page {current_page + 1} / {total_pages}**")
-                                        with col_p3:
-                                            if st.button(
-                                                t("next_page"),
-                                                disabled=(current_page == total_pages - 1),
-                                            ):
-                                                st.session_state["failed_pdfs_page"] += 1
-                                                st.rerun()
-
-                                        for _, row in batch_df.iterrows():
-                                            with st.container(border=True):
-                                                pmid = str(row["pmid"])
-                                                title = row.get("title", "No Title")
-                                                doi = row.get("doi")
-                                                target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
-                                                file_exists = os.path.exists(target_path)
-
-                                                pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-                                                scholar_link = f"https://scholar.google.com/scholar?q={pmid}"
-                                                if isinstance(doi, str) and doi.strip():
-                                                    doi_link = f"https://doi.org/{doi}"
-                                                    sci_hub_link = f"https://sci-hub.st/{doi}"
+                                                    # Update cache and stats potentially
+                                                    st.session_state["file_cache"][cache_key] = True
                                                 else:
-                                                    doi_link = None
-                                                    sci_hub_link = f"https://sci-hub.st/{pmid}"
+                                                    st.success(t("status_verified"))
+                                            else:
+                                                st.error(t("status_failed"))
 
-                                                st.markdown(f"**{title}**")
-
-                                                # Status Badge & File Detection
-                                                status = str(row.get("pdf_download_status", "Failed"))
-
-                                                # Use session state cache for file existence to speed up UI
-                                                cache_key = f"exists_{pmid}"
-                                                if cache_key not in st.session_state["file_cache"]:
-                                                    st.session_state["file_cache"][cache_key] = os.path.exists(target_path)
-                                                file_exists = st.session_state["file_cache"][cache_key]
-
-                                                if file_exists:
-                                                    if (
-                                                        "Manual" not in status
-                                                        and "Downloaded" not in status
-                                                        and "Exists" not in status
-                                                    ):
-                                                        st.info(f"{t('status_manual')} (Auto-detected)")
-                                                        # Auto-update status in DB if detected
-                                                        db_manager.update_article(
-                                                            pmid, pdf_download_status="Downloaded (Detected)"
-                                                        )
-                                                        # Update cache and stats potentially
-                                                        st.session_state["file_cache"][cache_key] = True
-                                                    else:
-                                                        st.success(t("status_verified"))
-                                                else:
-                                                    st.error(t("status_failed"))
-
-                                                # Action Buttons
-                                                c_info, c_search = st.columns([1.5, 1.5])
-                                                with c_info:
-                                                    st.markdown(f"PMID: `{pmid}`")
-                                                    st.code(f"{pmid}.pdf", language="text")
+                                            # Action Buttons
+                                            c_info, c_search = st.columns([1.5, 1.5])
+                                            with c_info:
+                                                st.markdown(f"PMID: `{pmid}`")
+                                                st.code(f"{pmid}.pdf", language="text")
+                                                st.link_button(
+                                                    t("view_pubmed"),
+                                                    pubmed_link,
+                                                    use_container_width=True,
+                                                    type="primary",
+                                                )
+                                            with c_search:
+                                                # Row 1: Primary Search
+                                                s_col1, s_col2 = st.columns(2)
+                                                with s_col1:
                                                     st.link_button(
-                                                        t("view_pubmed"),
-                                                        pubmed_link,
+                                                        t("search_scholar"),
+                                                        scholar_link,
                                                         use_container_width=True,
-                                                        type="primary",
                                                     )
-                                                with c_search:
-                                                    # Row 1: Primary Search
-                                                    s_col1, s_col2 = st.columns(2)
-                                                    with s_col1:
+                                                with s_col2:
+                                                    if doi_link:
                                                         st.link_button(
-                                                            t("search_scholar"),
-                                                            scholar_link,
+                                                            t("search_doi"),
+                                                            doi_link,
                                                             use_container_width=True,
                                                         )
-                                                    with s_col2:
-                                                        if doi_link:
-                                                            st.link_button(
-                                                                t("search_doi"),
-                                                                doi_link,
-                                                                use_container_width=True,
-                                                            )
-                                                        else:
-                                                            st.button(
-                                                                "No DOI",
-                                                                disabled=True,
-                                                                use_container_width=True,
-                                                                key=f"nodoi_{pmid}",
-                                                            )
+                                                    else:
+                                                        st.button(
+                                                            "No DOI",
+                                                            disabled=True,
+                                                            use_container_width=True,
+                                                            key=f"nodoi_{pmid}",
+                                                        )
 
-                                                    # Row 2: Sci-Hub (Alternative)
-                                                    st.link_button(
-                                                        t("search_scihub"),
-                                                        sci_hub_link,
-                                                        use_container_width=True,
-                                                    )
-
-                                                # File Uploader
-                                                uploaded_file = st.file_uploader(
-                                                    f"{t('upload_pdf')} ({pmid})",
-                                                    type="pdf",
-                                                    key=f"upload_{pmid}",
+                                                # Row 2: Sci-Hub (Alternative)
+                                                st.link_button(
+                                                    t("search_scihub"),
+                                                    sci_hub_link,
+                                                    use_container_width=True,
                                                 )
-                                                if uploaded_file:
-                                                    with open(target_path, "wb") as f:
-                                                        f.write(uploaded_file.getbuffer())
-                                                    db_manager.update_article(
-                                                        pmid, pdf_download_status="Downloaded (Manual Upload)"
-                                                    )
-                                                    st.session_state["file_cache"][cache_key] = True
-                                                    st.success(f"{pmid}.pdf saved!")
-                                                    time.sleep(0.5)
-                                                    st.rerun()
 
-                                                c1, c2 = st.columns(2)
-                                                with c1:
-                                                    if st.button(
-                                                        f"{t('check_file_btn')} ({pmid})",
-                                                        key=f"check_{pmid}",
-                                                    ):
-                                                        # Force re-check on manual button
-                                                        file_exists_physical = os.path.exists(target_path)
-                                                        st.session_state["file_cache"][cache_key] = file_exists_physical
-                                                        if file_exists_physical:
-                                                            db_manager.update_article(
-                                                                pmid, pdf_download_status="Downloaded (Manual)"
-                                                            )
-                                                            st.toast(
-                                                                t(
-                                                                    "file_verified",
-                                                                    pmid=pmid,
-                                                                ),
-                                                                icon="✅",
-                                                            )
-                                                            time.sleep(0.5)
-                                                            st.rerun()
-                                                        else:
-                                                            st.error(
-                                                                t(
-                                                                    "file_not_found",
-                                                                    path=target_path,
-                                                                )
-                                                            )
-                                                with c2:
-                                                    if st.button(
-                                                        f"{t('skip_file_btn')} ({pmid})",
-                                                        key=f"skip_{pmid}",
-                                                    ):
-                                                        db_manager.update_article(pmid, pdf_download_status="Skipped_User")
+                                            # File Uploader
+                                            uploaded_file = st.file_uploader(
+                                                f"{t('upload_pdf')} ({pmid})",
+                                                type="pdf",
+                                                key=f"upload_{pmid}",
+                                            )
+                                            if uploaded_file:
+                                                with open(target_path, "wb") as f:
+                                                    f.write(uploaded_file.getbuffer())
+                                                db_manager.update_article(
+                                                    pmid, pdf_download_status="Downloaded (Manual Upload)"
+                                                )
+                                                st.session_state["file_cache"][cache_key] = True
+                                                st.success(f"{pmid}.pdf saved!")
+                                                time.sleep(0.5)
+                                                st.rerun()
+
+                                            c1, c2 = st.columns(2)
+                                            with c1:
+                                                if st.button(
+                                                    f"{t('check_file_btn')} ({pmid})",
+                                                    key=f"check_{pmid}",
+                                                ):
+                                                    # Force re-check on manual button
+                                                    file_exists_physical = os.path.exists(target_path)
+                                                    st.session_state["file_cache"][cache_key] = file_exists_physical
+                                                    if file_exists_physical:
+                                                        db_manager.update_article(
+                                                            pmid, pdf_download_status="Downloaded (Manual)"
+                                                        )
                                                         st.toast(
                                                             t(
-                                                                "file_skipped",
+                                                                "file_verified",
                                                                 pmid=pmid,
                                                             ),
-                                                            icon="⏭️",
+                                                            icon="✅",
                                                         )
                                                         time.sleep(0.5)
                                                         st.rerun()
-                            except Exception as e:
-                                st.error(f"Error loading helper: {e}")
-
+                                                    else:
+                                                        st.error(
+                                                            t(
+                                                                "file_not_found",
+                                                                path=target_path,
+                                                            )
+                                                        )
+                                            with c2:
+                                                if st.button(
+                                                    f"{t('skip_file_btn')} ({pmid})",
+                                                    key=f"skip_{pmid}",
+                                                ):
+                                                    db_manager.update_article(pmid, pdf_download_status="Skipped_User")
+                                                    st.toast(
+                                                        t(
+                                                            "file_skipped",
+                                                            pmid=pmid,
+                                                        ),
+                                                        icon="⏭️",
+                                                    )
+                                                    time.sleep(0.5)
+                                                    st.rerun()
                         # --- Section 2: Analysis ---
                         st.divider()
                         st.subheader(t("analysis_section"))
