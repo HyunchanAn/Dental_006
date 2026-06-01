@@ -12,10 +12,10 @@
 ### Architecture Diagram
 ```mermaid
 graph TD
-    A[PDF Papers] --> B[GROBID Parsing]
-    B --> C[Ollama (Gemma2) Text Analysis]
-    C --> D[Systematic Review Synthesis]
-    D --> E[Streamlit UI]
+    A["PDF Papers"] --> B["GROBID Parsing"]
+    B --> C["Ollama (Gemma2) Text Analysis"]
+    C --> D["Systematic Review Synthesis"]
+    D --> E["Streamlit UI"]
 ```
 
 ## 1. 개요
