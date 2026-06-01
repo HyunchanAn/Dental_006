@@ -22,13 +22,15 @@ def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
     """
     llm = llm_client.LLMClient()
 
-    # Load existing checkpoints to skip already screened articles
-    screened_pmids = set()
+    # Load existing checkpoints to skip already screened articles and yield them
+    screened_results = {}
     if checkpoint_csv and os.path.exists(checkpoint_csv):
         try:
             chk_df = pd.read_csv(checkpoint_csv)
             if "pmid" in chk_df.columns:
-                screened_pmids = set(chk_df["pmid"].astype(str).tolist())
+                for _, r in chk_df.iterrows():
+                    pmid_str = str(r["pmid"])
+                    screened_results[pmid_str] = r.to_dict()
         except Exception:
             pass
 
@@ -82,8 +84,8 @@ Criteria for Inclusion:
     for idx, row in articles_df.iterrows():
         pmid = str(row.get("pmid", "Unknown"))
 
-        if pmid in screened_pmids:
-            yield (idx + 1, total, pmid, None)  # None indicates skipped
+        if pmid in screened_results:
+            yield (idx + 1, total, pmid, screened_results[pmid])  # Yield cached result
             continue
 
         title = row.get("title", "No Title")
