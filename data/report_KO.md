@@ -41,15 +41,96 @@
 
 ## 2. PRISMA 흐름도
 
-```mermaid
-graph TD
-    A[식별(Identification)<br/>PubMed 검색 결과<br/>(n = 5)] --> B[스크리닝(Screening)<br/>검토된 기록<br/>(n = 5)]
-    B --> C[제외됨(Excluded)<br/>(n = 3)]
-    B --> D[적합성 평가 대상<br/>(Reports sought)<br/>(n = 2)]
-    D --> E[원문 미확보<br/>(Not retrieved)<br/>(n = 1)]
-    D --> F[원문 확보됨<br/>(Retrieved)<br/>(n = 1)]
-    F --> G[최종 포함<br/>(Included)<br/>(n = 1)]
-```
+<div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; max-width: 800px; margin: 20px auto; color: #1e293b; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+  
+  <!-- Identification -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Identification
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>식별(Identification)<br/>PubMed 검색 결과</b><br/>(n = 5)
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow 1 -->
+  <div style="display: flex; height: 30px;">
+    <div style="width: 40px;"></div>
+    <div style="flex-grow: 1; padding-left: 20px; position: relative;">
+      <div style="position: absolute; left: 170px; top: 0; height: 100%; width: 2px; background-color: #64748b;"></div>
+      <div style="position: absolute; left: 166px; bottom: -2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #64748b;"></div>
+    </div>
+  </div>
+
+  <!-- Screening -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Screening
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; position: relative; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>스크리닝(Screening)<br/>검토된 기록</b><br/>(n = 5)
+      </div>
+      <div style="width: 50px; height: 2px; background-color: #64748b; position: relative;">
+        <div style="position: absolute; right: -2px; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #64748b;"></div>
+      </div>
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f1f5f9; width: 250px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>제외됨(Excluded)</b><br/>(n = 3)
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow 2 -->
+  <div style="display: flex; height: 30px;">
+    <div style="width: 40px;"></div>
+    <div style="flex-grow: 1; padding-left: 20px; position: relative;">
+      <div style="position: absolute; left: 170px; top: 0; height: 100%; width: 2px; background-color: #64748b;"></div>
+      <div style="position: absolute; left: 166px; bottom: -2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #64748b;"></div>
+    </div>
+  </div>
+
+  <!-- Eligibility -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Eligibility
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; position: relative; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>적합성 평가 대상<br/>(Reports sought)</b><br/>(n = 2)
+      </div>
+      <div style="width: 50px; height: 2px; background-color: #64748b; position: relative;">
+        <div style="position: absolute; right: -2px; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #64748b;"></div>
+      </div>
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f1f5f9; width: 250px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>원문 미확보(Not retrieved)</b><br/>(n = 1)
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow 3 -->
+  <div style="display: flex; height: 30px;">
+    <div style="width: 40px;"></div>
+    <div style="flex-grow: 1; padding-left: 20px; position: relative;">
+      <div style="position: absolute; left: 170px; top: 0; height: 100%; width: 2px; background-color: #64748b;"></div>
+      <div style="position: absolute; left: 166px; bottom: -2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #64748b;"></div>
+    </div>
+  </div>
+
+  <!-- Included -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Included
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>원문 확보됨(Retrieved)</b><br/>(n = 1)<br/><br/>
+        <b>최종 포함(Included)</b><br/>(n = 1)
+      </div>
+    </div>
+  </div>
+</div>
 
 ## 3. 검색 및 스크리닝 통계
 - PubMed 검색 결과: 5

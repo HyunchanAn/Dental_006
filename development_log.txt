@@ -107,3 +107,7 @@
   - 디버그 및 에러 로그 파일들을 `logs/` 폴더로 이동
   - 테스트용 JSON 데이터 파일들을 `tests/debug_cases/` 폴더로 이동
 - README.md의 아키텍처 다이어그램을 docs/ARCHITECTURE.md에 작성된 상세 구성도로 교체
+
+2026-06-02 03:22:00
+- PRISMA 흐름도를 Mermaid.js 렌더링에서 HTML/CSS 기반의 커스텀 하드코딩 방식으로 교체하여 논문 규격의 레이아웃 완벽 구현
+- app.py 및 src/report/generator.py 파일의 렌더링 로직 수정

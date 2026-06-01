@@ -63,17 +63,98 @@ def generate_prisma_mermaid(stats, lang="EN"):
     """
     s = stats
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
-
+    # Custom HTML/CSS PRISMA Flowchart to perfectly match academic layout requirements
     mermaid_code = f"""
-```mermaid
-graph TD
-    A["{t['prisma_id']}<br/>(n = {s.get('total_found', 0)})"] --> B["{t['prisma_screened']}<br/>(n = {s.get('screened', 0)})"]
-    B --> C["{t['prisma_excluded']}<br/>(n = {s.get('excluded', 0)})"]
-    B --> D["{t['prisma_sought']}<br/>(n = {s.get('included', 0)})"]
-    D --> E["{t['prisma_not_retrieved']}<br/>(n = {s.get('included', 0) - s.get('retrieved', 0)})"]
-    D --> F["{t['prisma_retrieved']}<br/>(n = {s.get('retrieved', 0)})"]
-    F --> G["{t['prisma_included']}<br/>(n = {s.get('retrieved', 0)})"]
-```
+<div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; max-width: 800px; margin: 20px auto; color: #1e293b; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
+  
+  <!-- Identification -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Identification
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>{t['prisma_id']}</b><br/>(n = {s.get('total_found', 0)})
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow 1 -->
+  <div style="display: flex; height: 30px;">
+    <div style="width: 40px;"></div>
+    <div style="flex-grow: 1; padding-left: 20px; position: relative;">
+      <div style="position: absolute; left: 170px; top: 0; height: 100%; width: 2px; background-color: #64748b;"></div>
+      <div style="position: absolute; left: 166px; bottom: -2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #64748b;"></div>
+    </div>
+  </div>
+
+  <!-- Screening -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Screening
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; position: relative; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>{t['prisma_screened']}</b><br/>(n = {s.get('screened', 0)})
+      </div>
+      <div style="width: 50px; height: 2px; background-color: #64748b; position: relative;">
+        <div style="position: absolute; right: -2px; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #64748b;"></div>
+      </div>
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f1f5f9; width: 250px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>{t['prisma_excluded']}</b><br/>(n = {s.get('excluded', 0)})
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow 2 -->
+  <div style="display: flex; height: 30px;">
+    <div style="width: 40px;"></div>
+    <div style="flex-grow: 1; padding-left: 20px; position: relative;">
+      <div style="position: absolute; left: 170px; top: 0; height: 100%; width: 2px; background-color: #64748b;"></div>
+      <div style="position: absolute; left: 166px; bottom: -2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #64748b;"></div>
+    </div>
+  </div>
+
+  <!-- Eligibility -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Eligibility
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; position: relative; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>{t['prisma_sought']}</b><br/>(n = {s.get('included', 0)})
+      </div>
+      <div style="width: 50px; height: 2px; background-color: #64748b; position: relative;">
+        <div style="position: absolute; right: -2px; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #64748b;"></div>
+      </div>
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f1f5f9; width: 250px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>원문 미확보(Not retrieved)</b><br/>(n = {s.get('included', 0) - s.get('retrieved', 0)})
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow 3 -->
+  <div style="display: flex; height: 30px;">
+    <div style="width: 40px;"></div>
+    <div style="flex-grow: 1; padding-left: 20px; position: relative;">
+      <div style="position: absolute; left: 170px; top: 0; height: 100%; width: 2px; background-color: #64748b;"></div>
+      <div style="position: absolute; left: 166px; bottom: -2px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #64748b;"></div>
+    </div>
+  </div>
+
+  <!-- Included -->
+  <div style="display: flex; margin-bottom: 0;">
+    <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
+      Included
+    </div>
+    <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>{t['prisma_retrieved']}</b><br/>(n = {s.get('retrieved', 0)})<br/><br/>
+        <b>{t['prisma_included']}</b><br/>(n = {s.get('retrieved', 0)})
+      </div>
+    </div>
+  </div>
+</div>
 """
     return mermaid_code
 

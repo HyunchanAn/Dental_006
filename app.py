@@ -1180,7 +1180,7 @@ def main():
         if os.path.exists(report_path):
             with open(report_path, "r", encoding="utf-8") as f:
                 report_content = f.read()
-                st.markdown(report_content)
+                st.markdown(report_content, unsafe_allow_html=True)
 
                 st.download_button(
                     label=t("download_report"),
