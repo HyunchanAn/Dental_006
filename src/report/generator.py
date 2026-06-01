@@ -159,6 +159,81 @@ def generate_prisma_mermaid(stats, lang="EN"):
     return mermaid_code
 
 
+
+
+def _get_analyzed_pmids(articles_csv_path):
+    """
+    Returns the set of PMIDs that were actually analyzed (PDF retrieved and not skipped).
+    This is the ground truth for what went through the analysis pipeline.
+    """
+    if not articles_csv_path or not os.path.exists(articles_csv_path):
+        return None
+    
+    articles_df = pd.read_csv(articles_csv_path)
+    if "pdf_download_status" not in articles_df.columns:
+        return set(articles_df["pmid"].astype(str).tolist())
+    
+    retrieved_mask = (
+        articles_df["pdf_download_status"]
+        .astype(str)
+        .str.contains(r"Downloaded|Exists", case=False, na=False)
+    )
+    return set(articles_df[retrieved_mask]["pmid"].astype(str).tolist())
+
+
+def translate_dataframe(df, target_lang="KO"):
+    """
+    Translates text columns in a PICO extraction DataFrame using the LLM.
+    Skips pmid and quote columns. Returns a new translated DataFrame.
+    """
+    from src.llm import client as llm_client
+    import json
+    import re
+    
+    llm = llm_client.LLMClient()
+    
+    # Identify text columns to translate (skip pmid and quote columns)
+    text_cols = [c for c in df.columns if c != "pmid" and "_quote" not in c]
+    
+    translated_rows = []
+    for _, row in df.iterrows():
+        new_row = dict(row)
+        # Batch all text values for this row into one LLM call for efficiency
+        texts_to_translate = {col: str(row[col]) for col in text_cols if pd.notna(row[col]) and str(row[col]).strip()}
+        
+        if not texts_to_translate:
+            translated_rows.append(new_row)
+            continue
+        
+        lang_name = "Korean" if target_lang == "KO" else "English"
+        prompt = f"""Translate the following JSON values into {lang_name}. 
+Keep the keys exactly the same. Return ONLY a JSON object.
+Do NOT translate proper nouns, drug names, measurement tools (e.g. OHIP-14, SF-36), or statistical terms.
+
+{json.dumps(texts_to_translate, ensure_ascii=False, indent=2)}"""
+        
+        messages = [
+            {"role": "system", "content": f"You are a professional medical translator. Translate accurately to {lang_name}."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        try:
+            response = llm.get_completion(messages)
+            if response:
+                json_match = re.search(r"({[\s\S]*})", response)
+                if json_match:
+                    translated = json.loads(json_match.group(1))
+                    for col, val in translated.items():
+                        if col in new_row:
+                            new_row[col] = val
+        except Exception:
+            pass  # Keep original text on failure
+        
+        translated_rows.append(new_row)
+    
+    return pd.DataFrame(translated_rows)
+
+
 def generate_report(
     stats,
     picos,
@@ -172,13 +247,14 @@ def generate_report(
     """
     Generates a comprehensive Markdown report.
     Recalculates stats from actual CSV data for accuracy.
+    Filters RoB and PICO data to only include analyzed (PDF-retrieved) PMIDs.
     """
     print(f"\n--- Generating Final Report ({lang}) ---")
 
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
 
     # Recalculate stats from actual CSV data for accuracy
-    recalculated_stats = dict(stats)  # start with passed-in stats as fallback
+    recalculated_stats = dict(stats)
     
     if articles_csv_path and os.path.exists(articles_csv_path):
         articles_df = pd.read_csv(articles_csv_path)
@@ -209,6 +285,9 @@ def generate_report(
             recalculated_stats["retrieved"] = recalculated_stats.get("retrieved", 0)
 
     s = recalculated_stats
+    
+    # Get the set of PMIDs that actually went through the analysis pipeline
+    analyzed_pmids = _get_analyzed_pmids(articles_csv_path)
 
     with open(output_path, "w", encoding="utf-8") as f:
         # Title and Header
@@ -222,7 +301,7 @@ def generate_report(
                 f.write(f"- **{k.capitalize()}:** {v}\n")
         f.write("\n")
 
-        # Synthesis (New Section)
+        # Synthesis
         if synthesis_result:
             f.write("## 6. 결론 및 고찰 (Synthesis)\n")
             f.write(synthesis_result)
@@ -246,13 +325,16 @@ def generate_report(
         f.write(f"## {t['extract_header']}\n")
         if os.path.exists(extracted_csv_path):
             df = pd.read_csv(extracted_csv_path)
-            # Filter to only include PMIDs that are actually in the current project
-            if articles_csv_path and os.path.exists(articles_csv_path):
-                valid_pmids = set(
-                    pd.read_csv(articles_csv_path)["pmid"].astype(str).tolist()
-                )
+            # Filter to only include PMIDs that were actually analyzed
+            if analyzed_pmids is not None:
                 df["pmid"] = df["pmid"].astype(str)
-                df = df[df["pmid"].isin(valid_pmids)]
+                df = df[df["pmid"].isin(analyzed_pmids)]
+            
+            # Translate if target language is Korean
+            if lang == "KO":
+                print("Translating extracted data to Korean...")
+                df = translate_dataframe(df, target_lang="KO")
+            
             f.write(f"{t['extract_count']}: {len(df)}\n\n")
             f.write(df.to_markdown(index=False))
         else:
@@ -263,13 +345,10 @@ def generate_report(
         f.write(f"## {t['rob_header']}\n")
         if os.path.exists(rob_csv_path):
             rob_df = pd.read_csv(rob_csv_path)
-            # Filter to only include PMIDs that are actually in the current project
-            if articles_csv_path and os.path.exists(articles_csv_path):
-                valid_pmids = set(
-                    pd.read_csv(articles_csv_path)["pmid"].astype(str).tolist()
-                )
+            # Filter to only include PMIDs that were actually analyzed
+            if analyzed_pmids is not None:
                 rob_df["pmid"] = rob_df["pmid"].astype(str)
-                rob_df = rob_df[rob_df["pmid"].isin(valid_pmids)]
+                rob_df = rob_df[rob_df["pmid"].isin(analyzed_pmids)]
             f.write(f"{t['rob_count'].format(count=len(rob_df))}\n\n")
             f.write(rob_df.to_markdown(index=False))
         else:
