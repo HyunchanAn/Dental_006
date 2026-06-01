@@ -86,3 +86,18 @@
 
 2026-06-02 00:47:47
 - README.md 아키텍처 다이어그램 Mermaid 문법 오류(괄호 등 특수문자 따옴표 처리) 수정
+
+2026-06-02 00:54:00
+- README.md 개편 (Quick Start, Usage Example, Limitations, Performance Metrics 추가)
+- docs/ 디렉토리 구축: PROJECT_PLAN.md, DECISIONS.md (ADR), MODEL_CARD.md (의료 문헌용 Model Card) 추가
+- .pre-commit-config.yaml 업데이트: mypy, black, isort 추가
+- pyproject.toml 업데이트: build-system 명시 및 의존성 추가
+- .github/ 템플릿(Issue, PR), CONTRIBUTING.md, CODE_OF_CONDUCT.md, dependabot.yml 추가
+- .env.example 환경 변수 템플릿 추가
+- tests/ 디렉토리에 통합 테스트(integration test) 뼈대(test_integration.py) 추가
+
+2026-06-02 02:08:00
+- LLM 모델을 Gemma 2에서 Gemma 4로 교체
+- src/llm/client.py, README.md, docs/MODEL_CARD.md 등에서 gemma2 참조를 gemma4로 업데이트
+- tests/verify_pipeline.py의 Ollama 모델 검증 로직을 gemma4 기준으로 수정
+

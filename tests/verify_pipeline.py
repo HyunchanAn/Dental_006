@@ -26,11 +26,11 @@ def check_ollama():
         response = requests.get("http://127.0.0.1:11434/api/tags", timeout=5)
         if response.status_code == 200:
             models = [m["name"] for m in response.json().get("models", [])]
-            if "gemma2:latest" in models or "gemma2:9b" in models:
-                print(" - Ollama is running with gemma2: OK")
+            if "gemma4:latest" in models or "gemma4:9b" in models or "gemma4" in models:
+                print(" - Ollama is running with gemma4: OK")
                 return True
             else:
-                print(f" - Ollama is running, but gemma2 not found. Models: {models}")
+                print(f" - Ollama is running, but gemma4 not found. Models: {models}")
                 return False
         else:
             print(f" - Ollama returned status code: {response.status_code}")

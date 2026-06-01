@@ -1,4 +1,4 @@
-# Systematic Reviewer AI (SR-Gemma2)
+# Systematic Reviewer AI (SR-Gemma4)
 
 [![Status](https://img.shields.io/badge/Status-v1.0_Stable-green?style=flat-square)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
 [![Python](https://img.shields.io/badge/Python-3.11+-007ACC?style=flat-square&logo=python&logoColor=white)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
@@ -13,7 +13,7 @@
 ```mermaid
 graph TD
     A["PDF Papers"] --> B["GROBID Parsing"]
-    B --> C["Ollama (Gemma2) Text Analysis"]
+    B --> C["Ollama (Gemma4) Text Analysis"]
     C --> D["Systematic Review Synthesis"]
     D --> E["Streamlit UI"]
 ```
@@ -58,45 +58,42 @@ graph TD
 └── reference_materials/ # 개발 로그 및 참고 자료.
 ```
 
-## 4. 설치 및 환경 설정
+## 4. Installation
 
-1.  사전 요구사항
-    -   Git
-    -   Python 3.9 이상
-    -   Docker Desktop (GROBID 실행용)
-    -   Ollama (LLM 실행용)
+1. 사전 요구사항
+   - Git
+   - Python 3.9 이상
+   - Docker Desktop (GROBID 실행용)
+   - Ollama (LLM 실행용)
 
-2.  LLM 및 도구 준비
-    -   Ollama 설치 후 gemma2:9b-instruct 모델 다운로드: `ollama pull gemma2`
-    -   Docker Desktop 실행 및 GROBID 서비스 시작 (제공된 `start_services.bat` 관리자 권한 실행 권장)
+2. LLM 및 도구 준비
+   - Ollama 설치 후 gemma4 모델 다운로드: `ollama pull gemma4`
+   - Docker Desktop 실행 및 GROBID 서비스 시작 (제공된 `start_services.bat` 관리자 권한 실행 권장)
 
-3.  Python 의존성 설치
-    ```bash
-    pip install -r requirements.txt
-    ```
+3. Python 의존성 설치
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 5. 사용법 (Web UI)
+## 5. Quick Start & Usage Example
 
-가장 권장되는 실행 방식입니다.
+가장 권장되는 실행 방식은 Streamlit 웹 인터페이스를 사용하는 것입니다.
 
-1.  앱 실행
-    터미널에서 다음 명령어를 입력합니다. (포트 충돌 방지를 위해 8502 포트 사용 권장)
-    ```bash
-    python -m streamlit run app.py --server.port 8502
-    ```
+1. **앱 실행**
+   터미널에서 다음 명령어를 입력합니다. (포트 충돌 방지를 위해 8502 포트 사용 권장)
+   ```bash
+   python -m streamlit run app.py --server.port 8502
+   ```
 
-2.  웹 브라우저 접속
-    브라우저가 자동으로 열리거나, `http://localhost:8502`로 접속합니다.
+2. **웹 브라우저 접속**
+   브라우저가 자동으로 열리거나, `http://localhost:8502`로 접속합니다.
 
-3.  주요 탭 기능
-    -   1. Search (PICO): 연구 질문(PICO) 입력, 검색 쿼리 생성 및 PubMed 검색 실행.
-    -   2. Screening: 검색된 논문을 확인하고 AI 자동 스크리닝 실행.
-    -   3. Analysis Pipeline:
-        -   **Phase 1. PDF Download:** PDF 자동 다운로드 시도. 실패 시 **수동 다운로드 도움말**이 나타납니다.
-            -   **원클릭 검색:** Google Scholar, DOI Search, 그리고 **Sci-Hub**를 통한 즉시 검색 버튼을 제공합니다.
-            -   **실시간 감지:** 사용자가 파일을 `data/pdf/`에 배치하는 즉시 시스템이 실시간으로 감지하여 상태([Manual Detected])를 업데이트합니다.
-        -   **Phase 2. Analysis:** GROBID 파싱 -> RoB 평가 -> 데이터 추출 과정을 순차적으로 실행.
-    -   4. Report: **AI 종합 결론(Synthesis)** 도출 및 최종 보고서(PRISMA 다이어그램 포함) 생성. 한글/영어 토글 지원.
+3. **기본 워크플로우 (Usage Example)**
+   - **Search 탭**: "노인 임플란트 환자의 만족도"와 같은 PICO 연구 질문을 입력하고 PubMed 검색을 실행합니다.
+   - **Screening 탭**: 검색된 논문 리스트를 확인하고 AI 자동 스크리닝을 실행하여 적합한 논문을 분류합니다.
+   - **Analysis Pipeline 탭**: 'PDF Download'를 통해 원문을 확보하고, GROBID 파싱 및 AI RoB 평가/데이터 추출을 순차적으로 수행합니다.
+   - **Report 탭**: 추출된 데이터를 바탕으로 AI 종합 결론(Synthesis)을 도출하고 PRISMA 흐름도가 포함된 최종 보고서를 생성합니다.
+
 
 ## 6. 사용법 (CLI)
 
@@ -120,29 +117,34 @@ python main.py
 
 프로젝트의 상세한 개발 과정은 루트 디렉터리의 [development_log.txt](development_log.txt) 및 [reference_materials/Development_log.txt](reference_materials/Development_log.txt)에 기록되어 있습니다.
 
-## 9. 테스트 및 평가 (Testing & Evaluation)
+## 9. Performance Benchmarks
 
-### 9.1 테스트 환경 (Environment)
+### 9.1 테스트 환경
 본 프로젝트는 아래 하드웨어 사양에서 최적화 및 검증되었습니다.
-- **CPU**: AMD Ryzen 9 9900X (12-Core, 24-Threads)
-- **GPU**: NVIDIA GeForce RTX 5080 (16GB VRAM)
-- **RAM**: 64GB DDR5-5600
-- **OS**: Windows 11 (WSL2 지원)
+- CPU: AMD Ryzen 9 9900X (12-Core, 24-Threads)
+- GPU: NVIDIA GeForce RTX 5080 (16GB VRAM)
+- RAM: 64GB DDR5-5600
+- OS: Windows 11 (WSL2 지원)
 
-### 9.2 평가 항목 (Evaluation Items)
+### 9.2 성능 평가 지표 (Performance Metrics)
 1. **Pipeline Integrity**: 검색부터 보고서 생성까지의 데이터 흐름 및 파일 생성 여부 확인.
 2. **PICO Extraction Accuracy**: LLM이 원문에서 PICO 요소를 정확하게 추출하는지 수동 검토와 비교.
 3. **Screening Performance**: 연구 질문과의 적합성 판정 일관성.
 4. **Parsing Quality**: GROBID를 통한 PDF 구조화(TEI-XML) 및 본문 추출 성공률.
 
-### 9.3 최근 테스트 결과
+### 9.3 벤치마크 결과 (최근 테스트)
 - **테스트 일자**: 2026-02-15
 - **테스트 데이터**: 노인 임플란트 만족도 관련 논문 34편
 - **결과 요약**:
     - PubMed 검색 및 메타데이터 수집 성공률: 100%
     - PDF 확보율: 약 58% (자동 다운로드 + 수동 보조)
     - 데이터 추출 및 RoB 평가 완료율: 100% (확보된 PDF 기준)
-    - 최종 종합 보고서 생성 정상 확인.
+    - 종합 보고서 생성 완료 및 PRISMA 렌더링 무결성 확인.
+
+### 9.4 시스템 한계점 (Limitations)
+- PubMed 의존성: 현재 검색 파이프라인은 주로 PubMed API에 의존하고 있어, 기타 데이터베이스(Embase 등)의 병합 검색은 수동 개입이 필요할 수 있습니다.
+- PDF 자동 획득 한계: Open Access 논문이 아닌 경우 시스템이 PDF를 우회 다운로드할 수 없으며, Manual Download Helper를 통해 직접 폴더에 배치해야 하는 수고가 발생합니다.
+- RoB 2.0 완전 준수: 일부 비정형 텍스트에 대한 자동 비뚤림 평가는 전문 검토자의 미세한 판단과 차이가 있을 수 있으므로 결과의 교차 검증을 권장합니다.
 
 ### 9.4 환경 검증 방법
 아래 스크립트를 실행하여 로컬 환경의 준비 상태를 확인할 수 있습니다.

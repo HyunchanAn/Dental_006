@@ -18,7 +18,7 @@ class LLMClient:
             api_key="sk-no-key-required",  # API key is not needed for local server
         )
 
-    def get_completion(self, messages, model="gemma2", temperature=0.7):
+    def get_completion(self, messages, model="gemma4", temperature=0.7):
         """
         Gets a completion from the local LLM.
 
