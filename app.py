@@ -828,11 +828,9 @@ def main():
                             st.rerun()
 
                         # --- Check for missing files & Manual Helper ---
-                        if os.path.exists(csv_path):
+                        if "pdf_download_status" in df.columns:
                             try:
-                                df = pd.read_csv(csv_path)
-                                if "pdf_download_status" in df.columns:
-                                    failed_mask = ~df["pdf_download_status"].astype(str).str.contains(
+                                failed_mask = ~df["pdf_download_status"].astype(str).str.contains(
                                         r"Downloaded|Exists|Skipped",
                                         case=False,
                                         na=False,
