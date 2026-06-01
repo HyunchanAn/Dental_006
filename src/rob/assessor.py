@@ -75,22 +75,18 @@ Assess the Risk of Bias. Return ONLY the JSON object.
 def batch_assess_rob(tei_dir, output_csv_path):
     """
     Runs RoB assessment for all XML files in the TEI directory.
-    Saves results to a CSV file.
+    Yields progress so the UI can be updated.
     """
-    print("\n--- Starting Automated Risk of Bias (RoB) Assessment ---")
-
     rob_results = []
 
     tei_files = [f for f in os.listdir(tei_dir) if f.endswith(".xml")]
     if not tei_files:
-        print("No TEI files found for RoB assessment.")
         return
 
-    for tei_file in tei_files:
+    total = len(tei_files)
+    for idx, tei_file in enumerate(tei_files):
         pmid = tei_file.replace(".xml", "")
         tei_path = os.path.join(tei_dir, tei_file)
-
-        print(f"Assess RoB for PMID: {pmid}...", end="\r")
 
         assessment = assess_risk_of_bias(tei_path)
 
@@ -101,20 +97,13 @@ def batch_assess_rob(tei_dir, output_csv_path):
                     flat_result[f"{domain}_Level"] = details.get("level", "Unclear")
                     quote = details.get("quote", "")
                     reasoning = details.get("reasoning", "")
-                    # Combine quote and reasoning to maintain backward compatibility with Explanation column
                     flat_result[f"{domain}_Explanation"] = f"Quote: '{quote}' | Reasoning: {reasoning}"
                 else:
-                    # Fallback if structure is flat or weird
                     flat_result[domain] = str(details)
             rob_results.append(flat_result)
-        else:
-            print(f"Failed to assess RoB for {pmid}")
+        
+        yield (idx + 1, total, pmid)
 
     if rob_results:
         df = pd.DataFrame(rob_results)
         df.to_csv(output_csv_path, index=False, encoding="utf-8-sig")
-        print(f"\nSaved RoB assessment results to {output_csv_path}")
-        return df
-    else:
-        print("\nNo RoB results generated.")
-        return None

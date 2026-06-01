@@ -167,13 +167,48 @@ def generate_report(
     output_path,
     lang="EN",
     synthesis_result=None,
+    articles_csv_path=None,
 ):
     """
     Generates a comprehensive Markdown report.
+    Recalculates stats from actual CSV data for accuracy.
     """
     print(f"\n--- Generating Final Report ({lang}) ---")
 
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
+
+    # Recalculate stats from actual CSV data for accuracy
+    recalculated_stats = dict(stats)  # start with passed-in stats as fallback
+    
+    if articles_csv_path and os.path.exists(articles_csv_path):
+        articles_df = pd.read_csv(articles_csv_path)
+        recalculated_stats["total_found"] = len(articles_df)
+        
+        if "screening_decision" in articles_df.columns:
+            screened_mask = articles_df["screening_decision"].notna()
+            recalculated_stats["screened"] = int(screened_mask.sum())
+            recalculated_stats["included"] = int(
+                (articles_df["screening_decision"] == "Included").sum()
+            )
+            recalculated_stats["excluded"] = (
+                recalculated_stats["screened"] - recalculated_stats["included"]
+            )
+        else:
+            recalculated_stats["screened"] = len(articles_df)
+            recalculated_stats["included"] = len(articles_df)
+            recalculated_stats["excluded"] = 0
+
+        if "pdf_download_status" in articles_df.columns:
+            retrieved_mask = (
+                articles_df["pdf_download_status"]
+                .astype(str)
+                .str.contains(r"Downloaded|Exists", case=False, na=False)
+            )
+            recalculated_stats["retrieved"] = int(retrieved_mask.sum())
+        else:
+            recalculated_stats["retrieved"] = recalculated_stats.get("retrieved", 0)
+
+    s = recalculated_stats
 
     with open(output_path, "w", encoding="utf-8") as f:
         # Title and Header
@@ -195,22 +230,29 @@ def generate_report(
 
         # PRISMA Flow
         f.write(f"## {t['prisma_header']}\n")
-        f.write(generate_prisma_mermaid(stats, lang=lang))
+        f.write(generate_prisma_mermaid(s, lang=lang))
         f.write("\n")
 
         # Statistics Summary
         f.write(f"## {t['stats_header']}\n")
-        f.write(f"- {t['stat_total']}: {stats.get('total_found', 0)}\n")
-        f.write(f"- {t['stat_screened']}: {stats.get('screened', 0)}\n")
-        f.write(f"- {t['stat_excluded']}: {stats.get('excluded', 0)}\n")
-        f.write(f"- {t['stat_included']}: {stats.get('included', 0)}\n")
-        f.write(f"- {t['stat_retrieved']}: {stats.get('retrieved', 0)}\n")
+        f.write(f"- {t['stat_total']}: {s.get('total_found', 0)}\n")
+        f.write(f"- {t['stat_screened']}: {s.get('screened', 0)}\n")
+        f.write(f"- {t['stat_excluded']}: {s.get('excluded', 0)}\n")
+        f.write(f"- {t['stat_included']}: {s.get('included', 0)}\n")
+        f.write(f"- {t['stat_retrieved']}: {s.get('retrieved', 0)}\n")
         f.write("\n")
 
         # Extracted Data Summary
         f.write(f"## {t['extract_header']}\n")
         if os.path.exists(extracted_csv_path):
             df = pd.read_csv(extracted_csv_path)
+            # Filter to only include PMIDs that are actually in the current project
+            if articles_csv_path and os.path.exists(articles_csv_path):
+                valid_pmids = set(
+                    pd.read_csv(articles_csv_path)["pmid"].astype(str).tolist()
+                )
+                df["pmid"] = df["pmid"].astype(str)
+                df = df[df["pmid"].isin(valid_pmids)]
             f.write(f"{t['extract_count']}: {len(df)}\n\n")
             f.write(df.to_markdown(index=False))
         else:
@@ -221,6 +263,13 @@ def generate_report(
         f.write(f"## {t['rob_header']}\n")
         if os.path.exists(rob_csv_path):
             rob_df = pd.read_csv(rob_csv_path)
+            # Filter to only include PMIDs that are actually in the current project
+            if articles_csv_path and os.path.exists(articles_csv_path):
+                valid_pmids = set(
+                    pd.read_csv(articles_csv_path)["pmid"].astype(str).tolist()
+                )
+                rob_df["pmid"] = rob_df["pmid"].astype(str)
+                rob_df = rob_df[rob_df["pmid"].isin(valid_pmids)]
             f.write(f"{t['rob_count'].format(count=len(rob_df))}\n\n")
             f.write(rob_df.to_markdown(index=False))
         else:
@@ -228,3 +277,4 @@ def generate_report(
         f.write("\n")
 
     print(f"Report saved to {output_path}")
+

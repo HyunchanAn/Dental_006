@@ -591,6 +591,17 @@ def main():
 
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
+            
+            # Auto-fix corrupted columns from legacy merges
+            if "title" not in df.columns and "title_x" in df.columns:
+                rename_dict = {}
+                for col in ["doi", "title", "journal", "pub_year", "abstract"]:
+                    if f"{col}_x" in df.columns:
+                        rename_dict[f"{col}_x"] = col
+                df.rename(columns=rename_dict, inplace=True)
+                df.drop(columns=[c for c in df.columns if c.endswith("_y")], inplace=True, errors='ignore')
+                df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+            
             st.dataframe(
                 df[["pmid", "title", "journal", "pub_year"]], use_container_width=True
             )
@@ -601,9 +612,9 @@ def main():
                 status_text = st.empty()
                 
                 checkpoint_csv = os.path.join(TABLES_DIR, "screening_results.csv")
-                generator = screener.screen_abstracts(df, st.session_state["picos"], checkpoint_csv)
+                screen_gen = screener.screen_abstracts(df, st.session_state["picos"], checkpoint_csv)
                 
-                for current_idx, total_count, pmid, result in generator:
+                for current_idx, total_count, pmid, result in screen_gen:
                     progress_bar.progress(current_idx / total_count)
                     if result:
                         status_text.text(f"[{current_idx}/{total_count}] Screening PMID {pmid}... Decision: {result['screening_decision']}")
@@ -1151,12 +1162,17 @@ def main():
                             progress_bar.progress(50)
 
                             # 3. RoB Assessment
-                            status_text.text(t("assessing_rob"))
                             if os.path.exists(TEI_DIR):
-                                assessor.batch_assess_rob(
+                                rob_gen = assessor.batch_assess_rob(
                                     TEI_DIR,
                                     os.path.join(TABLES_DIR, "rob_assessment.csv"),
                                 )
+                                if rob_gen:
+                                    for current_idx, total_count, pmid in rob_gen:
+                                        status_text.text(f"[{current_idx}/{total_count}] Assessing Risk of Bias for PMID {pmid}...")
+                                        # Calculate progress between 50% and 75%
+                                        progress = 50 + int((current_idx / total_count) * 25)
+                                        progress_bar.progress(progress)
                             progress_bar.progress(75)
 
                             # 4. Data Extraction
@@ -1169,8 +1185,13 @@ def main():
                             if tei_files:
                                 from src.extract import pico_extractor
 
-                                for tei_file in tei_files:
+                                total_tei = len(tei_files)
+                                for idx, tei_file in enumerate(tei_files):
                                     pmid = tei_file.replace(".xml", "")
+                                    status_text.text(f"[{idx+1}/{total_tei}] Extracting PICO for PMID {pmid}...")
+                                    progress = 75 + int(((idx + 1) / total_tei) * 25)
+                                    progress_bar.progress(progress)
+                                    
                                     # Use optimized context slicing for PICO extraction
                                     full_text = tei_parser.extract_text_from_tei(
                                         os.path.join(TEI_DIR, tei_file), optimize_context=True
@@ -1248,6 +1269,7 @@ def main():
         current_lang = st.session_state["lang"]
         report_filename = f"report_{current_lang}.md"
         report_path = os.path.join(DATA_DIR, report_filename)
+        articles_csv_path = os.path.join(TABLES_DIR, "articles.csv")
 
         if st.button(t("generate_report")):
             # 1. Synthesize Answer (New)
@@ -1268,6 +1290,7 @@ def main():
                 report_path,
                 lang=current_lang,
                 synthesis_result=synthesis_result,
+                articles_csv_path=articles_csv_path,
             )
             st.success(t("report_generated"))
 
@@ -1277,15 +1300,17 @@ def main():
                 report_content = f.read()
                 st.markdown(report_content, unsafe_allow_html=True)
 
+                # Download filename with date/time
+                timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                download_filename = f"report_{current_lang}_{timestamp_str}.md"
+
                 st.download_button(
                     label=t("download_report"),
                     data=report_content,
-                    file_name=report_filename,
+                    file_name=download_filename,
                     mime="text/markdown",
                 )
         else:
-            # If current language report doesn't exist but the OTHER one does?
-            # Optional: Check for fallback. But for now, just strictly follow the toggle.
             pass
 
 
