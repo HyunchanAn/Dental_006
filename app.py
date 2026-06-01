@@ -152,6 +152,15 @@ TRANSLATIONS = {
         "match_success": "✅ Matched {pmid} from {filename}",
         "match_failed": "⚠️ Could not find PMID in {filename}",
         "view_pubmed": "PubMed",
+        "prisma_title": "PRISMA Flow Diagram",
+        "prisma_id": "Identification",
+        "prisma_id_desc": "Records identified through database searching",
+        "prisma_screened": "Screening",
+        "prisma_screened_desc": "Records screened",
+        "prisma_excluded": "Records excluded",
+        "prisma_included": "Included",
+        "prisma_included_desc": "Studies included in qualitative synthesis",
+        "prisma_no_category": "No category recorded",
     },
     "KO": {
         "title": "🤖 체계적 문헌고찰 AI",
@@ -227,6 +236,15 @@ TRANSLATIONS = {
         "match_success": "✅ {filename} -> PMID {pmid} 매칭 완료",
         "match_failed": "⚠️ {filename}에서 PMID를 추출하지 못했습니다.",
         "view_pubmed": "PubMed",
+        "prisma_title": "PRISMA 흐름도",
+        "prisma_id": "문헌 식별 (Identification)",
+        "prisma_id_desc": "데이터베이스 검색을 통해 식별된 문헌",
+        "prisma_screened": "스크리닝 (Screening)",
+        "prisma_screened_desc": "검토된 문헌",
+        "prisma_excluded": "제외된 문헌 (Excluded)",
+        "prisma_included": "최종 포함 (Included)",
+        "prisma_included_desc": "정성적 합성에 포함된 연구",
+        "prisma_no_category": "카테고리 기록 없음",
     },
 }
 
@@ -674,25 +692,25 @@ def main():
                     )
                     exclusion_html = "".join([f"<li>{k}: {v}</li>" for k, v in exclusion_counts.items() if str(k).strip()])
                 else:
-                    exclusion_html = "<li>No category recorded</li>"
+                    exclusion_html = f"<li>{t('prisma_no_category')}</li>"
 
                 prisma_html = f"""
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px; border: 1px solid #ddd;">
-                    <h3 style="text-align: center; color: #333;">PRISMA Flow Diagram</h3>
+                    <h3 style="text-align: center; color: #333;">{t('prisma_title')}</h3>
                     <div style="text-align: center; padding: 10px; margin: 10px; background-color: #e3f2fd; border: 1px solid #90caf9; border-radius: 5px;">
-                        <strong>Identification</strong><br>
-                        Records identified through database searching<br>
+                        <strong>{t('prisma_id')}</strong><br>
+                        {t('prisma_id_desc')}<br>
                         (n = {total_found})
                     </div>
                     <div style="text-align: center; font-size: 24px;">&#8595;</div>
                     <div style="text-align: center; padding: 10px; margin: 10px; background-color: #fff3e0; border: 1px solid #ffcc80; border-radius: 5px; display: flex; justify-content: space-between;">
                         <div style="width: 45%;">
-                            <strong>Screening</strong><br>
-                            Records screened<br>
+                            <strong>{t('prisma_screened')}</strong><br>
+                            {t('prisma_screened_desc')}<br>
                             (n = {total_screened})
                         </div>
                         <div style="width: 45%; border-left: 2px solid #ffcc80; padding-left: 10px; text-align: left;">
-                            <strong>Records excluded</strong> (n = {total_screened - total_included})<br>
+                            <strong>{t('prisma_excluded')}</strong> (n = {total_screened - total_included})<br>
                             <ul style="margin: 0; padding-left: 20px; font-size: 0.9em;">
                                 {exclusion_html}
                             </ul>
@@ -700,8 +718,8 @@ def main():
                     </div>
                     <div style="text-align: center; font-size: 24px;">&#8595;</div>
                     <div style="text-align: center; padding: 10px; margin: 10px; background-color: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 5px;">
-                        <strong>Included</strong><br>
-                        Studies included in qualitative synthesis<br>
+                        <strong>{t('prisma_included')}</strong><br>
+                        {t('prisma_included_desc')}<br>
                         (n = {total_included})
                     </div>
                 </div>
