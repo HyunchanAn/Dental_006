@@ -80,3 +80,6 @@
 3. UI 인터랙션 강화: AI 추출 데이터의 실시간 편집 및 데이터베이스 반영 기능 (Streamlit State 활용).
 4. 모델 고도화: Gemma 3 적용 및 학술 연구 특화 Low-rank Adaptation (LoRA) 검토.
 5. 인프라 통합: Docker Compose를 활용한 Ollama-GROBID-App 원클릭 배포 환경 구축.
+
+2026-06-02 00:43:07
+- README.md에 아키텍처 다이어그램 및 순서도 일괄 추가, 이모티콘 제거

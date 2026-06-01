@@ -7,6 +7,17 @@
 [![UI](https://img.shields.io/badge/UI-Streamlit-007ACC?style=flat-square&logo=streamlit&logoColor=white)](https://github.com/HyunchanAn/Systematic_reviewer_AI)
 [![Python CI](https://img.shields.io/github/actions/workflow/status/HyunchanAn/Systematic_reviewer_AI/python-ci.yml?branch=main&label=Python%20CI&logo=github&style=flat-square)](https://github.com/HyunchanAn/Systematic_reviewer_AI/actions/workflows/python-ci.yml)
 
+## Technical Architecture & Workflow
+
+### Architecture Diagram
+```mermaid
+graph TD
+    A[PDF Papers] --> B[GROBID Parsing]
+    B --> C[Ollama (Gemma2) Text Analysis]
+    C --> D[Systematic Review Synthesis]
+    D --> E[Streamlit UI]
+```
+
 ## 1. 개요
 
 이 프로젝트는 체계적 문헌고찰(Systematic Review) 논문 작성 과정의 일부를 자동화하여 연구자의 부담을 경감시키는 AI 보조 파이프라인을 구축하는 것을 목표로 합니다. 로컬에서 구동되는 Ollama 기반의 Gemma 2 언어 모델을 기반으로, 문헌 검색, 스크리닝, 데이터 추출, 비뚤림 위험 평가, 보고서 생성 등의 작업을 효율화합니다.
