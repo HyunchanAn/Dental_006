@@ -1,34 +1,46 @@
 import json
 import re
-
+import os
 import pandas as pd
 
 from src.llm import client as llm_client
 
-
-def screen_abstracts(articles_df, picos_data):
+def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
     """
     Screens articles based on Title and Abstract using an LLM and PICO criteria.
+    Yields progress and results one by one for UI updates and checkpointing.
 
     Args:
         articles_df (pd.DataFrame): DataFrame containing 'pmid', 'title', 'abstract'.
         picos_data (dict): Dictionary containing PICO elements (population, intervention, etc.).
+        checkpoint_csv (str): Path to CSV for saving checkpoints.
 
-    Returns:
-        pd.DataFrame: Original DataFrame with added columns 'screening_decision' and 'screening_reason'.
+    Yields:
+        tuple: (current_index, total_count, pmid, result_dict)
     """
-    print("\n--- Starting Automated Screening (Title/Abstract) ---")
-
     llm = llm_client.LLMClient()
+    
+    # Load existing checkpoints to skip already screened articles
+    screened_pmids = set()
+    if checkpoint_csv and os.path.exists(checkpoint_csv):
+        try:
+            chk_df = pd.read_csv(checkpoint_csv)
+            if "pmid" in chk_df.columns:
+                screened_pmids = set(chk_df["pmid"].astype(str).tolist())
+        except Exception:
+            pass
 
     # Check LLM connection
     if not llm.get_completion([{"role": "user", "content": "Test"}]):
-        print(
-            "LLM not connected. Skipping automated screening. All articles will be marked as 'Included' (Manual Review Needed)."
-        )
-        articles_df["screening_decision"] = "Included"
-        articles_df["screening_reason"] = "LLM Unavailable"
-        return articles_df
+        for idx, row in articles_df.iterrows():
+            pmid = str(row.get("pmid", ""))
+            yield (idx + 1, len(articles_df), pmid, {
+                "pmid": pmid,
+                "screening_decision": "Included",
+                "screening_reason": "LLM Unavailable",
+                "exclusion_category": ""
+            })
+        return
 
     system_prompt = """You are an expert systematic reviewer.
 Your task is to screen research papers based on their Title and Abstract to decide if they should be included in a systematic review.
@@ -36,9 +48,12 @@ You will be provided with the PICO criteria (Population, Intervention, Compariso
 Compare the paper's content with these criteria.
 
 Output Format:
-Provide your response in JSON format with two keys:
+Provide your response in JSON format with three keys:
 1. "decision": String, either "Included" or "Excluded".
-2. "reason": A brief explanation (1-2 sentences) citing specific criteria matched or missed.
+2. "reason": A brief explanation citing specific criteria matched or missed.
+3. "exclusion_category": String. If "decision" is "Excluded", you MUST choose exactly ONE of the following standard categories:
+   ["Wrong Study Design", "Target Population Mismatch", "Inappropriate Intervention", "Insufficient Outcome Data"]
+   If "decision" is "Included", leave this as an empty string "".
 
 Criteria for Inclusion:
 - The paper MUST match the Population and Intervention.
@@ -55,14 +70,17 @@ Criteria for Inclusion:
     Study Design: {picos_data.get("study_design", "Any")}
     """
 
-    results = []
+    total = len(articles_df)
+    
+    for idx, row in articles_df.iterrows():
+        pmid = str(row.get("pmid", "Unknown"))
+        
+        if pmid in screened_pmids:
+            yield (idx + 1, total, pmid, None) # None indicates skipped
+            continue
 
-    for _index, row in articles_df.iterrows():
-        pmid = row.get("pmid", "Unknown")
         title = row.get("title", "No Title")
         abstract = row.get("abstract", "No Abstract")
-
-        print(f"Screening PMID: {pmid}...", end="\r")
 
         user_prompt = f"""
 PICO Criteria:
@@ -81,17 +99,18 @@ Is this paper relevant? Return JSON.
 
         try:
             response = llm.get_completion(messages)
-            decision = "Included"  # Default
+            decision = "Included"
             reason = "Parse Error"
+            category = ""
 
             if response:
-                # cleaner regex to capture JSON block or just braces
                 json_match = re.search(r"({[\s\S]*})", response)
                 if json_match:
                     try:
                         data = json.loads(json_match.group(1))
                         decision = data.get("decision", "Included")
                         reason = data.get("reason", "No reason provided")
+                        category = data.get("exclusion_category", "")
                     except json.JSONDecodeError:
                         reason = "JSON Decode Error"
                 else:
@@ -102,24 +121,32 @@ Is this paper relevant? Return JSON.
             # Normalize decision
             if "exclude" in decision.lower():
                 decision = "Excluded"
+                # Validate category
+                valid_cats = ["Wrong Study Design", "Target Population Mismatch", "Inappropriate Intervention", "Insufficient Outcome Data"]
+                if category not in valid_cats:
+                    category = "Target Population Mismatch" # default fallback
             else:
                 decision = "Included"
+                category = ""
 
         except Exception as e:
             decision = "Included"
             reason = f"Error during screening: {str(e)}"
+            category = ""
 
-        results.append(
-            {"pmid": pmid, "screening_decision": decision, "screening_reason": reason}
-        )
+        result = {
+            "pmid": pmid, 
+            "screening_decision": decision, 
+            "screening_reason": reason,
+            "exclusion_category": category
+        }
+        
+        # Checkpointing (save immediately)
+        if checkpoint_csv:
+            res_df = pd.DataFrame([result])
+            if not os.path.exists(checkpoint_csv):
+                res_df.to_csv(checkpoint_csv, index=False, encoding="utf-8-sig")
+            else:
+                res_df.to_csv(checkpoint_csv, mode='a', header=False, index=False, encoding="utf-8-sig")
 
-    print(f"\nScreening complete. Processed {len(articles_df)} articles.")
-
-    # Merge results back to DataFrame
-    results_df = pd.DataFrame(results)
-    # Ensure pmid is same type for merge
-    articles_df["pmid"] = articles_df["pmid"].astype(str)
-    results_df["pmid"] = results_df["pmid"].astype(str)
-
-    final_df = pd.merge(articles_df, results_df, on="pmid", how="left")
-    return final_df
+        yield (idx + 1, total, pmid, result)

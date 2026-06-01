@@ -264,6 +264,7 @@ def init_session_state():
 
 def handle_bulk_upload(uploaded_files, df, csv_path):
     import re
+    from pypdf import PdfReader
 
     success_count = 0
     results = []
@@ -278,16 +279,27 @@ def handle_bulk_upload(uploaded_files, df, csv_path):
 
             # Check if this PMID is in our database
             if pmid in df["pmid"].astype(str).values:
-                with open(target_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
+                # Pre-flight Check: Validate PDF structure
+                try:
+                    reader = PdfReader(uploaded_file)
+                    num_pages = len(reader.pages)
+                    if num_pages > 0:
+                        # Validation passed, save the file
+                        uploaded_file.seek(0)
+                        with open(target_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
 
-                df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = (
-                    "Downloaded (Bulk Match)"
-                )
-                success_count += 1
-                results.append(t("match_success", filename=filename, pmid=pmid))
-                # Update session state cache immediately
-                st.session_state["file_cache"][f"exists_{pmid}"] = True
+                        df.loc[df["pmid"].astype(str) == pmid, "pdf_download_status"] = (
+                            "Downloaded (Bulk Match)"
+                        )
+                        success_count += 1
+                        results.append(t("match_success", filename=filename, pmid=pmid))
+                        # Update session state cache immediately
+                        st.session_state["file_cache"][f"exists_{pmid}"] = True
+                    else:
+                        results.append(f"⚠️ {filename}: 유효하지 않은 PDF입니다 (페이지 없음).")
+                except Exception as e:
+                    results.append(f"⚠️ {filename}: PDF 파싱 실패 (손상된 파일) - {e}")
             else:
                 results.append(f"⚠️ {filename}: PMID {pmid} not found in project.")
         else:
@@ -584,29 +596,45 @@ def main():
             )
 
             if st.button(t("start_screening")):
-                with st.spinner(t("screening_progress")):
-                    screened_df = screener.screen_abstracts(
-                        df, st.session_state["picos"]
-                    )
-
-                    # Save results
-                    screened_df.to_csv(
-                        os.path.join(TABLES_DIR, "screening_results.csv"),
-                        index=False,
-                        encoding="utf-8-sig",
-                    )
-                    # Update main csv
-                    screened_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+                st.write("스크리닝을 시작합니다. 중단되어도 다시 시작하면 이어서 진행됩니다 (Resume).")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                checkpoint_csv = os.path.join(TABLES_DIR, "screening_results.csv")
+                generator = screener.screen_abstracts(df, st.session_state["picos"], checkpoint_csv)
+                
+                for current_idx, total_count, pmid, result in generator:
+                    progress_bar.progress(current_idx / total_count)
+                    if result:
+                        status_text.text(f"[{current_idx}/{total_count}] Screening PMID {pmid}... Decision: {result['screening_decision']}")
+                    else:
+                        status_text.text(f"[{current_idx}/{total_count}] Skipping PMID {pmid} (Already screened)")
+                        
+                status_text.text(f"Screening completed! ({total_count}/{total_count})")
+                
+                # Merge checkpoint results back to main dataframe
+                if os.path.exists(checkpoint_csv):
+                    results_df = pd.read_csv(checkpoint_csv)
+                    
+                    cols_to_drop = [c for c in ["screening_decision", "screening_reason", "exclusion_category"] if c in df.columns]
+                    df.drop(columns=cols_to_drop, inplace=True)
+                    
+                    df["pmid"] = df["pmid"].astype(str)
+                    results_df["pmid"] = results_df["pmid"].astype(str)
+                    merged_df = pd.merge(df, results_df, on="pmid", how="left")
+                    merged_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
 
                     # Update stats
-                    st.session_state["stats"]["screened"] = len(screened_df)
+                    st.session_state["stats"]["screened"] = len(merged_df[merged_df["screening_decision"].notna()])
                     st.session_state["stats"]["included"] = len(
-                        screened_df[screened_df["screening_decision"] == "Included"]
+                        merged_df[merged_df["screening_decision"] == "Included"]
                     )
                     st.session_state["stats"]["excluded"] = (
                         st.session_state["stats"]["screened"]
                         - st.session_state["stats"]["included"]
                     )
+                time.sleep(1)
+                st.rerun()
 
             # Show Screening Results if available
             if "screening_decision" in df.columns:
@@ -616,8 +644,57 @@ def main():
                     t("inclusion_rate"),
                     f"{st.session_state['stats']['included']} / {st.session_state['stats']['screened']}",
                 )
+                
+                # PRISMA Flow Diagram rendering
+                st.subheader("PRISMA Flow Diagram")
+                total_found = len(df)
+                total_screened = st.session_state['stats']['screened']
+                total_included = st.session_state['stats']['included']
+                
+                if "exclusion_category" in df.columns:
+                    exclusion_counts = df[df["screening_decision"] == "Excluded"]["exclusion_category"].value_counts().to_dict()
+                    exclusion_html = "".join([f"<li>{k}: {v}</li>" for k, v in exclusion_counts.items() if str(k).strip()])
+                else:
+                    exclusion_html = "<li>No category recorded</li>"
+                
+                prisma_html = f"""
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px; border: 1px solid #ddd;">
+                    <h3 style="text-align: center; color: #333;">PRISMA Flow Diagram</h3>
+                    <div style="text-align: center; padding: 10px; margin: 10px; background-color: #e3f2fd; border: 1px solid #90caf9; border-radius: 5px;">
+                        <strong>Identification</strong><br>
+                        Records identified through database searching<br>
+                        (n = {total_found})
+                    </div>
+                    <div style="text-align: center; font-size: 24px;">&#8595;</div>
+                    <div style="text-align: center; padding: 10px; margin: 10px; background-color: #fff3e0; border: 1px solid #ffcc80; border-radius: 5px; display: flex; justify-content: space-between;">
+                        <div style="width: 45%;">
+                            <strong>Screening</strong><br>
+                            Records screened<br>
+                            (n = {total_screened})
+                        </div>
+                        <div style="width: 45%; border-left: 2px solid #ffcc80; padding-left: 10px; text-align: left;">
+                            <strong>Records excluded</strong> (n = {total_screened - total_included})<br>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 0.9em;">
+                                {exclusion_html}
+                            </ul>
+                        </div>
+                    </div>
+                    <div style="text-align: center; font-size: 24px;">&#8595;</div>
+                    <div style="text-align: center; padding: 10px; margin: 10px; background-color: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 5px;">
+                        <strong>Included</strong><br>
+                        Studies included in qualitative synthesis<br>
+                        (n = {total_included})
+                    </div>
+                </div>
+                """
+                st.components.v1.html(prisma_html, height=450)
+                
+                display_cols = ["pmid", "title", "screening_decision", "screening_reason"]
+                if "exclusion_category" in df.columns:
+                    display_cols.append("exclusion_category")
+                    
                 st.dataframe(
-                    df[["pmid", "title", "screening_decision", "screening_reason"]],
+                    df[display_cols],
                     use_container_width=True,
                 )
         else:

@@ -128,3 +128,8 @@
 1. src/extract/pico_extractor.py 신규 생성하여 P, I/C, O를 각각 분리 추출하는 Multi-Agent 구조 도입.
 2. 각 에이전트 프롬프트에 raw_quote 필드를 필수 반환하도록 설정하여 근거 매핑(Grounding) 강화.
 3. app.py에서 기존 단일 프롬프트 추출 로직을 제거하고, pico_extractor를 호출하도록 변경 및 optimize_context=True 파라미터 연동.
+
+[2026-06-02 03:54:00] [Hyunchan An] 이슈 #10, #11, #12 통합 해결:
+1. [Issue #10] app.py의 handle_bulk_upload 함수에 PyPDF2를 활용한 사전 무결성 검증(Pre-flight check) 로직 추가 및 자동 리네이밍 헬퍼 안정성 강화.
+2. [Issue #11] screener.py를 Generator 패턴으로 변경하여 실시간 Progress UI 및 Resume 기능 구현. 중단 시 screening_results.csv에 자동 체크포인트 저장.
+3. [Issue #12] 스크리닝 탈락 사유를 4가지 표준 카테고리로 정형화하고, app.py 내 커스텀 HTML/CSS 기반의 PRISMA Flow Diagram 생성 기능 추가.
