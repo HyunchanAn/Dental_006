@@ -1084,17 +1084,19 @@ def main():
 
                             # 4. Data Extraction
                             status_text.text(t("extracting_data"))
-                            llm = llm_client.LLMClient()
                             tei_files = [
                                 f for f in os.listdir(TEI_DIR) if f.endswith(".xml")
                             ]
                             extracted_data = []
 
                             if tei_files:
+                                from src.extract import pico_extractor
+
                                 for tei_file in tei_files:
                                     pmid = tei_file.replace(".xml", "")
+                                    # Use optimized context slicing for PICO extraction
                                     full_text = tei_parser.extract_text_from_tei(
-                                        os.path.join(TEI_DIR, tei_file)
+                                        os.path.join(TEI_DIR, tei_file), optimize_context=True
                                     )
                                     if full_text:
                                         text_snippet = (
@@ -1102,26 +1104,19 @@ def main():
                                             if len(full_text) > 8000
                                             else full_text
                                         )
-                                        user_prompt = f"Extract PICO + Study Design in JSON with keys: population, intervention, comparison, outcome, study_design. Text: {text_snippet}"
-                                        messages = [
-                                            {
-                                                "role": "system",
-                                                "content": "You are a biomedical expert.",
-                                            },
-                                            {"role": "user", "content": user_prompt},
-                                        ]
-                                        resp = llm.get_completion(messages)
-                                        try:
-                                            import json
-                                            import re
-
-                                            match = re.search(r"({[\s\S]*})", resp)
-                                            if match:
-                                                data = json.loads(match.group(1))
-                                                data["pmid"] = pmid
-                                                extracted_data.append(data)
-                                        except Exception:
-                                            pass
+                                        
+                                        data = pico_extractor.extract_pico_multi_agent(text_snippet)
+                                        if data:
+                                            # Flatten the nested dict for dataframe compatibility
+                                            flat_data = {"pmid": pmid}
+                                            for k, v in data.items():
+                                                if isinstance(v, dict):
+                                                    flat_data[k] = v.get("description", v.get("design", ""))
+                                                    if "raw_quote" in v:
+                                                        flat_data[f"{k}_quote"] = v["raw_quote"]
+                                                else:
+                                                    flat_data[k] = str(v)
+                                            extracted_data.append(flat_data)
 
                                 if extracted_data:
                                     pd.DataFrame(extracted_data).to_csv(

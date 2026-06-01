@@ -123,3 +123,8 @@
 1. tei_parser.py에 Context Slicing 로직 적용하여 LLM 토큰 및 VRAM 소모 최소화.
 2. assessor.py의 RoB 프롬프트를 Quote -> Reasoning -> Level의 Chain-of-Thought(CoT) 구조로 변경하여 평가 신뢰도 향상.
 3. app.py에 st.data_editor를 활용한 Human-in-the-Loop UI를 추가하여, AI 데이터 추출 후 연구자가 직접 검증/수정하도록 워크플로우 최적화.
+
+[2026-06-02 03:47:00] [Hyunchan An] 이슈 #9 해결: PICO 추출 파이프라인 구조 변경.
+1. src/extract/pico_extractor.py 신규 생성하여 P, I/C, O를 각각 분리 추출하는 Multi-Agent 구조 도입.
+2. 각 에이전트 프롬프트에 raw_quote 필드를 필수 반환하도록 설정하여 근거 매핑(Grounding) 강화.
+3. app.py에서 기존 단일 프롬프트 추출 로직을 제거하고, pico_extractor를 호출하도록 변경 및 optimize_context=True 파라미터 연동.
