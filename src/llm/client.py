@@ -57,7 +57,10 @@ if __name__ == "__main__":
     system_prompt = "You are a helpful assistant specializing in systematic reviews."
     user_prompt = "What are the key components of a PICO framework?"
 
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
     response = llm_client.get_completion(messages)
 

@@ -5,19 +5,19 @@
  - “systematic review 논문을 작성해주는 AI 프로젝트를 중심으로, 작성 전 과정의 일부를 자동화(검색·스크리닝·데이터추출·RoB 평가·초안 생성 보조)하는 도구와 엔드투엔드 지향 LLM 에이전트까지 탐색
 
  1) 엔드투엔드(작성 보조/보고서 자동 생성 지향) LLM 기반
- - Elicit — PRISMA 영감의 프로세스로 “Systematic Review” 리포트 자동 생성/커스터마이즈. 최근 자체 평가·사례 공개. 
+ - Elicit — PRISMA 영감의 프로세스로 “Systematic Review” 리포트 자동 생성/커스터마이즈. 최근 자체 평가·사례 공개.
   - https://elicit.com/solutions/systematic-review
 
- - ReviewGenie — GPT 등 LLM을 결합한 자동화 SR 파이프라인 제안(학술지 논문, 2025). 제목·초록 스크리닝과 일부 데이터 추출 자동화 포함. 
+ - ReviewGenie — GPT 등 LLM을 결합한 자동화 SR 파이프라인 제안(학술지 논문, 2025). 제목·초록 스크리닝과 일부 데이터 추출 자동화 포함.
   - https://systematicreviewsjournal.biomedcentral.com/articles/10.1186/s13643-025-02895-z
 
- - SciSpace SLR/PRISMA Agent — PRISMA 2020 플로 다이어그램 생성 등 SR 워크플로우 보조 에이전트. 
+ - SciSpace SLR/PRISMA Agent — PRISMA 2020 플로 다이어그램 생성 등 SR 워크플로우 보조 에이전트.
   - https://scispace.com/ai-agent/systematic-literature-review-prisma-4b297816
 
- - LLAssist — 오픈소스 LLM 도구로 문헌고찰 자동화 요소 제공(2024). 
+ - LLAssist — 오픈소스 LLM 도구로 문헌고찰 자동화 요소 제공(2024).
   - https://arxiv.org/html/2407.13993v3
 
- - 최근 메타/평가 논문 — LLM 및 AI 도구의 SR 작성 기여·한계를 비교(2024–2025). 전체 자동 작성은 아직 비현실적이고, 인간 검토가 필수라는 결론. 
+ - 최근 메타/평가 논문 — LLM 및 AI 도구의 SR 작성 기여·한계를 비교(2024–2025). 전체 자동 작성은 아직 비현실적이고, 인간 검토가 필수라는 결론.
   - https://systematicreviewsjournal.biomedcentral.com/articles/10.1186/s13643-024-02682-2
   - https://acamh.onlinelibrary.wiley.com/doi/10.1002/jcv2.12234
   - https://pmc.ncbi.nlm.nih.gov/articles/PMC12413140/
@@ -25,62 +25,62 @@
 
  2) 스크리닝·우선순위화(시간 절감의 핵심)
 
- - ASReview (오픈소스) — 액티브러닝으로 제목/초록 스크리닝을 대폭 가속(최대 95% 부담 감소 보고). GUI(LAB), 시뮬레이션·세이프 스톱 규칙 연구 축적. 
+ - ASReview (오픈소스) — 액티브러닝으로 제목/초록 스크리닝을 대폭 가속(최대 95% 부담 감소 보고). GUI(LAB), 시뮬레이션·세이프 스톱 규칙 연구 축적.
   - https://asreview.nl/
   - https://asreview.nl/blog/active-learning-explained/
   - https://asreview.readthedocs.io/en/stable/lab/about.html
   - https://zenodo.org/records/10464713
 
- - Rayyan — 광범위 사용. 제목/초록 스크리닝에 ML 보조. 단, 2025년 평가에 따르면 풀텍스트 스크리닝은 AI 미적용(플랫폼 기능 수준). 
+ - Rayyan — 광범위 사용. 제목/초록 스크리닝에 ML 보조. 단, 2025년 평가에 따르면 풀텍스트 스크리닝은 AI 미적용(플랫폼 기능 수준).
   - https://www.rayyan.ai/
   - https://systematicreviewsjournal.biomedcentral.com/articles/10.1186/s13643-023-02231-3
 
- - DistillerSR / DistillerSR AI — 상용. 지속적 재우선순위화 등 ML로 스크리닝 부담 감소(연구 근거 있음). 
+ - DistillerSR / DistillerSR AI — 상용. 지속적 재우선순위화 등 ML로 스크리닝 부담 감소(연구 근거 있음).
   - https://www.distillersr.com/products/distillersr-systematic-review-software
   - https://www.distillersr.com/products/distillersrai
 
- - EPPI-Reviewer — 사전 구축 분류기·우선 스크리닝·커스텀 분류기 등 ML 내장, RobotReviewer 연동. 
+ - EPPI-Reviewer — 사전 구축 분류기·우선 스크리닝·커스텀 분류기 등 ML 내장, RobotReviewer 연동.
   - https://eppi.ioe.ac.uk/CMS/Default.aspx?alias=eppi.ioe.ac.uk/cms/er4&utm_source=chatgpt.com
   - https://eppi.ioe.ac.uk/CMS/Portals/35/machine_learning_in_eppi-reviewer_v_7_web_version.pdf
 
- - SWIFT-Review / SWIFT-Active Screener — 텍스트 마이닝·우선순위화 워크벤치 및 협업형 스크리너(별도 제품). 유틸리티에 대한 다수의 근거. 
+ - SWIFT-Review / SWIFT-Active Screener — 텍스트 마이닝·우선순위화 워크벤치 및 협업형 스크리너(별도 제품). 유틸리티에 대한 다수의 근거.
   - https://www.sciome.com/swift-review/
   - https://pubmed.ncbi.nlm.nih.gov/27216467/
 
- - Abstrackr — 반자동 제목/초록 스크리닝 고전 도구. 성능 평가 문헌 다수. 
+ - Abstrackr — 반자동 제목/초록 스크리닝 고전 도구. 성능 평가 문헌 다수.
   - https://systematicreviewsjournal.biomedcentral.com/articles/10.1186/s13643-015-0067-6
   - https://systematicreviewsjournal.biomedcentral.com/articles/10.1186/s13643-015-0067-6
 
- - Colandr — 오픈액세스, ML 보조 정렬·분류. 가이드/소개 다수. 
+ - Colandr — 오픈액세스, ML 보조 정렬·분류. 가이드/소개 다수.
   - https://hslib.jabsom.hawaii.edu/colandr
   - https://hslib.jabsom.hawaii.edu/colandr/getting_started
   - https://www.colandrcommunity.com/about.html
 
- - Cochrane Screen4Me + RobotSearch/RCT Classifier — RCT 식별기·크라우드 결합 서비스. ML 분류기의 부하 감소 효과 입증. 
+ - Cochrane Screen4Me + RobotSearch/RCT Classifier — RCT 식별기·크라우드 결합 서비스. ML 분류기의 부하 감소 효과 입증.
   - https://www.cochrane.org/authors/write-your-review/screen4me
   - https://resources.cochrane.org/
   - https://pmc.ncbi.nlm.nih.gov/articles/PMC8168828/
 
 3) 데이터 추출·PICO 추정·RoB(편향 위험) 자동화
 
- - RobotReviewer — RCT의 RoB 평가와 PICO 추출을 자동화, Trip Database와 통합 사용 사례. 신뢰성/일치도 관련 평가 다수(완전 자동 대체는 아님). 
+ - RobotReviewer — RCT의 RoB 평가와 PICO 추출을 자동화, Trip Database와 통합 사용 사례. 신뢰성/일치도 관련 평가 다수(완전 자동 대체는 아님).
   - https://www.robotreviewer.net/about
   - https://www.robotreviewer.net/blog/category/risk%2Bof%2Bbias
   - https://www.robotreviewer.net/blog/2016/7/29/robotreviewer-trip
   - https://onlinelibrary.wiley.com/doi/abs/10.1002/jrsm.1398
   - https://onlinelibrary.wiley.com/doi/abs/10.1002/jrsm.1761
 
- - Trialstreamer — 임상시험 논문을 자동 수집·분류·업데이트하는 ML 기반 데이터베이스(‘살아있는’ RCT 카탈로그). 
+ - Trialstreamer — 임상시험 논문을 자동 수집·분류·업데이트하는 ML 기반 데이터베이스(‘살아있는’ RCT 카탈로그).
   - https://pmc.ncbi.nlm.nih.gov/articles/PMC7727361/
 
 4) 검색전략·중복제거·방법서술 등 워크플로우 가속
 
- - Systematic Review Accelerator(SRA) / TERA — Bond University의 툴 모음: 검색어 리파이너, 중복제거, 메서드 섹션 초안 등. 차세대 통합판 TERA 제공. 
+ - Systematic Review Accelerator(SRA) / TERA — Bond University의 툴 모음: 검색어 리파이너, 중복제거, 메서드 섹션 초안 등. 차세대 통합판 TERA 제공.
   - https://sr-accelerator.com/#/
   - https://bond.libguides.com/systematic-reviews/tools
   - https://bond.edu.au/iebh/systematic-review-accelerator-sra
 
- - 튜토리얼·가이드 — 대학 라이브가이드들이 AI 보조 툴의 단계별 활용을 정리. 전과정 자동화가 아니라 각 단계 최적화에 초점. 
+ - 튜토리얼·가이드 — 대학 라이브가이드들이 AI 보조 툴의 단계별 활용을 정리. 전과정 자동화가 아니라 각 단계 최적화에 초점.
   - https://libguides.kcl.ac.uk/systematicreview/ai
   - https://guides.lib.purdue.edu/c.php?g=1371380&p=10619604&utm_source=chatgpt.com
   - https://libguides.bcu.ac.uk/generativeAI/screening
@@ -90,25 +90,25 @@
  - “완전 자동” 작성은 불가능 (연구자 직접 판단 영역; Human-in-the-loop 단계)
  - 2024–2025 리뷰·평가 논문들은 AI가 스크리닝·추출·RoB·초안 생성 속도를 높여도, 인간의 설계/검증·PRISMA 준수 체크가 필수라고 명시됨
  - 가장 ROI가 큰 구간은 스크리닝. ASReview/DistillerSR/EPPI/SWIFT/Rayyan 등 우선순위 스크리닝 기능은 부담을 크게 줄일 수 있음.
- - RoB/데이터추출 자동화는 ‘보조’ 수준. RobotReviewer 등은 유용하나, 일치도·신뢰성 논쟁 지속. 
+ - RoB/데이터추출 자동화는 ‘보조’ 수준. RobotReviewer 등은 유용하나, 일치도·신뢰성 논쟁 지속.
 
 ### 01-2. 서비스별 주의점
 
- - Rayyan의 풀텍스트 스크리닝은 AI 미적용(2025 분석). 
- - 상용툴(DistillerSR 등)은 검증 논문과 화이트페이퍼를 확인해 프로젝트 거버넌스/감사추적 요구(PRISMA/AMSTAR2/규제 제출 등)에 맞출 것. 
+ - Rayyan의 풀텍스트 스크리닝은 AI 미적용(2025 분석).
+ - 상용툴(DistillerSR 등)은 검증 논문과 화이트페이퍼를 확인해 프로젝트 거버넌스/감사추적 요구(PRISMA/AMSTAR2/규제 제출 등)에 맞출 것.
 
 ### 01-3. 추천 조합(실무 파이프라인 템플릿)
- - 프로토콜/검색: SRA/TERA로 검색어 최적화 → 데이터베이스 쿼리. 
- - 제목·초록 스크리닝: ASReview(오픈) 또는 DistillerSR/EPPI/SWIFT 중 택1. 리콜 목표 95–99%에서 중단 휴리스틱 채택. 
- - 풀텍스트·추출: DistillerSR/EPPI에서 폼 기반 추출, LLM 보조(LLAssist/ReviewGenie 등)로 초안 정리. 
- - RoB: RobotReviewer 초안 → 인간 검토 확정. 
- - 서술/그림: SciSpace Agent로 PRISMA 플로우 자동 생성 후, 메서드 섹션은 SRA 템플릿 보완. 
+ - 프로토콜/검색: SRA/TERA로 검색어 최적화 → 데이터베이스 쿼리.
+ - 제목·초록 스크리닝: ASReview(오픈) 또는 DistillerSR/EPPI/SWIFT 중 택1. 리콜 목표 95–99%에서 중단 휴리스틱 채택.
+ - 풀텍스트·추출: DistillerSR/EPPI에서 폼 기반 추출, LLM 보조(LLAssist/ReviewGenie 등)로 초안 정리.
+ - RoB: RobotReviewer 초안 → 인간 검토 확정.
+ - 서술/그림: SciSpace Agent로 PRISMA 플로우 자동 생성 후, 메서드 섹션은 SRA 템플릿 보완.
 
 ### 01-4. 빠른 판단표
- - 오픈소스: ASReview(스크리닝), RobotReviewer(RoB). 
- - 상용 엔드투엔드: DistillerSR, EPPI-Reviewer, SWIFT-Active Screener. 
- - LLM 보고서생성: Elicit, SciSpace Agent, ReviewGenie(연구용). 
- - Cochrane 생태계: Screen4Me, RCT Classifier/RobotSearch. 
+ - 오픈소스: ASReview(스크리닝), RobotReviewer(RoB).
+ - 상용 엔드투엔드: DistillerSR, EPPI-Reviewer, SWIFT-Active Screener.
+ - LLM 보고서생성: Elicit, SciSpace Agent, ReviewGenie(연구용).
+ - Cochrane 생태계: Screen4Me, RCT Classifier/RobotSearch.
 
 ### 02. systematic review 작성 순서와 각 작업별로 적용할 수 있는 프로젝트 소개
 
@@ -153,22 +153,22 @@
  - 보조하거나 일부 단계를 가속화할 수 있는 툴과 최신 연구 프로젝트를 단계별 대응으로 정리함
 
  1. 주제 탐색 / 기존 리뷰 확인
- - 유사 리뷰 검색 및 갭 분석	
+ - 유사 리뷰 검색 및 갭 분석
  - 논문 검색 자동화 스크립트 (예: R 패키지, Python 스크립트)
  - LLM을 활용한 리뷰 요약/요약 비교 자동화 (예: ChatGPT 기반 요약)
  - 연구 갭 탐색 AI 논문 (예: LLM 기반 리뷰 자동화 연구)
  - 자동화는 보조 수준. 기존 리뷰가 많으면 중복 조심
 
  2. 연구 질문 및 프로토콜 설계
- - PICO 자동 제안, 포함/제외 기준 제안	
- - LatteReview: 모듈화된 에이전트를 이용해 제목/초록 스크리닝, 구조화된 데이터 추출 자동화 프레임워크 
+ - PICO 자동 제안, 포함/제외 기준 제안
+ - LatteReview: 모듈화된 에이전트를 이용해 제목/초록 스크리닝, 구조화된 데이터 추출 자동화 프레임워크
  - LLM 기반 프로토콜 초안 생성 (연구동향 기반 문장 제안)
  - PRISMA-P 템플릿 자동 채우기 스크립트
  - 최종 책임은 연구자; AI가 덜 중요한 기준을 놓칠 수 있음
 
  3. 검색 전략 개발
  - 동의어/확장어 제안, 자동 번역/변환, Boolean 최적화
- - SRA / SR Accelerator / TERA: 검색식 리파이너, 중복 제거 툴 포함 
+ - SRA / SR Accelerator / TERA: 검색식 리파이너, 중복 제거 툴 포함
  - Polyglot Search 또는 자동 키워드 확장 도구 (검색 기관 발표)
  - LLM 기반 키워드 제안 모듈	자동으로 만든 검색식은 민감도/특이도 균형 맞추기 어려움. 대응 전략 필요
 
@@ -181,15 +181,15 @@
  5. 스크리닝 (Title/Abstract → Full-text)
  - 우선순위 스크리닝, 분류 보조, 자동 필터링
  - ASReview: 액티브러닝 기반 스크리닝 보조 (제목/초록)
- - Rayyan: AI 기반 제안·분류 기능 제공, 협업 지원 
- - DistillerSR: ML/자동화 우선순위화 포함 기능 
- - AiReview: LLM 기반 제목/초록 스크리닝 보조 플랫폼 
+ - Rayyan: AI 기반 제안·분류 기능 제공, 협업 지원
+ - DistillerSR: ML/자동화 우선순위화 포함 기능
+ - AiReview: LLM 기반 제목/초록 스크리닝 보조 플랫폼
  - 자동 필터링은 재현성·오류율 감시 필요. 스크리닝 오류는 치명적
 
  6. 자료 추출 (Data Extraction)
  - 표준 필드 추출 자동화, 구조화된 데이터 정형화
- - RobotReviewer: RCT 논문에서 PICO + 일부 결과 자동 추출 및 RoB 보조 평가 
- - LLM 기반 추출 에이전트 (LatteReview 모듈 내) 
+ - RobotReviewer: RCT 논문에서 PICO + 일부 결과 자동 추출 및 RoB 보조 평가
+ - LLM 기반 추출 에이전트 (LatteReview 모듈 내)
 - 스프레드시트 + 스크립트 보조 자동화 (Python, R)
  - 특히 복잡하거나 비표준 보고 방식 논문에서는 수작업 검토 필수
 
@@ -212,7 +212,7 @@
  - LLM 기반 논문 초안 생성
  - PRISMA 플로우 다이어그램 자동 생성기
  - SciSpace SLR/PRISMA 에이전트 (PRISMA 플로우 + 보고 보조)
- - TERA / SR Accelerator의 메서드 섹션 초안 보조 기능 
+ - TERA / SR Accelerator의 메서드 섹션 초안 보조 기능
  - AI가 오류 유발 가능. 최종 검증 필수
 
  10. 업데이트 / 유지 관리
@@ -248,8 +248,8 @@
   → 단점: 라이선스 비용, 검증 필요
 
  - 첨단 연구 프로젝트 기반 접근
-  - LatteReview: 멀티 에이전트 기반 SR 자동화 프레임워크로, 여러 단계를 에이전트로 나눠 자동화 시도 
-  - AiReview: LLM 기반 스크리닝 보조 웹 플랫폼 
+  - LatteReview: 멀티 에이전트 기반 SR 자동화 프레임워크로, 여러 단계를 에이전트로 나눠 자동화 시도
+  - AiReview: LLM 기반 스크리닝 보조 웹 플랫폼
    → 연구 수준 접근이고, 실제 출판용에 쓰려면 안정성 검증해야 함
 
 ### 03. 현재 하드웨어 스펙
@@ -262,20 +262,20 @@
   - 칩셋/메인보드: SAMSUNG ELECTRONICS CO., LTD. DB400T8A-ZEZ/C (SN 178003280000987) — Get-CimInstance Win32_BaseBoard
 
  - 집 컴퓨터 (HP 2025 빅터스 16 16.1 코어i5 인텔 14세대 지포스 RTX 4060)
-  - 프로세서: Intel Core i5-14450HX (10코어 / 16스레드, 최대 부스트 4.8 GHz) 
-  - 그래픽 카드: NVIDIA GeForce RTX 4060 (Laptop GPU, 8 GB GDDR6) 
-  - 메모리: 16 GB DDR5-5600 (2 × 8 GB) 구성 가능 사양이 공식 문서에 나옴 
-  - 디스플레이: 16.1인치 Full HD (1920×1080) IPS 패널, 주사율 144 Hz 등급 가능 사양 
-  - 칩셋: Intel HM770 칩셋 사용 가능성이 있음 
+  - 프로세서: Intel Core i5-14450HX (10코어 / 16스레드, 최대 부스트 4.8 GHz)
+  - 그래픽 카드: NVIDIA GeForce RTX 4060 (Laptop GPU, 8 GB GDDR6)
+  - 메모리: 16 GB DDR5-5600 (2 × 8 GB) 구성 가능 사양이 공식 문서에 나옴
+  - 디스플레이: 16.1인치 Full HD (1920×1080) IPS 패널, 주사율 144 Hz 등급 가능 사양
+  - 칩셋: Intel HM770 칩셋 사용 가능성이 있음
 
 ### 04. 사용할 로컬 LLM
  - Gemma 3
 
  0) 전제 및 제약(검증 근거)
- - Gemma 3 공개/통합: Google이 Gemma 3를 공개했고, Ollama 통합 가이드가 공식 문서에 있다(예: ollama pull gemma3). 
- - 릴리즈 정보: Gemma 3 계열 릴리즈 페이지와 270M 공개가 확인된다(오픈 가중치, 상업적 사용 허용). 
- - GPU 요구사항 추정: 모델 사이즈별 VRAM 권장치는 3rd-party 가이드(1B/4B는 저용량, 12B≈28 GB, 27B≈62–70 GB; 4-bit시 하향 가능)를 참고치로만 사용. 8 GB VRAM의 4060-Laptop이면 1–4B급(4-bit) 온-GPU 또는 7–12B 부분 오프로딩이 현실적. 
- - 성능 최적화 경로: TensorRT-LLM는 Gemma 지원 이력 있으나, Gemma 3 공식 지원은 미정/이슈 진행. 따라서 1차는 Ollama/vLLM, 2차는 직접 변환(TensorRT-LLM)로 단계화한다. 
+ - Gemma 3 공개/통합: Google이 Gemma 3를 공개했고, Ollama 통합 가이드가 공식 문서에 있다(예: ollama pull gemma3).
+ - 릴리즈 정보: Gemma 3 계열 릴리즈 페이지와 270M 공개가 확인된다(오픈 가중치, 상업적 사용 허용).
+ - GPU 요구사항 추정: 모델 사이즈별 VRAM 권장치는 3rd-party 가이드(1B/4B는 저용량, 12B≈28 GB, 27B≈62–70 GB; 4-bit시 하향 가능)를 참고치로만 사용. 8 GB VRAM의 4060-Laptop이면 1–4B급(4-bit) 온-GPU 또는 7–12B 부분 오프로딩이 현실적.
+ - 성능 최적화 경로: TensorRT-LLM는 Gemma 지원 이력 있으나, Gemma 3 공식 지원은 미정/이슈 진행. 따라서 1차는 Ollama/vLLM, 2차는 직접 변환(TensorRT-LLM)로 단계화한다.
 
 ### 04-1.  시스템 구성(Windows 11 + WSL2 권장)
  - 목표: 드라이버/런타임 충돌 최소화, 재현가능한 로컬 추론 스택.
@@ -286,26 +286,26 @@
   - https://docs.vllm.ai/en/stable/getting_started/installation/gpu.html
 
  2) 모델 실행 백엔드 2종
- - Ollama(우선권장): 설치 후 ollama pull gemma3 → 4-bit 가중치 프리셋 활용, 프롬프트 서버로 OS-wide 사용. 
+ - Ollama(우선권장): 설치 후 ollama pull gemma3 → 4-bit 가중치 프리셋 활용, 프롬프트 서버로 OS-wide 사용.
   - https://ai.google.dev/gemma/docs/integrations/ollama
  - Google AI for Developers
- - vLLM(대안): WSL2 conda/venv에서 설치 후, Gemma 3 gguf/pt 변환 가중치 로드. 
+ - vLLM(대안): WSL2 conda/venv에서 설치 후, Gemma 3 gguf/pt 변환 가중치 로드.
   - https://docs.vllm.ai/en/stable/getting_started/installation/gpu.html
-  - 장점: 텍스트/비전 멀티모달 대응 및 대기열 처리. 
-  - 단점: Windows 네이티브 대비 설정 복잡. 
+  - 장점: 텍스트/비전 멀티모달 대응 및 대기열 처리.
+  - 단점: Windows 네이티브 대비 설정 복잡.
 
  3) PDF 파서
- - GROBID 컨테이너 배포(docker) → PDF→TEI/XML 구조화, 서지/본문/참고문헌 안정 파싱. 
+ - GROBID 컨테이너 배포(docker) → PDF→TEI/XML 구조화, 서지/본문/참고문헌 안정 파싱.
   - https://github.com/kermitt2/grobid
   - https://grobid.readthedocs.io/en/latest/Introduction/
 
  4) OA 링크 해소
- - Unpaywall API로 OA/full-text 확보 자동화(대량 DOI는 Simple Query Tool). 
+ - Unpaywall API로 OA/full-text 확보 자동화(대량 DOI는 Simple Query Tool).
   - https://unpaywall.org/products/api
   - https://unpaywall.org/products/simple-query-tool
 
  5) 문헌 원천
- - PubMed E-utilities(ESearch/EFetch)로 쿼리→PMID→서지/초록 가져오기(키 관리 및 rate-limit 준수). 
+ - PubMed E-utilities(ESearch/EFetch)로 쿼리→PMID→서지/초록 가져오기(키 관리 및 rate-limit 준수).
   - https://www.ncbi.nlm.nih.gov/home/develop/api/
   - https://www.ncbi.nlm.nih.gov/books/NBK25501/
 
@@ -351,7 +351,7 @@
 
  7) RoB 보조
   - 자동 제안 + 인간 확정
-  - RobotReviewer(보조) + Gemma 3 근거문장 요약. 완전 자동 금지. 
+  - RobotReviewer(보조) + Gemma 3 근거문장 요약. 완전 자동 금지.
    - https://www.robotreviewer.net/about
    - https://academic.oup.com/jamia/article/23/1/193/2379921&login=false
    - https://pmc.ncbi.nlm.nih.gov/articles/PMC9174024/
@@ -364,7 +364,7 @@
 
  9) 보고/PRISMA
   - 자동 플로우/메서드 문안/한글요약
-  - PRISMA 2020 다이어그램 생성기(웹/R 패키지), 문안은 Gemma 3 초안→사람 교정. 
+  - PRISMA 2020 다이어그램 생성기(웹/R 패키지), 문안은 Gemma 3 초안→사람 교정.
    - https://www.prisma-statement.org/prisma-2020-flow-diagram
    - https://www.eshackathon.org/software/PRISMA2020.html
    - https://www.prisma-statement.org/prisma-2020
@@ -376,7 +376,7 @@
   - 변경 로그/추가 분석
 
  - 스크리닝 가속의 핵심은 ASReview의 액티브러닝(최대 95% 스크리닝 부담 절감 보고)
- - 단, 리콜(민감도) 목표를 사전에 설정하고 중단 규칙을 명시할 필요 있음 
+ - 단, 리콜(민감도) 목표를 사전에 설정하고 중단 규칙을 명시할 필요 있음
 
 ### 04-3. 로컬 LLM( Gemma 3 ) 운용 설계
 
@@ -389,10 +389,10 @@ ollama pull gemma3
 ollama run gemma3
 
   - 이점: 설치/업데이트 단순, 로컬 API(http://localhost:11434)로 Python에서 호출 용이.
-  - 주의: 8 GB VRAM이므로 4-bit/저용량 변형 우선. 고용량은 CPU RAM 오프로딩으로 속도 저하 감수. 
- 
+  - 주의: 8 GB VRAM이므로 4-bit/저용량 변형 우선. 고용량은 CPU RAM 오프로딩으로 속도 저하 감수.
+
  - vLLM 모드(WSL2, 선택)
-  - 배치/동시성 유리(스크리닝 수천 레코드 요약), CUDA 요구를 문서대로 충족. 
+  - 배치/동시성 유리(스크리닝 수천 레코드 요약), CUDA 요구를 문서대로 충족.
 
  2) 프롬프트/지시어 표준
  - 한글 기본, 근거문장 인용(문장/페이지/PMID) 강제.
@@ -403,15 +403,15 @@ ollama run gemma3
  - 배치 요약은 최대 토큰 제한/윈도잉으로 메모리 압축.
  - 캐시/임베딩 재사용으로 재스크리닝 가속.
  - 추론 가속 시도: KV-cache 양 quant, CPU-offload 비율 튜닝.
- - TensorRT-LLM 경로는 Gemma 3 지원 불확정이라 후순위. 
+ - TensorRT-LLM 경로는 Gemma 3 지원 불확정이라 후순위.
 
 ### 04-4. 데이터 파이프라인(요약)
- - 수집: PubMed E-utilities(ESearch→PMID 목록→EFetch/ESummary 메타데이터) → OA 해소(Unpaywall) → PDF 획득. 
- - 정리: GROBID로 TEI/XML 변환→ 단락·표·참고문헌 추출. 
- - 스크리닝: ASReview로 우선순위 큐 생성→ 각 레코드마다 Gemma 3가 3~5줄 근거요약 생성(인간 검토용). 
+ - 수집: PubMed E-utilities(ESearch→PMID 목록→EFetch/ESummary 메타데이터) → OA 해소(Unpaywall) → PDF 획득.
+ - 정리: GROBID로 TEI/XML 변환→ 단락·표·참고문헌 추출.
+ - 스크리닝: ASReview로 우선순위 큐 생성→ 각 레코드마다 Gemma 3가 3~5줄 근거요약 생성(인간 검토용).
  - 추출: Gemma 3가 PICO/효과지표 후보 필드 자동 채움→ 사람이 교정.
- - RoB: RobotReviewer 자동 제안 + 사람 확정(일치도 제한 주지). 
- - 합성/보고: R로 메타분석; PRISMA 2020 다이어그램 생성기/패키지로 플로우 산출. 
+ - RoB: RobotReviewer 자동 제안 + 사람 확정(일치도 제한 주지).
+ - 합성/보고: R로 메타분석; PRISMA 2020 다이어그램 생성기/패키지로 플로우 산출.
 
 ### 04-5. 산출물/디렉터리 스캐폴딩
 
@@ -439,20 +439,20 @@ sr-gemma3/
    └─ prisma_2020.html
 
 ### 04-6. 품질·감사(필수 통제)
- - PRISMA 2020 체크리스트와 플로우는 자동 생성하되(웹/R 패키지), 수치/사유는 사람이 확정. 
+ - PRISMA 2020 체크리스트와 플로우는 자동 생성하되(웹/R 패키지), 수치/사유는 사람이 확정.
  - 결정 로그(스크리닝·제외 사유·RoB 근거문장)는 CSV/JSON으로 버전관리.
  - LLM 편향/환각 완화: “출처 미명시 응답 = 무효”, “불확실=보류” 규칙 강제.
 
 ### 04-7. 실행 체크리스트
  - NVIDIA 드라이버 업데이트 → WSL2 설정.
- - winget install Ollama.Ollama → ollama pull gemma3(저정밀 가중치) → 샘플 프롬프트. 
- - Docker Desktop → grobid 컨테이너 실행 → PDF 파싱 확인. 
- - Python 가상환경 구성 → PubMed E-utilities 스크립트 테스트. 
- - ASReview 설치/프로젝트 생성 → 시뮬레이션으로 중단 규칙 캘리브레이션. 
- - RobotReviewer 웹/로컬 연동 방식 확정(웹 데모/Trip 통합은 제한 기능 주의). 
- - PRISMA 2020 다이어그램 생성기 또는 R 패키지 배포 확인. 
+ - winget install Ollama.Ollama → ollama pull gemma3(저정밀 가중치) → 샘플 프롬프트.
+ - Docker Desktop → grobid 컨테이너 실행 → PDF 파싱 확인.
+ - Python 가상환경 구성 → PubMed E-utilities 스크립트 테스트.
+ - ASReview 설치/프로젝트 생성 → 시뮬레이션으로 중단 규칙 캘리브레이션.
+ - RobotReviewer 웹/로컬 연동 방식 확정(웹 데모/Trip 통합은 제한 기능 주의).
+ - PRISMA 2020 다이어그램 생성기 또는 R 패키지 배포 확인.
 
 ### 04-8. 리스크/대안
- - 모델 크기 제한: 8 GB VRAM → 1–4B급 권장. 더 큰 모델은 속도 급감(오프로딩) 감수. 참고치는 3rd-party임을 명시. 
- - TensorRT 가속: Gemma 3 공식 지원 미정. 초기에는 Ollama/vLLM 유지. 
- - RoB 자동화 신뢰도: RobotReviewer 등은 보조 도구. 일치도/재현성 한계가 반복 보고됨. 
+ - 모델 크기 제한: 8 GB VRAM → 1–4B급 권장. 더 큰 모델은 속도 급감(오프로딩) 감수. 참고치는 3rd-party임을 명시.
+ - TensorRT 가속: Gemma 3 공식 지원 미정. 초기에는 Ollama/vLLM 유지.
+ - RoB 자동화 신뢰도: RobotReviewer 등은 보조 도구. 일치도/재현성 한계가 반복 보고됨.

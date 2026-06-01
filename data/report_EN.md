@@ -2,10 +2,10 @@
 **Date:** 2026-01-26 00:46
 
 ## 1. Research Question (PICO)
-- **Population:** 
+- **Population:**
 - **Intervention:** dental implant
-- **Comparison:** 
-- **Outcome:** 
+- **Comparison:**
+- **Outcome:**
 - **Study_design:** randomized controlled trial
 
 ## 2. PRISMA Flow Diagram

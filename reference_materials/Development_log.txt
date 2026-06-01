@@ -158,7 +158,7 @@
         - 깃허브 저장소를 파이프라인 템플릿으로 활용하고, 새로운 연구 주제마다 이 템플릿 폴더를 복사하여 독립적인 프로젝트 폴더에서 작업하는 방식을 제안함. 이를 통해 각 연구의 데이터가 템플릿 코드와 분리되어 관리됨.
 
     - 각 경로별 readme.md 업데이트
-        - 빈 폴더가 git에 추적되지 않는 문제를 해결함 
+        - 빈 폴더가 git에 추적되지 않는 문제를 해결함
         - 각 폴더별 설명 추가함
 
 ##### 2025.10.14 (2일차) 병원 #####
@@ -340,7 +340,7 @@
         - GROBID 파싱 오류는 코드 또는 GROBID 설정 문제가 아닌, 시스템의 Docker Desktop 및 WSL 2 환경 문제로 판단됨.
         - `docker-desktop-data` 배포판이 정상적으로 프로비저닝되지 않는 것이 근본 원인으로 추정됨.
 
-### 14. OpenAI codex를 이용한 troubleshooting 내용 
+### 14. OpenAI codex를 이용한 troubleshooting 내용
 
     - 요약
         - 현재 시스템에서는 wsl -l -q에 docker-desktop만 보이고, 별도의 docker-desktop-data 배포판은 등록되지 않았습니다.
@@ -475,56 +475,56 @@
     - 로그에 OOM/경로/pdfalto/모델 관련 메시지가 있으면 환경 문제, 없고 cURL은 되는데 애플리케이션만 실패하면 multipart 키/헤더/프록시 설정 문제입니다.
     - 스캔/암호화/비표준 PDF라면 processHeaderDocument는 되고 Fulltext만 500인 패턴이 흔합니다.
 
-### 16. GROBID 파싱 오류 진단 및 해결 
+### 16. GROBID 파싱 오류 진단 및 해결
 
     - curl http://127.0.0.1:8070/api/isalive - true 결과 출력. 서비스는 정상 실행중이며 외부에서 접근 가능한 상태
-    
-    - 파이썬 코드를 거치지 않고 curl 명령을 통해 PDF 파일을 직접 GROBID에 전송하여 문제의 원인이 코드에 있는지, GROBID 서비스에 있는지 판별 
-        - curl -v -X POST "http://127.0.0.1:8070/api/processFulltextDocument" -F "input=@C:\Users\chema\Github\Systematic_reviewer_AI\data\pdf\\31241782.pdf
-        - 이 테스트에서 HTTP 200 OK 응답과 함께 성공적으로 TEI-XML 결과가 반환됨. 이는 매우 중요한 결과임. 
-            1. GROBID Docker 컨테이너는 정상적으로 작동하고 있음 
-            2. Docker와 WSL 2 환경 설정에는 문제 없음
-            3. GROBID 서비스 자체는 PDF 파일을 올바르게 처리할 수 있음 
-            4. 따라서 문제의 원인은 src/parse/grobid_client.py 파일 내부에 있음. 
-    
-    - multipart/form-data 요청에 대해 서버가 기대하는 필드 이름(input)과 다른 이름을 사용하기 때문일 것으로 추측함 
-        - process_pdf 함수에서 GROBID 서버로 파일을 보낼 때, input 대신 inputFile 이라는 잘못된 필드명을 사용하고 있었음. 
-        - files = {'inputFile': (clean_filename, f, 'application/pdf;)} 부분에서 서버가 파일을 제대로 받지 못해 500 Internal Server Error를 반환하고 있었음. 
-        - 따라서 위 코드에서 inputFile 을 input으로 수정함. 
-    
-    - 이로서 GROBID 연동 문제가 해결됨. 
 
-### 17. Screening 단계 개발 
-    
+    - 파이썬 코드를 거치지 않고 curl 명령을 통해 PDF 파일을 직접 GROBID에 전송하여 문제의 원인이 코드에 있는지, GROBID 서비스에 있는지 판별
+        - curl -v -X POST "http://127.0.0.1:8070/api/processFulltextDocument" -F "input=@C:\Users\chema\Github\Systematic_reviewer_AI\data\pdf\\31241782.pdf
+        - 이 테스트에서 HTTP 200 OK 응답과 함께 성공적으로 TEI-XML 결과가 반환됨. 이는 매우 중요한 결과임.
+            1. GROBID Docker 컨테이너는 정상적으로 작동하고 있음
+            2. Docker와 WSL 2 환경 설정에는 문제 없음
+            3. GROBID 서비스 자체는 PDF 파일을 올바르게 처리할 수 있음
+            4. 따라서 문제의 원인은 src/parse/grobid_client.py 파일 내부에 있음.
+
+    - multipart/form-data 요청에 대해 서버가 기대하는 필드 이름(input)과 다른 이름을 사용하기 때문일 것으로 추측함
+        - process_pdf 함수에서 GROBID 서버로 파일을 보낼 때, input 대신 inputFile 이라는 잘못된 필드명을 사용하고 있었음.
+        - files = {'inputFile': (clean_filename, f, 'application/pdf;)} 부분에서 서버가 파일을 제대로 받지 못해 500 Internal Server Error를 반환하고 있었음.
+        - 따라서 위 코드에서 inputFile 을 input으로 수정함.
+
+    - 이로서 GROBID 연동 문제가 해결됨.
+
+### 17. Screening 단계 개발
+
     - ASReview REST API 이해
-        - 아직 개발중(완전히 문서화되지 않음): ASReview LAB 내부에서 사용되고 있음 
-        - ASReview LAB에서는 모델, 데이터 및 프로젝트 관리를 위한 광범위한 기능을 제공하는 문서화된 저수준 python API를 제공한다고 명시됨 
+        - 아직 개발중(완전히 문서화되지 않음): ASReview LAB 내부에서 사용되고 있음
+        - ASReview LAB에서는 모델, 데이터 및 프로젝트 관리를 위한 광범위한 기능을 제공하는 문서화된 저수준 python API를 제공한다고 명시됨
         - 따라서 REST API 대신 Python API를 사용하여 ASReview를 통합하기로 함.
         - 공식문서 확인
             - ASReview Read the Docs
-            - ASReview Software Documentation (Zenodo) 
+            - ASReview Software Documentation (Zenodo)
 
     - ASReview에 대한 정보 요약
         - systematic review 프로젝트를 시작하고, 데이터 세트를 가져오고, 스크리닝을 위해 AI를 사용하는 데 설계되었음을 확인하는 높은 수준의 개요를 제공
         - asreview.nl 링크가 일반적인 개요를 제공했으나, Read the Docs 링크에서 더 구체적인 정보를 제공함.
-        - 정보는 asreview.nl(메인 웹사이트), zenodo.org(소프트웨어 문서), readthedocs.io(블로그)를 참조함. 
+        - 정보는 asreview.nl(메인 웹사이트), zenodo.org(소프트웨어 문서), readthedocs.io(블로그)를 참조함.
         - https://asreview.readthedocs.io/en/latest/
-            - ASReview LAB 가이드, 서버 가이드, 기술 가이드 총 3가지로 구분되어 작성됨 
+            - ASReview LAB 가이드, 서버 가이드, 기술 가이드 총 3가지로 구분되어 작성됨
             - 기술 가이드: 아키텍처, 명령줄 사용 및 확장 개발, ASReview 파일에서 데이터 액세스 방법에 대한 세부 정보를 제공함.
             - ASReview LAB 가이드: AI 모델 및 검토 관리가 언급되어 있음 (데이터 가져오기 및 프로젝트 생성에 대한 정보가 포함될 것으로 보임)
 
-    - 목표가 반드시 검토를 시뮬레이션하는 것은 아니지만 위 사이트에서 아래와 같은 스크립트 예제를 제공함. 
+    - 목표가 반드시 검토를 시뮬레이션하는 것은 아니지만 위 사이트에서 아래와 같은 스크립트 예제를 제공함.
         1. CSV에서 데이터 가져오기: dataset 매개변수는 CSV 파일의 경로를 가져옵니다. 여기에 articles.csv를 사용할 수 있음
         2. ASReview 프로젝트 파일 생성: output_file 매개변수는 .asreview 프로젝트 파일이 저장될 위치를 지정
-        3. 능동 학습 모델 구성: model, query_strategy, feature_extractor, balance_strategy와 같은 매개변수를 설정할 수 있음 
+        3. 능동 학습 모델 구성: model, query_strategy, feature_extractor, balance_strategy와 같은 매개변수를 설정할 수 있음
 
     - 가능성 평가
         - 핵심은 asreview.simulate.run()을 사용하여 CSV에서 ASReview 프로젝트를 생성하고 능동 학습 프로세스를 설정할 수 있음
-        - 개발 로그에는 "ASReview의 REST API와 연동하여 main.py에서 스크리닝 프로젝트를 생성하고, 라벨링 작업을 자동화하는 로직을 구현함"이라고 언급되어 있음. 
-        - 이 시뮬레이션 함수는 적어도 프로젝트 및 초기 능동 학습을 설정하는 프로그래밍 방식으로 추정됨 
+        - 개발 로그에는 "ASReview의 REST API와 연동하여 main.py에서 스크리닝 프로젝트를 생성하고, 라벨링 작업을 자동화하는 로직을 구현함"이라고 언급되어 있음.
+        - 이 시뮬레이션 함수는 적어도 프로젝트 및 초기 능동 학습을 설정하는 프로그래밍 방식으로 추정됨
         - 그러나 이 예제는 시뮬레이션 목적(정답)을 위해 CSV에 included 열을 사용함
         - 현재 articles.csv에는 이것이 구현되어있지 않음.
-        - 실제 스크리닝 프로젝트의 경우 일반적으로 미리 레이블이 지정된 데이터 없이 시작하거나 사용 가능한 경우 소수의 미리 레이블이 지정된 논문으로 시작함 
+        - 실제 스크리닝 프로젝트의 경우 일반적으로 미리 레이블이 지정된 데이터 없이 시작하거나 사용 가능한 경우 소수의 미리 레이블이 지정된 논문으로 시작함
 
     - main.py에 ASReview를 통합하기 위한 업데이트된 계획은 다음과 같습니다.
 
@@ -543,7 +543,7 @@
             - 레이블링의 완전한 자동화가 필요한 경우 ASReview의 내부 상태 또는 사용자 지정 능동 학습 루프와의 더 고급 상호 작용이 필요할 수 있으며, 이는 간단한 simulate.run()의 범위를 벗어날 것으로 보임.
             - 현재는 프로젝트를 설정하고 ASReview LAB에서 스크리닝을 준비하는 데 중점을 둠.
 
-    - ASReview 통합 로직 개발 
+    - ASReview 통합 로직 개발
         1. `asreview` 가져오기: 파일 상단에 import asreview를 추가합니다.
         2. ASReview 프로젝트 경로 정의: ASReview 프로젝트 파일에 대한 상수 정의(예: ASREVIEW_PROJECT_PATH = os.path.join(DATA_DIR, "asreview_project.asreview")).
         3. `main()`에 ASReview 통합:
@@ -551,33 +551,33 @@
             - csv_path(os.path.join(TABLES_DIR, "articles.csv"))를 dataset으로, ASREVIEW_PROJECT_PATH를 output_file로 사용하여 asreview.simulate.run() 호출
             - n_prior_included 및 n_prior_excluded는 현재 0으로 설정 (새로운 스크리닝을 시작하기 때문)
             - ASReview 프로젝트를 진행하는 방법에 대한 메시지를 추가(예: ASReview LAB UI에서 열기)
-        4. import os, import pandas as pd, import yaml, import shutil을 main.py 맨 위에 추가함. 
-        5. 그러나 replace 작업이 제대로 적용되지 않았거나 old_string이 정확히 일치하지 않는 것으로 보임. 
-        
-    - troubleshooting 
-        1. asreview.simulate.run()을 사용하여 articles.csv 데이터에서 ASReview 프로젝트 파일(data/asreview_project.asreview)을 생성 
-        2. main.py에서 ASReview 가져오기 문을 import asreview에서 from asreview import simulate로 수정함; module 'asreview' has no attribute 'simulate' 오류 해결하기 위함 
-        
+        4. import os, import pandas as pd, import yaml, import shutil을 main.py 맨 위에 추가함.
+        5. 그러나 replace 작업이 제대로 적용되지 않았거나 old_string이 정확히 일치하지 않는 것으로 보임.
+
+    - troubleshooting
+        1. asreview.simulate.run()을 사용하여 articles.csv 데이터에서 ASReview 프로젝트 파일(data/asreview_project.asreview)을 생성
+        2. main.py에서 ASReview 가져오기 문을 import asreview에서 from asreview import simulate로 수정함; module 'asreview' has no attribute 'simulate' 오류 해결하기 위함
+
 ### 18. 실험 중 발견한 추가적인 문제
-    - step 5에서 CPU가 아니라 GPU를 사용해야 하나, CPU 연산량만 급증함. 이는 step 4 구현 이후 해결할 예정. 
-    
-    - 예상 가능한 문제 원인 
+    - step 5에서 CPU가 아니라 GPU를 사용해야 하나, CPU 연산량만 급증함. 이는 step 4 구현 이후 해결할 예정.
+
+    - 예상 가능한 문제 원인
         1. Ollama 구성:
-            - `start_services.bat`: 개발 로그에는 llamafile에 대해 C:\AI_models\google_gemma-3-12b-it-Q4_K_M.llamafile --server -ngl 999가 언급되었고 나중에 Ollama로 전환됨 
+            - `start_services.bat`: 개발 로그에는 llamafile에 대해 C:\AI_models\google_gemma-3-12b-it-Q4_K_M.llamafile --server -ngl 999가 언급되었고 나중에 Ollama로 전환됨
             - Ollama의 경우 GPU 오프로딩은 일반적으로 Ollama 자체에서 처리
-            - `ollama pull gemma2`: 모델을 가져올 때 Ollama는 GPU를 감지했어야 함 
+            - `ollama pull gemma2`: 모델을 가져올 때 Ollama는 GPU를 감지했어야 함
             - Ollama 서버 시작: Ollama는 일반적으로 백그라운드 서비스로 시작
-            - GPU를 사용하도록 구성되어 있는지 확인해야 함 
+            - GPU를 사용하도록 구성되어 있는지 확인해야 함
 
         2. Ollama GPU 감지/구성:
             - NVIDIA 드라이버: NVIDIA GPU 드라이버가 최신 상태인지 확인합니다.
             - CUDA/cuDNN: Ollama는 NVIDIA GPU용 CUDA에 의존함. Ollama는 일반적으로 필요한 것을 번들로 제공하지만 드라이버 호환성이 중요함
             - Ollama 로그: Ollama 로그에서 GPU 감지 또는 시작 중 오류와 관련된 메시지를 확인합니다.
-                - 일반적으로 Ollama 설치 디렉토리에서 찾거나 터미널에서 ollama serve를 실행하여 출력을 관찰할 수 있음 
-            - Ollama 환경 변수: 표준 설정에서는 덜 일반적이지만 OLLAMA_GPU 또는 OLLAMA_NUM_GPU와 같은 환경 변수가 필요할 수 있음 
+                - 일반적으로 Ollama 설치 디렉토리에서 찾거나 터미널에서 ollama serve를 실행하여 출력을 관찰할 수 있음
+            - Ollama 환경 변수: 표준 설정에서는 덜 일반적이지만 OLLAMA_GPU 또는 OLLAMA_NUM_GPU와 같은 환경 변수가 필요할 수 있음
 
         3. 모델 호환성:
-            - gemma2는 GPU 호환성을 위해 선택되었지만, 일부 모델 또는 양자화 수준은 GPU로 완전히 오프로드되지 않을 수 있음 
+            - gemma2는 GPU 호환성을 위해 선택되었지만, 일부 모델 또는 양자화 수준은 GPU로 완전히 오프로드되지 않을 수 있음
 
         4. `src/llm/client.py`:
             - Python 클라이언트(src/llm/client.py)는 API를 통해 Ollama 서버와 상호 작용
@@ -586,23 +586,23 @@
     - 문제 해결 단계:
 
         1. Ollama GPU 구성 확인:
-            - Ollama 다시 시작: Ollama가 서비스로 실행 중인 경우 다시 시작하는 것으로 감지 문제가 해결될 수 있음 
+            - Ollama 다시 시작: Ollama가 서비스로 실행 중인 경우 다시 시작하는 것으로 감지 문제가 해결될 수 있음
             - 새 터미널에서 `ollama run gemma2` 실행: 출력 관찰
                 - Ollama는 모델이 로드될 때 GPU 감지 및 사용에 대한 메시지를 인쇄하는 경우가 많습니다.
-            - Ollama의 `config.json` 확인(존재하는 경우): GPU 관련 설정 탐색 
-                - 위치는 다를 수 있지만 C:\Users\<YourUser>\.ollama\config.json 또는 이와 유사한 곳에 있는 경우가 많음 
+            - Ollama의 `config.json` 확인(존재하는 경우): GPU 관련 설정 탐색
+                - 위치는 다를 수 있지만 C:\Users\<YourUser>\.ollama\config.json 또는 이와 유사한 곳에 있는 경우가 많음
             - 작업 관리자/GPU 모니터 확인
                 - Ollama가 요청을 처리하는 동안(main.py의 5단계 동안) 작업 관리자(또는 더 자세한 GPU 모니터링 도구)를 열어 GPU 사용량이 약간이라도 급증하는지 확인합니다.
 
         2. `start_services.bat`가 간섭하지 않는지 확인:
             - start_services.bat가 GPU 사용을 허용하는 방식으로 Ollama를 올바르게 시작하는지 확인
-            - .llamafile 부분을 제거하고 Ollama가 자동으로 시작되게 했음 
-            - Ollama를 수동으로 시작하는 경우 올바르게 수행되었는지 확인해야 함 
+            - .llamafile 부분을 제거하고 Ollama가 자동으로 시작되게 했음
+            - Ollama를 수동으로 시작하는 경우 올바르게 수행되었는지 확인해야 함
 
         3. Ollama를 사용한 최소 테스트:
             - 새 터미널을 열어 ollama run gemma2를 실행
-            - "안녕하세요, 이름이 무엇입니까?"와 같은 간단한 프롬프트를 입력하고 답변 확인 
-            - 응답이 생성되는 동안 GPU 사용량을 관찰합니다. 
+            - "안녕하세요, 이름이 무엇입니까?"와 같은 간단한 프롬프트를 입력하고 답변 확인
+            - 응답이 생성되는 동안 GPU 사용량을 관찰합니다.
                 - 이 간단한 작업에도 GPU 활동이 없다면 문제는 main.py 스크립트가 아니라 Ollama 설정 또는 GPU 드라이버에 있는 것으로 간주
 
 
@@ -718,7 +718,7 @@
     - 파이프라인 단계 분리:
         - 기존의 Step 3 (Analysis Pipeline)가 "PDF 다운로드"와 "분석(GROBID/RoB/Extraction)"을 동시에 수행하여, 중간에 실패할 경우 대처가 어려운 문제를 해결함.
         - 버튼을 [1. PDF 다운로드 시작]과 [2. 분석 파이프라인 시작]으로 명확히 분리하여 사용자가 각 단계를 통제할 수 있도록 개선함.
-    
+
     - PDF 수동 다운로드 도우미(Manual Download Helper) 구현:
         - 자동 다운로드에 실패한 논문을 자동으로 감지하여 사용자에게 알림.
         - 실패한 논문의 DOI/PubMed 링크를 제공하고, 사용자가 직접 다운로드했을 경우 [파일 확인] 버튼을 통해 즉시 검증하는 기능 추가.
@@ -734,7 +734,7 @@
         - `grobid_client.py`의 PDF 처리 로직 안정화.
         - Streamlit 멀티 프로세스 실행으로 인한 리소스 점유 문제를 해결하기 위해 프로세스 정리 및 재시작.
         - `extracted_pico.csv`와 `rob_assessment.csv`의 데이터 불일치(16개 중 2개 파일 파손) 원인을 파악하고 사용자에게 안내함.
-        
+
 ##### 2026.02.15 (10일차) #####
 
 ### 26. 파이프라인 고도화 및 학술적 엄밀성 강화
@@ -742,22 +742,22 @@
     - Open Access(OA) 문헌 확보 전략 고도화:
         - `src/ingest/downloader.py`에 Semantic Scholar API 연동을 추가함.
         - 기존 Unpaywall, PMC API 외에 Semantic Scholar를 통한 3단계 PDF 확보 전략을 구축함.
-    
+
     - 데이터 일관성 및 버전 관리(Versioning) 시스템 도입:
         - `src/utils/versioning.py` 모듈을 신규 개발하여 분석 세션별 데이터 자동 아카이빙 기능을 구현함.
         - `main.py` 및 `app.py`에서 분석 시작 시 실시간 데이터를 `data/runs/run_<timestamp>` 폴더로 복사하여 연구의 재현성을 확보함.
-    
+
     - 수동 다운로드 사용자 경험(UX) 혁신:
         - Streamlit UI의 'Manual Download Helper'를 대폭 개선함.
         - 실패 논문별 원클릭 검색 버튼(Google Scholar, DOI, **Sci-Hub**) 추가.
         - `st.file_uploader`를 통합하여 UI 상에서 직접 PDF 업로드 및 자동 분류 기능 구현.
         - **실시간 파일 감지 엔진 도입**: 사용자가 수동으로 파일을 배치하면 버튼 클릭 없이도 즉시 상태를 [Manual Detected]로 전환하고 CSV를 자동 업데이트함.
         - 논문 상태별 배지(Badge) 시스템 도입: [Download Failed], [Manual Detected], [Verified] 시각화.
-    
+
     - 중복 제거(Deduplication) 로직 정교화:
         - `src/parse/pubmed_parser.py`에 DOI 및 제목(Normalized Fuzzy matching) 기반 중복 제거 기능을 추가함.
         - 여러 DB에서 수집된 중복 레코드를 사전에 필터링하여 데이터 무결성을 강화함.
-    
+
     - 학술적 엄밀성 강조 (AI Suggestion 명시):
         - AI가 생성하는 모든 결과물(RoB 평가, PICO 추출)은 '제안(Suggestion)'임을 UI에 명시함.
         - 전문가(연구자)의 최종 검토가 필수적임을 안내하는 경고 문구를 각 분석 단계와 보고서 상단에 추가함.
@@ -770,11 +770,11 @@
         - `app.py`에 일괄 업로드(Bulk Uploader) 기능을 추가함.
         - 정규표현식(`\d{8}`)을 활용하여 파일명에서 PMID를 자동으로 추출하고 매칭하는 로직을 구현함.
         - 업로드 즉시 `{PMID}.pdf`로 리네이밍하여 `data/pdf/` 폴더에 저장하도록 자동화함.
-    
+
     - 딥링크 버튼 및 검색 편의성 강화:
         - 각 논문 항목에 PubMed 상세 페이지(`pubmed.ncbi.nlm.nih.gov/{pmid}`) 바로가기 버튼을 추가함.
         - DOI 검색, Google Scholar, Sci-Hub 버튼의 레이아웃을 최적화하여 사용자 피로도를 낮춤.
-    
+
     - 세션 상태(Session State) 기반 성능 최적화:
         - `st.session_state['file_cache']`를 도입하여 파일 존재 여부 확인 결과를 캐싱함.
         - 파일 업로드 및 수동 확인 시 캐시를 즉시 갱신하여 불필요한 디스크 I/O를 줄이고 UI 반응 속도를 대폭 향상시킴.

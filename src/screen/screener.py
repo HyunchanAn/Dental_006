@@ -74,7 +74,10 @@ Abstract: {abstract}
 
 Is this paper relevant? Return JSON.
 """
-        messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
 
         try:
             response = llm.get_completion(messages)
@@ -106,7 +109,9 @@ Is this paper relevant? Return JSON.
             decision = "Included"
             reason = f"Error during screening: {str(e)}"
 
-        results.append({"pmid": pmid, "screening_decision": decision, "screening_reason": reason})
+        results.append(
+            {"pmid": pmid, "screening_decision": decision, "screening_reason": reason}
+        )
 
     print(f"\nScreening complete. Processed {len(articles_df)} articles.")
 

@@ -73,11 +73,19 @@ def check_config():
 
 if __name__ == "__main__":
     print("=== Systematic Reviewer AI Environment Verification ===\n")
-    results = [check_python(), check_directories(), check_ollama(), check_grobid(), check_config()]
+    results = [
+        check_python(),
+        check_directories(),
+        check_ollama(),
+        check_grobid(),
+        check_config(),
+    ]
 
     print("\n" + "=" * 50)
     if all(results):
         print("Verification SUCCESS: All systems ready.")
     else:
-        print("Verification PARTIAL: Some services are offline (Expected if Docker is not running).")
+        print(
+            "Verification PARTIAL: Some services are offline (Expected if Docker is not running)."
+        )
     print("=" * 50)

@@ -10,7 +10,10 @@ def get_request_headers(email=None):
     Constructs HTTP headers with User-Agent and Email contact info.
     """
     contact = email if email else "systematic-reviewer-ai@example.com"
-    return {"User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})", "Email": contact}
+    return {
+        "User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})",
+        "Email": contact,
+    }
 
 
 def get_unpaywall_pdf_url(doi, email=None):
@@ -36,7 +39,9 @@ def get_unpaywall_pdf_url(doi, email=None):
         # This is expected for non-existent DOIs, so we don't need to be too loud.
         pass
     except Exception as e:
-        print(f"  - An unexpected error occurred while processing DOI {doi} with Unpaywall: {e}")
+        print(
+            f"  - An unexpected error occurred while processing DOI {doi} with Unpaywall: {e}"
+        )
     return None
 
 
@@ -67,7 +72,9 @@ def download_pdf_from_url(pdf_url, output_path, email=None):
     Downloads a PDF from a URL and saves it to the specified path.
     """
     try:
-        response = requests.get(pdf_url, headers=get_request_headers(email), stream=True, timeout=60)
+        response = requests.get(
+            pdf_url, headers=get_request_headers(email), stream=True, timeout=60
+        )
         response.raise_for_status()
         with open(output_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
@@ -89,10 +96,18 @@ def try_pmc_download(pmcid, output_path, email=None, timeout=60):
     fetch_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
     params = {"db": "pmc", "id": pmcid, "rettype": "pdf", "retmode": "binary"}
     try:
-        response = requests.post(fetch_url, data=params, headers=get_request_headers(email), stream=True, timeout=timeout)
+        response = requests.post(
+            fetch_url,
+            data=params,
+            headers=get_request_headers(email),
+            stream=True,
+            timeout=timeout,
+        )
 
         if "application/pdf" not in response.headers.get("Content-Type", ""):
-            print(f"  - PMC did not return a PDF. Content-Type: {response.headers.get('Content-Type')}")
+            print(
+                f"  - PMC did not return a PDF. Content-Type: {response.headers.get('Content-Type')}"
+            )
             return False
 
         response.raise_for_status()
@@ -144,13 +159,17 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
             if pmid and pmid in allowed_pmids_set:
                 articles_to_process.append(article)
         articles = articles_to_process
-        print(f"Filtered XML from {total_found_xml} to {len(articles)} articles based on screening results.")
+        print(
+            f"Filtered XML from {total_found_xml} to {len(articles)} articles based on screening results."
+        )
 
     total_articles = len(articles)
     if total_articles == 0:
         return {}
 
-    print(f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> PMC)...")
+    print(
+        f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> PMC)..."
+    )
     download_status = {}
     download_count = 0
 
@@ -174,7 +193,9 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
         if doi:
             pdf_url = get_unpaywall_pdf_url(doi, email=email)
             if pdf_url:
-                print(f"  - Found Unpaywall OA link for DOI {doi}. Attempting download...")
+                print(
+                    f"  - Found Unpaywall OA link for DOI {doi}. Attempting download..."
+                )
                 if download_pdf_from_url(pdf_url, output_filename, email=email):
                     download_status[pmid] = "Downloaded (Unpaywall)"
                     downloaded = True
@@ -197,13 +218,17 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
             if paper_id:
                 pdf_url = get_semantic_scholar_pdf_url(paper_id, email=email)
                 if pdf_url:
-                    print(f"  - Found Semantic Scholar OA link for {paper_id}. Attempting download...")
+                    print(
+                        f"  - Found Semantic Scholar OA link for {paper_id}. Attempting download..."
+                    )
                     if download_pdf_from_url(pdf_url, output_filename, email=email):
                         download_status[pmid] = "Downloaded (SemanticScholar)"
                         downloaded = True
 
         if not downloaded:
-            print("  - No open access source found via Unpaywall, PMC, or Semantic Scholar.")
+            print(
+                "  - No open access source found via Unpaywall, PMC, or Semantic Scholar."
+            )
             download_status[pmid] = "No OA Source Found"
 
         if downloaded:
@@ -211,7 +236,9 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
 
         time.sleep(1)  # Be polite to APIs
 
-    print(f"\nPDF 다운로드 시도 완료: 총 {total_articles}개 중 {download_count}개 성공 또는 이미 존재.")
+    print(
+        f"\nPDF 다운로드 시도 완료: 총 {total_articles}개 중 {download_count}개 성공 또는 이미 존재."
+    )
     return download_status
 
 

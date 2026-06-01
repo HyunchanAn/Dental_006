@@ -78,7 +78,15 @@ graph TD
     return mermaid_code
 
 
-def generate_report(stats, picos, extracted_csv_path, rob_csv_path, output_path, lang="EN", synthesis_result=None):
+def generate_report(
+    stats,
+    picos,
+    extracted_csv_path,
+    rob_csv_path,
+    output_path,
+    lang="EN",
+    synthesis_result=None,
+):
     """
     Generates a comprehensive Markdown report.
     """

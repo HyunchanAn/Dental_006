@@ -8,7 +8,7 @@
 - **Outcome:** "Treatment Outcome"[Mesh] OR "Success"[tiab]
 - **Study_design:** "Comparative Study"[pt]
 - **Email:** chemahc94@pusan.ac.kr
-- **Api_key:** 
+- **Api_key:**
 
 ## 6. 결론 및 고찰 (Synthesis)
 ## 체계적 문헌고찰 결론

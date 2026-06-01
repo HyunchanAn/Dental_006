@@ -83,7 +83,10 @@ Research Topic Description:
 Extract PICO. Return ONLY the JSON object. Do not include markdown code blocks.
 """
 
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
     try:
         response = llm.get_completion(messages)

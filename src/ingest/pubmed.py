@@ -9,10 +9,21 @@ def get_request_headers(email=None):
     Constructs HTTP headers with User-Agent and Email contact info.
     """
     contact = email if email else "systematic-reviewer-ai@example.com"
-    return {"User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})", "Email": contact}
+    return {
+        "User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})",
+        "Email": contact,
+    }
 
 
-def fetch_pmids(query, max_ret=100, api_key=None, sort="pub_date", mindate=None, maxdate=None, email=None):
+def fetch_pmids(
+    query,
+    max_ret=100,
+    api_key=None,
+    sort="pub_date",
+    mindate=None,
+    maxdate=None,
+    email=None,
+):
     """
     Fetches a list of PubMed IDs (PMIDs) for a given search query.
     Returns a tuple: (list of PMIDs, total count of PMIDs found).
@@ -35,11 +46,15 @@ def fetch_pmids(query, max_ret=100, api_key=None, sort="pub_date", mindate=None,
         params["maxdate"] = maxdate
 
     try:
-        response = requests.get(search_url, params=params, headers=get_request_headers(email))
+        response = requests.get(
+            search_url, params=params, headers=get_request_headers(email)
+        )
         response.raise_for_status()
         data = response.json()
         pmids = data.get("esearchresult", {}).get("idlist", [])
-        total_count = int(data.get("esearchresult", {}).get("count", 0))  # Get total count
+        total_count = int(
+            data.get("esearchresult", {}).get("count", 0)
+        )  # Get total count
         print(f"Found {len(pmids)} PMIDs (Total: {total_count}).")
         return pmids, total_count  # Return both
     except requests.exceptions.RequestException as e:
@@ -78,7 +93,9 @@ def fetch_abstracts(pmids, api_key=None, email=None):
         params["api_key"] = api_key
 
     try:
-        response = requests.post(fetch_url, data=params, headers=get_request_headers(email))  # Use POST for long lists of IDs
+        response = requests.post(
+            fetch_url, data=params, headers=get_request_headers(email)
+        )  # Use POST for long lists of IDs
         response.raise_for_status()
         # Basic XML parsing can be done here, but for robustness, a library like BeautifulSoup or lxml is recommended.
         # For this initial scaffold, we'll just return the raw XML content.
@@ -92,9 +109,7 @@ def fetch_abstracts(pmids, api_key=None, email=None):
 if __name__ == "__main__":
     # Example usage of the pubmed module
     # This is the example query from Example001.csv
-    EXAMPLE_QUERY = (
-        "('polycystic ovary syndrome':ti,ab OR 'pcos':ti,ab) AND ('herbal':ti,ab OR 'chinese med*':ti,ab) AND 'rando*':ti,ab"
-    )
+    EXAMPLE_QUERY = "('polycystic ovary syndrome':ti,ab OR 'pcos':ti,ab) AND ('herbal':ti,ab OR 'chinese med*':ti,ab) AND 'rando*':ti,ab"
 
     # 1. Fetch PMIDs
     retrieved_pmids = fetch_pmids(EXAMPLE_QUERY, max_ret=5)
@@ -106,4 +121,6 @@ if __name__ == "__main__":
             print("\n--- Raw XML Output (first 500 chars) ---")
             print(article_data_xml[:500] + "...")
             print("----------------------------------------\n")
-            print("Note: In a full implementation, this XML would be parsed to extract Title, Abstract, Authors, etc.")
+            print(
+                "Note: In a full implementation, this XML would be parsed to extract Title, Abstract, Authors, etc."
+            )

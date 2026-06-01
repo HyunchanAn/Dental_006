@@ -53,7 +53,10 @@ Papers Text:
 
 Assess the Risk of Bias. Return ONLY the JSON object.
 """
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
     try:
         response = llm.get_completion(messages)
@@ -95,7 +98,9 @@ def batch_assess_rob(tei_dir, output_csv_path):
             for domain, details in assessment.items():
                 if isinstance(details, dict):
                     flat_result[f"{domain}_Level"] = details.get("level", "Unclear")
-                    flat_result[f"{domain}_Explanation"] = details.get("explanation", "")
+                    flat_result[f"{domain}_Explanation"] = details.get(
+                        "explanation", ""
+                    )
                 else:
                     # Fallback if structure is flat or weird
                     flat_result[domain] = str(details)

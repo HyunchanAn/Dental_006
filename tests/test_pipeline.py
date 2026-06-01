@@ -11,7 +11,9 @@ def test_fetch_pmids(mocker):
     PubMed E-utilities Search API 호출 및 PMID 반환 규격을 검증합니다.
     """
     mock_response = MagicMock()
-    mock_response.json.return_value = {"esearchresult": {"idlist": ["38123456", "38123457"], "count": "2"}}
+    mock_response.json.return_value = {
+        "esearchresult": {"idlist": ["38123456", "38123457"], "count": "2"}
+    }
     mock_response.raise_for_status = MagicMock()
 
     # requests.get 모듈을 mocking하여 외부 API 네트워크 통신 격리
@@ -49,7 +51,11 @@ def test_screen_abstracts(mocker):
                 "title": "Study on elderly implants",
                 "abstract": "Dental implants are highly successful in aged patients.",
             },
-            {"pmid": "38123457", "title": "Caries review", "abstract": "Just a general clinical study on cavities."},
+            {
+                "pmid": "38123457",
+                "title": "Caries review",
+                "abstract": "Just a general clinical study on cavities.",
+            },
         ]
     )
 

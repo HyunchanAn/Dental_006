@@ -35,11 +35,15 @@ def parse_and_save_articles_csv(xml_string, output_path):
 
         # Extract Journal Title
         journal_title_node = article.find(".//Journal/Title")
-        article_data["journal"] = journal_title_node.text if journal_title_node is not None else ""
+        article_data["journal"] = (
+            journal_title_node.text if journal_title_node is not None else ""
+        )
 
         # Extract Publication Year
         pub_year_node = article.find(".//PubDate/Year")
-        article_data["pub_year"] = pub_year_node.text if pub_year_node is not None else ""
+        article_data["pub_year"] = (
+            pub_year_node.text if pub_year_node is not None else ""
+        )
 
         # Extract Abstract
         abstract_nodes = article.findall(".//Abstract/AbstractText")
@@ -83,7 +87,9 @@ def parse_and_save_articles_csv(xml_string, output_path):
 
     final_count = len(df)
     if initial_count > final_count:
-        print(f"Deduplication: Removed {initial_count - final_count} duplicate articles. ({initial_count} -> {final_count})")
+        print(
+            f"Deduplication: Removed {initial_count - final_count} duplicate articles. ({initial_count} -> {final_count})"
+        )
 
     # Use utf-8-sig for better compatibility with Excel
     df.to_csv(output_path, index=False, encoding="utf-8-sig")

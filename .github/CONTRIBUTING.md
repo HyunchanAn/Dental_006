@@ -1,6 +1,6 @@
 # Contributing to Systematic Reviewer AI
 
-First off, thanks for taking the time to contribute! 
+First off, thanks for taking the time to contribute!
 
 ## Development Setup
 1. Fork and clone the repository.

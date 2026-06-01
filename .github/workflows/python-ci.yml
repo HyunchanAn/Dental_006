@@ -13,32 +13,32 @@ jobs:
     steps:
     - name: Checkout Source Code
       uses: actions/checkout@v4
-    
+
     - name: Set up uv Package Manager
       uses: astral-sh/setup-uv@v5
       with:
         enable-cache: true
-        
+
     - name: Set up Python
       run: uv python install 3.11
-      
+
     - name: Install Project Dependencies (with Dev and Test extras)
       run: |
         uv venv
         uv pip install -e ".[dev,test]"
-        
+
     - name: Run Ruff Linter (Style and Quality check)
       run: |
         uv run ruff check .
-        
+
     - name: Run Ruff Formatter (Code format check)
       run: |
         uv run ruff format --check .
-        
+
     - name: Run Mypy Static Type Checker
       run: |
         uv run mypy .
-        
+
     - name: Run Pipeline Tests with Pytest
       run: |
         uv run pytest -v
