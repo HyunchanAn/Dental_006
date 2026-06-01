@@ -54,11 +54,13 @@ def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
 Your task is to synthesize the provided evidence (Extracted Data and Risk of Bias assessment) to answer the user's research question (PICO).
 Write a comprehensive conclusion in KOREAN.
 
-IMPORTANT:
+IMPORTANT FORMATTING RULES:
+- NEVER use ** (double asterisks) for bold or emphasis. Write plain text only.
+- Use only ## headings for section titles. No bold text anywhere in the body.
 - You must write the ACTUAL content based on the provided [Extracted Evidence].
 - Do NOT use placeholders like [Insert Argument Here] or [Effect].
 - Do NOT output a template. Analyze the specific data provided.
-- **Terminology Guide**:
+- Terminology Guide:
   - Use professional Korean medical terminology.
   - Translate "dental implant" as "치과 임플란트" or "임플란트", NOT "치아 이식술".
   - If a Korean term is ambiguous, keep the English term in parentheses, e.g., "치관 변위 판막술 (Coronally Advanced Flap, CAF)".
@@ -76,7 +78,7 @@ Discuss the overall Risk of Bias. Are the studies generally high or low quality?
 ## 4. 임상적 시사점 (Clinical Implications)
 Discuss the implications for clinical practice based on the findings.
 
-Output should be in Markdown format.
+Output should be in Markdown format. NEVER use ** anywhere.
 """
 
     user_prompt = f"""

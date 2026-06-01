@@ -183,8 +183,8 @@ def _get_analyzed_pmids(articles_csv_path):
 
 def translate_dataframe(df, target_lang="KO"):
     """
-    Translates text columns in a PICO extraction DataFrame using the LLM.
-    Skips pmid and quote columns. Returns a new translated DataFrame.
+    Translates all text columns in a PICO extraction DataFrame using the LLM.
+    Returns a new translated DataFrame.
     """
     from src.llm import client as llm_client
     import json
@@ -192,28 +192,35 @@ def translate_dataframe(df, target_lang="KO"):
     
     llm = llm_client.LLMClient()
     
-    # Identify text columns to translate (skip pmid and quote columns)
-    text_cols = [c for c in df.columns if c != "pmid" and "_quote" not in c]
+    # Translate ALL text columns except pmid
+    text_cols = [c for c in df.columns if c != "pmid"]
     
     translated_rows = []
     for _, row in df.iterrows():
         new_row = dict(row)
-        # Batch all text values for this row into one LLM call for efficiency
-        texts_to_translate = {col: str(row[col]) for col in text_cols if pd.notna(row[col]) and str(row[col]).strip()}
+        texts_to_translate = {col: str(row[col]) for col in text_cols if pd.notna(row[col]) and str(row[col]).strip() and str(row[col]) != "nan"}
         
         if not texts_to_translate:
             translated_rows.append(new_row)
             continue
         
         lang_name = "Korean" if target_lang == "KO" else "English"
-        prompt = f"""Translate the following JSON values into {lang_name}. 
-Keep the keys exactly the same. Return ONLY a JSON object.
-Do NOT translate proper nouns, drug names, measurement tools (e.g. OHIP-14, SF-36), or statistical terms.
+        prompt = f"""You MUST translate ALL of the following JSON values into {lang_name}.
+Every single value must be fully translated. Do NOT leave any value in English.
 
+Rules:
+- Return ONLY a valid JSON object with the exact same keys.
+- Translate EVERY value completely into {lang_name}. No exceptions.
+- For proper nouns, drug names, or measurement tools (OHIP-14, SF-36, etc.), keep the original term in parentheses after the Korean translation.
+  Example: "환자 보고 결과 (Patient-Reported Outcomes, PROs)"
+- For direct quotes from papers, translate the quote content into {lang_name}.
+- Do NOT use ** (double asterisks) anywhere.
+
+Input:
 {json.dumps(texts_to_translate, ensure_ascii=False, indent=2)}"""
         
         messages = [
-            {"role": "system", "content": f"You are a professional medical translator. Translate accurately to {lang_name}."},
+            {"role": "system", "content": f"You are a professional medical translator specializing in dentistry and systematic reviews. You MUST translate every single value fully into {lang_name}. Leaving any English text untranslated is unacceptable."},
             {"role": "user", "content": prompt}
         ]
         
@@ -304,7 +311,9 @@ def generate_report(
         # Synthesis
         if synthesis_result:
             f.write("## 6. 결론 및 고찰 (Synthesis)\n")
-            f.write(synthesis_result)
+            # Strip any double asterisks just in case the LLM includes them
+            clean_synthesis = synthesis_result.replace("**", "")
+            f.write(clean_synthesis)
             f.write("\n\n")
 
         # PRISMA Flow
