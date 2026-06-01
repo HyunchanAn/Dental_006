@@ -59,7 +59,12 @@ def test_screen_abstracts(mocker):
 
     picos_data = {"population": "Aged", "intervention": "Dental Implants"}
 
-    result_df = screener.screen_abstracts(articles_df, picos_data)
+    generator = screener.screen_abstracts(articles_df, picos_data)
+    results = []
+    for _, _, _, res in generator:
+        if res:
+            results.append(res)
+    result_df = pd.DataFrame(results)
 
     # 최종 결과 데이터프레임 구조 및 판정 결과 정확도 어설션 검증
     assert "screening_decision" in result_df.columns
