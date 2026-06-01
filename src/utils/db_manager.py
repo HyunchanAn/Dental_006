@@ -1,7 +1,8 @@
-import sqlite3
-import pandas as pd
 import os
+import sqlite3
 import threading
+
+import pandas as pd
 
 DATA_DIR = "data"
 TABLES_DIR = os.path.join(DATA_DIR, "tables")
@@ -53,16 +54,16 @@ def import_pubmed_results(df):
     """
     if df.empty:
         return
-        
+
     conn = _get_conn()
     # Convert dataframe to list of dicts
     records = df.to_dict('records')
-    
+
     c = conn.cursor()
     for row in records:
         c.execute("""
-            INSERT OR IGNORE INTO articles 
-            (pmid, doi, title, journal, pub_year, abstract, pipeline_status) 
+            INSERT OR IGNORE INTO articles
+            (pmid, doi, title, journal, pub_year, abstract, pipeline_status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             str(row.get('pmid', '')),
@@ -83,14 +84,14 @@ def update_article(pmid, **kwargs):
     """
     if not kwargs:
         return
-        
+
     conn = _get_conn()
     c = conn.cursor()
-    
+
     set_clause = ", ".join([f"{k} = ?" for k in kwargs.keys()])
     values = list(kwargs.values())
     values.append(str(pmid))
-    
+
     c.execute(f"UPDATE articles SET {set_clause} WHERE pmid = ?", values)
     conn.commit()
     _export_to_csv()
@@ -101,10 +102,10 @@ def get_articles_df(filters=None):
     filters: dict of column=value
     """
     conn = _get_conn()
-    
+
     query = "SELECT * FROM articles"
     params = []
-    
+
     if filters:
         conditions = []
         for k, v in filters.items():
@@ -115,7 +116,7 @@ def get_articles_df(filters=None):
                 params.append(v)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-            
+
     df = pd.read_sql_query(query, conn, params=params)
     return df
 

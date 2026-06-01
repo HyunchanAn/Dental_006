@@ -41,7 +41,6 @@ def test_prisma_flow_diagram_generation():
     Test that the PRISMA diagram generator creates a valid markdown or image output
     given a valid statistical summary.
     """
-    stats = {"identified": 100, "screened": 80, "included": 10}
 
     # diagram_output = report_generator.create_prisma(stats)
     # assert "graph TD" in diagram_output # Assuming mermaid syntax

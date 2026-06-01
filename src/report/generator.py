@@ -66,7 +66,7 @@ def generate_prisma_mermaid(stats, lang="EN"):
     # Custom HTML/CSS PRISMA Flowchart to perfectly match academic layout requirements
     mermaid_code = f"""
 <div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; max-width: 800px; margin: 20px auto; color: #1e293b; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
-  
+
   <!-- Identification -->
   <div style="display: flex; margin-bottom: 0;">
     <div style="width: 40px; background-color: #43b09c; color: white; display: flex; align-items: center; justify-content: center; writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; letter-spacing: 2px; padding: 10px 0; border-radius: 4px;">
@@ -168,11 +168,11 @@ def _get_analyzed_pmids(articles_csv_path):
     """
     if not articles_csv_path or not os.path.exists(articles_csv_path):
         return None
-    
+
     articles_df = pd.read_csv(articles_csv_path)
     if "pdf_download_status" not in articles_df.columns:
         return set(articles_df["pmid"].astype(str).tolist())
-    
+
     retrieved_mask = (
         articles_df["pdf_download_status"]
         .astype(str)
@@ -186,24 +186,25 @@ def translate_dataframe(df, target_lang="KO"):
     Translates all text columns in a PICO extraction DataFrame using the LLM.
     Returns a new translated DataFrame.
     """
-    from src.llm import client as llm_client
     import json
     import re
-    
+
+    from src.llm import client as llm_client
+
     llm = llm_client.LLMClient()
-    
+
     # Translate ALL text columns except pmid
     text_cols = [c for c in df.columns if c != "pmid"]
-    
+
     translated_rows = []
     for _, row in df.iterrows():
         new_row = dict(row)
         texts_to_translate = {col: str(row[col]) for col in text_cols if pd.notna(row[col]) and str(row[col]).strip() and str(row[col]) != "nan"}
-        
+
         if not texts_to_translate:
             translated_rows.append(new_row)
             continue
-        
+
         lang_name = "Korean" if target_lang == "KO" else "English"
         prompt = f"""You MUST translate ALL of the following JSON values into {lang_name}.
 Every single value must be fully translated. Do NOT leave any value in English.
@@ -218,12 +219,12 @@ Rules:
 
 Input:
 {json.dumps(texts_to_translate, ensure_ascii=False, indent=2)}"""
-        
+
         messages = [
             {"role": "system", "content": f"You are a professional medical translator specializing in dentistry and systematic reviews. You MUST translate every single value fully into {lang_name}. Leaving any English text untranslated is unacceptable."},
             {"role": "user", "content": prompt}
         ]
-        
+
         try:
             response = llm.get_completion(messages)
             if response:
@@ -235,9 +236,9 @@ Input:
                             new_row[col] = val
         except Exception:
             pass  # Keep original text on failure
-        
+
         translated_rows.append(new_row)
-    
+
     return pd.DataFrame(translated_rows)
 
 
@@ -262,11 +263,11 @@ def generate_report(
 
     # Recalculate stats from actual CSV data for accuracy
     recalculated_stats = dict(stats)
-    
+
     if articles_csv_path and os.path.exists(articles_csv_path):
         articles_df = pd.read_csv(articles_csv_path)
         recalculated_stats["total_found"] = len(articles_df)
-        
+
         if "screening_decision" in articles_df.columns:
             screened_mask = articles_df["screening_decision"].notna()
             recalculated_stats["screened"] = int(screened_mask.sum())
@@ -292,7 +293,7 @@ def generate_report(
             recalculated_stats["retrieved"] = recalculated_stats.get("retrieved", 0)
 
     s = recalculated_stats
-    
+
     # Get the set of PMIDs that actually went through the analysis pipeline
     analyzed_pmids = _get_analyzed_pmids(articles_csv_path)
 
@@ -338,12 +339,12 @@ def generate_report(
             if analyzed_pmids is not None:
                 df["pmid"] = df["pmid"].astype(str)
                 df = df[df["pmid"].isin(analyzed_pmids)]
-            
+
             # Translate if target language is Korean
             if lang == "KO":
                 print("Translating extracted data to Korean...")
                 df = translate_dataframe(df, target_lang="KO")
-            
+
             f.write(f"{t['extract_count']}: {len(df)}\n\n")
             f.write(df.to_markdown(index=False))
         else:

@@ -1,4 +1,5 @@
 import os
+
 # Import existing modules
 # We need to add the project root to sys.path if it's not already there for imports to work
 import sys
@@ -13,13 +14,11 @@ import yaml
 sys.path.append(os.getcwd())
 
 from src.ingest import downloader, pubmed
-from src.llm import client as llm_client
 from src.llm import synthesizer
 from src.parse import grobid_client, pubmed_parser, tei_parser
-from src.report import generator
 from src.rob import assessor
 from src.screen import screener
-from src.utils import data_manager, versioning, db_manager
+from src.utils import data_manager, db_manager, versioning
 
 # --- Configuration & Setup ---
 DATA_DIR = "data"
@@ -264,6 +263,7 @@ def init_session_state():
 
 def handle_bulk_upload(uploaded_files, df, csv_path):
     import re
+
     from pypdf import PdfReader
 
     success_count = 0
@@ -590,11 +590,11 @@ def main():
     # --- Tab 2: Screening ---
     if current_tab == 1:
         st.header(t("step2_header"))
-        
+
         df = db_manager.get_articles_df()
 
         if not df.empty:
-            
+
             st.dataframe(
                 df[["pmid", "title", "journal", "pub_year"]], use_container_width=True
             )
@@ -603,29 +603,29 @@ def main():
                 st.write("스크리닝을 시작합니다. 중단되어도 다시 시작하면 이어서 진행됩니다 (Resume).")
                 progress_bar = st.progress(0)
                 status_text = st.empty()
-                
+
                 checkpoint_csv = os.path.join(TABLES_DIR, "screening_results.csv")
                 screen_gen = screener.screen_abstracts(df, st.session_state["picos"], checkpoint_csv)
-                
+
                 for current_idx, total_count, pmid, result in screen_gen:
                     progress_bar.progress(current_idx / total_count)
                     if result:
                         status_text.text(f"[{current_idx}/{total_count}] Screening PMID {pmid}... Decision: {result['screening_decision']}")
                         # Write to DB immediately
                         db_manager.update_article(
-                            pmid, 
+                            pmid,
                             screening_decision=result["screening_decision"],
                             screening_reason=result["screening_reason"],
                             pipeline_status=1
                         )
                     else:
                         status_text.text(f"[{current_idx}/{total_count}] Skipping PMID {pmid} (Already screened)")
-                        
+
                 status_text.text(f"Screening completed! ({total_count}/{total_count})")
-                
+
                 # Reload df from DB to update stats
                 df = db_manager.get_articles_df()
-                
+
                 # Update stats
                 st.session_state["stats"]["screened"] = len(df[df["screening_decision"].notna()])
                 st.session_state["stats"]["included"] = len(
@@ -646,19 +646,19 @@ def main():
                     t("inclusion_rate"),
                     f"{st.session_state['stats']['included']} / {st.session_state['stats']['screened']}",
                 )
-                
+
                 # PRISMA Flow Diagram rendering
                 st.subheader("PRISMA Flow Diagram")
                 total_found = len(df)
                 total_screened = st.session_state['stats']['screened']
                 total_included = st.session_state['stats']['included']
-                
+
                 if "exclusion_category" in df.columns:
                     exclusion_counts = df[df["screening_decision"] == "Excluded"]["exclusion_category"].value_counts().to_dict()
                     exclusion_html = "".join([f"<li>{k}: {v}</li>" for k, v in exclusion_counts.items() if str(k).strip()])
                 else:
                     exclusion_html = "<li>No category recorded</li>"
-                
+
                 prisma_html = f"""
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9f9f9; border-radius: 10px; border: 1px solid #ddd;">
                     <h3 style="text-align: center; color: #333;">PRISMA Flow Diagram</h3>
@@ -690,11 +690,11 @@ def main():
                 </div>
                 """
                 st.components.v1.html(prisma_html, height=450)
-                
+
                 display_cols = ["pmid", "title", "screening_decision", "screening_reason"]
                 if "exclusion_category" in df.columns:
                     display_cols.append("exclusion_category")
-                    
+
                 st.dataframe(
                     df[display_cols],
                     use_container_width=True,
@@ -753,7 +753,7 @@ def main():
                             )
                             for pmid, status in pdf_download_status.items():
                                 db_manager.update_article(pmid, pdf_download_status=status)
-                            
+
                             # Refresh df to reflect status
                             df = db_manager.get_articles_df()
 
@@ -1112,7 +1112,7 @@ def main():
                                     tei_path
                                 ):
                                     tei_xml = grobid_client.process_pdf(pdf_path)
-                                    
+
                                     # Fallback logic: If GROBID fails or returns very little text
                                     if not tei_xml or len(tei_xml.strip()) < 500:
                                         status_text.text(f"GROBID failed for {pmid}. Using Fallback Parser...")
@@ -1120,7 +1120,7 @@ def main():
                                         db_manager.update_article(pmid, pdf_download_status="Parsed (Fallback)", pipeline_status=2)
                                     else:
                                         db_manager.update_article(pmid, pdf_download_status="Parsed (GROBID)", pipeline_status=2)
-                                        
+
                                     if tei_xml:
                                         with open(tei_path, "w", encoding="utf-8") as f:
                                             f.write(tei_xml)
@@ -1157,7 +1157,7 @@ def main():
                                     status_text.text(f"[{idx+1}/{total_tei}] Extracting PICO for PMID {pmid}...")
                                     progress = 75 + int(((idx + 1) / total_tei) * 25)
                                     progress_bar.progress(progress)
-                                    
+
                                     # Use optimized context slicing for PICO extraction
                                     full_text = tei_parser.extract_text_from_tei(
                                         os.path.join(TEI_DIR, tei_file), optimize_context=True
@@ -1168,7 +1168,7 @@ def main():
                                             if len(full_text) > 8000
                                             else full_text
                                         )
-                                        
+
                                         data = pico_extractor.extract_pico_multi_agent(text_snippet)
                                         if data:
                                             # Flatten the nested dict for dataframe compatibility
@@ -1201,21 +1201,21 @@ def main():
         # --- Human-in-the-Loop Verification & Navigation (Step 3 -> Step 4) ---
         extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
         rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
-        
+
         if os.path.exists(extracted_csv_path) and os.path.exists(rob_csv_path):
             st.divider()
             st.subheader("🧐 Human-in-the-Loop Verification")
             st.info("AI가 추출한 데이터를 확인하고 필요한 경우 직접 수정하세요. 수정 완료 후 반드시 '확정 및 저장' 버튼을 눌러야 다음 단계로 진행할 수 있습니다.")
-            
+
             pico_df = pd.read_csv(extracted_csv_path)
             rob_df = pd.read_csv(rob_csv_path)
-            
+
             st.markdown("#### PICO Data")
             edited_pico = st.data_editor(pico_df, num_rows="dynamic", key="pico_editor", use_container_width=True)
-            
+
             st.markdown("#### Risk of Bias (RoB)")
             edited_rob = st.data_editor(rob_df, num_rows="dynamic", key="rob_editor", use_container_width=True)
-            
+
             if st.button("💾 확정 및 저장 (Confirm & Save)"):
                 edited_pico.to_csv(extracted_csv_path, index=False, encoding="utf-8-sig")
                 edited_rob.to_csv(rob_csv_path, index=False, encoding="utf-8-sig")
@@ -1223,7 +1223,7 @@ def main():
                 st.success("데이터가 확정되었습니다! 이제 다음 단계로 넘어갈 수 있습니다.")
                 time.sleep(1)
                 st.rerun()
-                
+
             if st.session_state.get("human_verified", False):
                 st.divider()
                 col_next, _ = st.columns([1, 4])

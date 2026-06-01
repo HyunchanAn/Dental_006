@@ -1,9 +1,11 @@
 import json
-import re
 import os
+import re
+
 import pandas as pd
 
 from src.llm import client as llm_client
+
 
 def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
     """
@@ -19,7 +21,7 @@ def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
         tuple: (current_index, total_count, pmid, result_dict)
     """
     llm = llm_client.LLMClient()
-    
+
     # Load existing checkpoints to skip already screened articles
     screened_pmids = set()
     if checkpoint_csv and os.path.exists(checkpoint_csv):
@@ -71,10 +73,10 @@ Criteria for Inclusion:
     """
 
     total = len(articles_df)
-    
+
     for idx, row in articles_df.iterrows():
         pmid = str(row.get("pmid", "Unknown"))
-        
+
         if pmid in screened_pmids:
             yield (idx + 1, total, pmid, None) # None indicates skipped
             continue
@@ -135,12 +137,12 @@ Is this paper relevant? Return JSON.
             category = ""
 
         result = {
-            "pmid": pmid, 
-            "screening_decision": decision, 
+            "pmid": pmid,
+            "screening_decision": decision,
             "screening_reason": reason,
             "exclusion_category": category
         }
-        
+
         # Checkpointing (save immediately)
         if checkpoint_csv:
             res_df = pd.DataFrame([result])

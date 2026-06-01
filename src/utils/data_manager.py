@@ -41,7 +41,7 @@ def clear_generated_data_files():
                     print(f"오류: {item_path} 삭제 실패. {e}")
 
     print("이전 데이터 파일 삭제 완료.")
-    
+
     # Clear database
     try:
         from src.utils import db_manager
@@ -49,7 +49,7 @@ def clear_generated_data_files():
         print(" - 데이터베이스 초기화됨.")
     except Exception as e:
         print(f"오류: 데이터베이스 초기화 실패. {e}")
-        
+
     return True
 
 

@@ -105,7 +105,7 @@ def batch_assess_rob(tei_dir, output_csv_path, allowed_pmids=None):
                 else:
                     flat_result[domain] = str(details)
             rob_results.append(flat_result)
-        
+
         yield (idx + 1, total, pmid)
 
     if rob_results:

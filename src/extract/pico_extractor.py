@@ -1,21 +1,23 @@
 import json
 import re
+
 from src.llm import client as llm_client
+
 
 def extract_pico_multi_agent(text_snippet):
     """
     Extracts PICO (Population, Intervention, Comparison, Outcome) and Study Design
     using a multi-agent approach. It makes 3 independent LLM calls to reduce hallucination
     and improve extraction quality.
-    
+
     Args:
         text_snippet (str): The text from which to extract information.
-        
+
     Returns:
         dict: A merged dictionary containing P, I/C, and O extractions with raw quotes.
     """
     llm = llm_client.LLMClient()
-    
+
     # --- Agent 1: P-Agent (Population & Study Design) ---
     p_system_prompt = """You are a specialized biomedical data extraction AI (P-Agent).
 Your task is to extract the Population/Patients characteristics and Study Design from the text.
