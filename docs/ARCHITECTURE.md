@@ -13,7 +13,7 @@ Systematic Reviewer AI는 연구자가 입력한 PICO(Population, Intervention, 
 
 ```mermaid
 graph TD
-    A["PubMed API (Search Ingestion)"] -->|PMID & Metadata| B["Automated Screening (screener.py)"]
+    A["PubMed API (Search Ingestion)"] -->|PMID & Metadata|    C --> D["LLM Screening (Ollama/Gemma4)"]
     B -->|Included PMIDs| C["PDF Downloader (downloader.py)"]
     C -->|Local PDFs| D["GROBID PDF Parsing (Docker Service)"]
     D -->|TEI-XML Structure| E["RoB Assessment (assessor.py)"]

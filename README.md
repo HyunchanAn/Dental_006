@@ -12,10 +12,16 @@
 ### Architecture Diagram
 ```mermaid
 graph TD
-    A["PDF Papers"] --> B["GROBID Parsing"]
-    B --> C["Ollama (Gemma4) Text Analysis"]
-    C --> D["Systematic Review Synthesis"]
-    D --> E["Streamlit UI"]
+    A["User Input (PICO)"] --> B["PubMed API (Ingestion)"]
+    B --> C["Metadata & Abstract Database"]
+    C --> D["LLM Screening (Ollama/Gemma4)"]
+    D --> E["PDF Downloader (Unpaywall/PMC)"]
+    E --> F["Manual Download Helper"]
+    E --> G["PDF Parsing (GROBID)"]
+    F --> G
+    G --> H["Data Extraction & RoB Assessment"]
+    H --> I["AI Synthesis Module"]
+    I --> J["Final Markdown Report (PRISMA)"]
 ```
 
 ## 1. 개요
@@ -68,7 +74,7 @@ graph TD
 
 2. LLM 및 도구 준비
    - Ollama 설치 후 gemma4 모델 다운로드: `ollama pull gemma4`
-   - Docker Desktop 실행 및 GROBID 서비스 시작 (제공된 `start_services.bat` 관리자 권한 실행 권장)
+   - Docker Desktop 실행 및 GROBID 서비스 시작 (제공된 `scripts/start_services.bat` 관리자 권한 실행 권장)
 
 3. Python 의존성 설치
    ```bash
