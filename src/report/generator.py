@@ -250,6 +250,7 @@ def generate_report(
     lang="EN",
     synthesis_result=None,
     articles_csv_path=None,
+    run_mode="hitl",
 ):
     """
     Generates a comprehensive Markdown report.
@@ -291,6 +292,14 @@ def generate_report(
     analyzed_pmids = _get_analyzed_pmids(articles_csv_path)
 
     with open(output_path, "w", encoding="utf-8") as f:
+        # Watermark
+        if run_mode == "scoping":
+            f.write("> [!WARNING]\n")
+            f.write("> **SYSTEM WARNING**: This report was generated via **Full AI-driven Scoping Mode**. ")
+            f.write(
+                "It was NOT verified by a human expert. STRICTLY PROHIBITED for clinical guide or academic publication use.\n\n"
+            )
+
         # Title and Header
         f.write(f"# {t['title']}\n")
         f.write(f"**{t['date']}:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
@@ -357,5 +366,29 @@ def generate_report(
         else:
             f.write(f"{t['no_rob']}\n")
         f.write("\n")
+
+        # References Section
+        f.write("## 7. References\n")
+        if articles_csv_path and os.path.exists(articles_csv_path) and analyzed_pmids:
+            articles_df = pd.read_csv(articles_csv_path)
+            articles_df["pmid"] = articles_df["pmid"].astype(str)
+            ref_df = articles_df[articles_df["pmid"].isin(analyzed_pmids)]
+            if not ref_df.empty:
+                for _, row in ref_df.iterrows():
+                    title = row.get("title", "No Title")
+                    journal = row.get("journal", "Unknown Journal")
+                    year = row.get("pub_year", "n.d.")
+                    pmid = row.get("pmid", "Unknown PMID")
+                    f.write(f"- {title}. *{journal}* ({year}). PMID: {pmid}\n")
+            else:
+                f.write("No references found.\n")
+        else:
+            f.write("No references found.\n")
+        f.write("\n")
+
+        # Watermark Footer
+        if run_mode == "scoping":
+            f.write("\n---\n")
+            f.write("**[⚠️ SYSTEM WARNING]** This report is an auto-generated draft using Full AI-driven Scoping Mode.\n")
 
     print(f"Report saved to {output_path}")

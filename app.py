@@ -355,6 +355,25 @@ def main():
 
     # --- Sidebar Content ---
     with st.sidebar:
+        # Mode Selector
+        st.subheader("실행 모드 / Run Mode")
+        mode_val = st.radio(
+            "Mode",
+            ["Human-in-the-Loop Mode", "Full AI-driven Scoping Mode"],
+            index=0 if st.session_state.get("run_mode", "hitl") == "hitl" else 1,
+            label_visibility="collapsed",
+        )
+        st.session_state["run_mode"] = "scoping" if "Scoping" in mode_val else "hitl"
+
+        if st.session_state["run_mode"] == "scoping":
+            st.warning(
+                "⚠️ **예비 타당성 검토 모드**\n\n본 모드는 예비 연구 기획 및 문헌 탐색(Scoping) 목적으로만 제한됩니다. LLM 추론 특성상 누락이나 환각이 포함될 수 있으므로, 실제 정밀 임상 연구 및 학술지 출판물(Publication) 데이터로의 직접적인 인용 및 활용을 절대 금지합니다."
+            )
+            st.session_state["scoping_agreed"] = st.checkbox(
+                "위 경고사항을 확인했으며, 동의합니다.", value=st.session_state.get("scoping_agreed", False)
+            )
+        st.divider()
+
         st.header(t("project_data"))
         if st.button(t("reset_data"), type="primary"):
             data_manager.clear_generated_data_files()
@@ -556,6 +575,14 @@ def main():
                                 count=len(filtered_articles_elements),
                             )
                         )
+
+                        # Full AI-driven Scoping Mode: Automatically proceed
+                        if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
+                            st.info("🚀 Scoping 모드 작동 중: 다음 단계(스크리닝)로 자동 진입합니다...")
+                            time.sleep(2)
+                            st.session_state["current_tab_index"] = 1
+                            st.rerun()
+
                     else:
                         st.warning(t("no_articles"))
         # Navigation Button (Step 1 -> Step 2)
@@ -577,7 +604,12 @@ def main():
         if not df.empty:
             st.dataframe(df[["pmid", "title", "journal", "pub_year"]], use_container_width=True)
 
-            if st.button(t("start_screening")):
+            auto_start_screening = False
+            if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
+                if "screening_decision" not in df.columns or len(df[df["screening_decision"].notna()]) == 0:
+                    auto_start_screening = True
+
+            if st.button(t("start_screening")) or auto_start_screening:
                 st.write("스크리닝을 시작합니다. 중단되어도 다시 시작하면 이어서 진행됩니다 (Resume).")
                 progress_bar = st.progress(0)
                 status_text = st.empty()
@@ -612,8 +644,14 @@ def main():
                 st.session_state["stats"]["excluded"] = (
                     st.session_state["stats"]["screened"] - st.session_state["stats"]["included"]
                 )
-                time.sleep(1)
-                st.rerun()
+
+                if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
+                    st.info("🚀 Scoping 모드 작동 중: 다음 단계(분석 파이프라인)로 자동 진입합니다...")
+                    time.sleep(2)
+                    st.session_state["current_tab_index"] = 2
+                    st.rerun()
+                else:
+                    st.rerun()
 
             # Show Screening Results if available
             if "screening_decision" in df.columns:
@@ -674,10 +712,41 @@ def main():
                 if "exclusion_category" in df.columns:
                     display_cols.append("exclusion_category")
 
-                st.dataframe(
+                st.markdown("### 📝 수동 검토 및 오버라이드 (Override)")
+                st.markdown(
+                    "아래 표에서 `screening_decision` 항목을 더블클릭하여 결과를 수동으로 변경(Included/Excluded)할 수 있습니다. 변경된 내용은 DB에 즉시 반영되며, 차트와 통계에 업데이트됩니다."
+                )
+
+                # Editor for User Override
+                edited_df = st.data_editor(
                     df[display_cols],
                     use_container_width=True,
+                    disabled=["pmid", "title", "screening_reason", "exclusion_category"],
+                    column_config={
+                        "screening_decision": st.column_config.SelectboxColumn(
+                            "Decision",
+                            help="판정 결과를 오버라이드합니다.",
+                            options=["Included", "Excluded"],
+                            required=True,
+                        )
+                    },
+                    key="screening_editor",
                 )
+
+                # Check if any decision changed
+                changed = False
+                for idx, row in edited_df.iterrows():
+                    orig_decision = df.loc[idx, "screening_decision"]
+                    new_decision = row["screening_decision"]
+                    if orig_decision != new_decision:
+                        pmid = row["pmid"]
+                        db_manager.update_article(pmid, screening_decision=new_decision)
+                        changed = True
+
+                if changed:
+                    st.success("✅ 오버라이드 결과가 데이터베이스에 업데이트되었습니다!")
+                    time.sleep(1)
+                    st.rerun()
         else:
             st.info(t("search_first"))
 
@@ -1109,28 +1178,37 @@ def main():
         rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
 
         if os.path.exists(extracted_csv_path) and os.path.exists(rob_csv_path):
-            st.divider()
-            st.subheader("🧐 Human-in-the-Loop Verification")
-            st.info(
-                "AI가 추출한 데이터를 확인하고 필요한 경우 직접 수정하세요. 수정 완료 후 반드시 '확정 및 저장' 버튼을 눌러야 다음 단계로 진행할 수 있습니다."
-            )
+            if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
+                if not st.session_state.get("human_verified", False):
+                    st.session_state["human_verified"] = True
+                    st.info("🚀 Scoping 모드 작동 중: 다음 단계(최종 보고서)로 자동 진입합니다...")
+                    time.sleep(2)
+                    st.session_state["current_tab_index"] = 3
+                    st.rerun()
+            else:
+                st.divider()
+                st.subheader("🧐 Human-in-the-Loop Verification")
+                st.info(
+                    "AI가 추출한 데이터를 확인하고 필요한 경우 직접 수정하세요. 수정 완료 후 반드시 '확정 및 저장' 버튼을 눌러야 다음 단계로 진행할 수 있습니다."
+                )
 
-            pico_df = pd.read_csv(extracted_csv_path)
-            rob_df = pd.read_csv(rob_csv_path)
+            if not st.session_state.get("run_mode") == "scoping":
+                pico_df = pd.read_csv(extracted_csv_path)
+                rob_df = pd.read_csv(rob_csv_path)
 
-            st.markdown("#### PICO Data")
-            edited_pico = st.data_editor(pico_df, num_rows="dynamic", key="pico_editor", use_container_width=True)
+                st.markdown("#### PICO Data")
+                edited_pico = st.data_editor(pico_df, num_rows="dynamic", key="pico_editor", use_container_width=True)
 
-            st.markdown("#### Risk of Bias (RoB)")
-            edited_rob = st.data_editor(rob_df, num_rows="dynamic", key="rob_editor", use_container_width=True)
+                st.markdown("#### Risk of Bias (RoB)")
+                edited_rob = st.data_editor(rob_df, num_rows="dynamic", key="rob_editor", use_container_width=True)
 
-            if st.button("💾 확정 및 저장 (Confirm & Save)"):
-                edited_pico.to_csv(extracted_csv_path, index=False, encoding="utf-8-sig")
-                edited_rob.to_csv(rob_csv_path, index=False, encoding="utf-8-sig")
-                st.session_state["human_verified"] = True
-                st.success("데이터가 확정되었습니다! 이제 다음 단계로 넘어갈 수 있습니다.")
-                time.sleep(1)
-                st.rerun()
+                if st.button("💾 확정 및 저장 (Confirm & Save)"):
+                    edited_pico.to_csv(extracted_csv_path, index=False, encoding="utf-8-sig")
+                    edited_rob.to_csv(rob_csv_path, index=False, encoding="utf-8-sig")
+                    st.session_state["human_verified"] = True
+                    st.success("데이터가 확정되었습니다! 이제 다음 단계로 넘어갈 수 있습니다.")
+                    time.sleep(1)
+                    st.rerun()
 
             if st.session_state.get("human_verified", False):
                 st.divider()
@@ -1149,7 +1227,14 @@ def main():
         report_path = os.path.join(DATA_DIR, report_filename)
         articles_csv_path = os.path.join(TABLES_DIR, "articles.csv")
 
-        if st.button(t("generate_report")):
+        auto_generate = False
+        if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
+            if not os.path.exists(report_path) and "generating_report" not in st.session_state:
+                auto_generate = True
+
+        if st.button(t("generate_report")) or auto_generate:
+            st.session_state["generating_report"] = True
+
             # 1. Synthesize Answer (New)
             with st.spinner("AI is synthesizing the answer to your PICO question..."):
                 synthesis_result = synthesizer.synthesize_answer(
@@ -1171,7 +1256,9 @@ def main():
                 lang=current_lang,
                 synthesis_result=synthesis_result,
                 articles_csv_path=articles_csv_path,
+                run_mode=st.session_state.get("run_mode", "hitl"),
             )
+            st.session_state["generating_report"] = False
             st.success(t("report_generated"))
 
         # Display report if it exists for the current language
