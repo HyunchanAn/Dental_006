@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "systematic-reviewer-ai"
 version = "1.0.0"
-description = "AI-powered Systematic Review assistant using Gemma 2 and GROBID"
+description = "AI-powered Systematic Review assistant using Gemma 4 and GROBID"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
