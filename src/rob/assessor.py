@@ -33,16 +33,17 @@ Return a JSON object with EXACTLY these 5 keys:
 5. "Reporting" (Reporting Bias)
 
 For each domain, provide:
+- "quote": A direct quote from the text that serves as evidence.
+- "reasoning": Step-by-step justification based on the quote.
 - "level": "Low", "High", or "Some Concerns"
-- "explanation": A brief justification based on the text.
 
 Example Output:
 {
-  "Randomization": {"level": "Low", "explanation": "Random sequence generation was described..."},
-  "Deviations": {"level": "Some Concerns", "explanation": "Blinding of participants was not possible..."},
-  "MissingData": {"level": "Low", "explanation": "Dropout rate was low..."},
-  "Measurement": {"level": "Low", "explanation": "Objective outcome measures used..."},
-  "Reporting": {"level": "Low", "explanation": "All outcomes reported..."}
+  "Randomization": {"quote": "Patients were randomly assigned via computer-generated numbers...", "reasoning": "Proper random sequence generation was explicitly described, indicating minimal selection bias.", "level": "Low"},
+  "Deviations": {"quote": "Blinding of participants was not possible...", "reasoning": "Lack of blinding may influence behavior, causing performance bias.", "level": "Some Concerns"},
+  "MissingData": {"quote": "The dropout rate was 2%...", "reasoning": "Dropout rate is very low and balanced between groups.", "level": "Low"},
+  "Measurement": {"quote": "Outcome measures were objectively recorded...", "reasoning": "Objective measurements reduce the risk of detection bias.", "level": "Low"},
+  "Reporting": {"quote": "All pre-specified outcomes were reported...", "reasoning": "No selective reporting bias identified.", "level": "Low"}
 }
 """
     user_prompt = f"""
@@ -98,9 +99,10 @@ def batch_assess_rob(tei_dir, output_csv_path):
             for domain, details in assessment.items():
                 if isinstance(details, dict):
                     flat_result[f"{domain}_Level"] = details.get("level", "Unclear")
-                    flat_result[f"{domain}_Explanation"] = details.get(
-                        "explanation", ""
-                    )
+                    quote = details.get("quote", "")
+                    reasoning = details.get("reasoning", "")
+                    # Combine quote and reasoning to maintain backward compatibility with Explanation column
+                    flat_result[f"{domain}_Explanation"] = f"Quote: '{quote}' | Reasoning: {reasoning}"
                 else:
                     # Fallback if structure is flat or weird
                     flat_result[domain] = str(details)

@@ -2,12 +2,14 @@ import os
 import xml.etree.ElementTree as ET
 
 
-def extract_text_from_tei(xml_path):
+def extract_text_from_tei(xml_path, optimize_context=True):
     """
     Parses a TEI XML file and extracts the plain text content from the body.
+    If optimize_context is True, it attempts to slice only relevant sections (e.g., Methods, Results) to save LLM tokens.
 
     Args:
         xml_path (str): The path to the TEI XML file.
+        optimize_context (bool): Whether to slice only specific sections.
 
     Returns:
         str: The concatenated plain text content, or an empty string if parsing fails.
@@ -25,8 +27,25 @@ def extract_text_from_tei(xml_path):
         if body is None:
             return ""
 
-        # Iterate through all text nodes in the body and join them
-        text_content = "".join(body.itertext())
+        if optimize_context:
+            target_keywords = ["method", "result", "analysis", "statistic", "measure", "outcome", "intervention", "design", "participant"]
+            extracted_texts = []
+            
+            for div in body.findall(".//tei:div", ns):
+                head = div.find("tei:head", ns)
+                if head is not None and head.text:
+                    head_text = head.text.lower()
+                    if any(kw in head_text for kw in target_keywords):
+                        extracted_texts.append("".join(div.itertext()))
+            
+            if extracted_texts:
+                text_content = " ".join(extracted_texts)
+            else:
+                # Fallback to full text if no matching sections are found
+                text_content = "".join(body.itertext())
+        else:
+            # Iterate through all text nodes in the body and join them
+            text_content = "".join(body.itertext())
 
         # Clean up excessive whitespace and newlines
         return " ".join(text_content.split())

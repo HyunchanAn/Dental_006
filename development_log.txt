@@ -118,3 +118,8 @@
 - Issue #3 해결: 비개발자를 위한 Docker 기반 간편 배포 환경(Dockerfile, docker-compose.yml) 구축 및 README 업데이트
 - Issue #4 해결: 추출 결과의 신뢰도를 측정할 수 있는 ROUGE/F1 기반 평가 자동화 스크립트(evaluate_extraction.py) 및 가이드라인 추가
 - Pull Request #5, #6, #7 병합 완료 (uv, checkout, numpy 버전 업데이트)
+
+[2026-06-02 03:40:00] [Hyunchan An] 이슈 #8 해결: 파이프라인 아키텍처 및 병목 지점 개선.
+1. tei_parser.py에 Context Slicing 로직 적용하여 LLM 토큰 및 VRAM 소모 최소화.
+2. assessor.py의 RoB 프롬프트를 Quote -> Reasoning -> Level의 Chain-of-Thought(CoT) 구조로 변경하여 평가 신뢰도 향상.
+3. app.py에 st.data_editor를 활용한 Human-in-the-Loop UI를 추가하여, AI 데이터 추출 후 연구자가 직접 검증/수정하도록 워크플로우 최적화.

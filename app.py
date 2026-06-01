@@ -1133,17 +1133,40 @@ def main():
                             status_text.text(t("analysis_complete"))
                             st.success(t("analysis_complete"))
 
-        # Navigation Button (Step 3 -> Step 4)
-        # Show only if pipeline output exists (e.g., extracted PICO data)
+        # --- Human-in-the-Loop Verification & Navigation (Step 3 -> Step 4) ---
         extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
-        if os.path.exists(extracted_csv_path):
+        rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
+        
+        if os.path.exists(extracted_csv_path) and os.path.exists(rob_csv_path):
             st.divider()
-            col_next, _ = st.columns([1, 4])
-            with col_next:
-                if st.button(
-                    f"{t('tabs')[3]} >", type="primary", use_container_width=True
-                ):
-                    next_step()
+            st.subheader("🧐 Human-in-the-Loop Verification")
+            st.info("AI가 추출한 데이터를 확인하고 필요한 경우 직접 수정하세요. 수정 완료 후 반드시 '확정 및 저장' 버튼을 눌러야 다음 단계로 진행할 수 있습니다.")
+            
+            pico_df = pd.read_csv(extracted_csv_path)
+            rob_df = pd.read_csv(rob_csv_path)
+            
+            st.markdown("#### PICO Data")
+            edited_pico = st.data_editor(pico_df, num_rows="dynamic", key="pico_editor", use_container_width=True)
+            
+            st.markdown("#### Risk of Bias (RoB)")
+            edited_rob = st.data_editor(rob_df, num_rows="dynamic", key="rob_editor", use_container_width=True)
+            
+            if st.button("💾 확정 및 저장 (Confirm & Save)"):
+                edited_pico.to_csv(extracted_csv_path, index=False, encoding="utf-8-sig")
+                edited_rob.to_csv(rob_csv_path, index=False, encoding="utf-8-sig")
+                st.session_state["human_verified"] = True
+                st.success("데이터가 확정되었습니다! 이제 다음 단계로 넘어갈 수 있습니다.")
+                time.sleep(1)
+                st.rerun()
+                
+            if st.session_state.get("human_verified", False):
+                st.divider()
+                col_next, _ = st.columns([1, 4])
+                with col_next:
+                    if st.button(
+                        f"{t('tabs')[3]} >", type="primary", use_container_width=True
+                    ):
+                        next_step()
 
     # --- Tab 4: Reporting ---
     if current_tab == 3:
