@@ -65,15 +65,18 @@ IMPORTANT FORMATTING RULES:
   - Translate "dental implant" as "치과 임플란트" or "임플란트", NOT "치아 이식술".
   - If a Korean term is ambiguous, keep the English term in parentheses, e.g., "치관 변위 판막술 (Coronally Advanced Flap, CAF)".
 
+GRADE EVALUATION RULE (CRITICAL):
+- If any study has a Risk of Bias (RoB) evaluated as "High Risk" or "High" in any domain, you MUST downgrade the certainty of evidence and explicitly state this limitation in your conclusion. Treat evidence from High Risk studies with extreme caution.
+
 Structure your response as follows:
 ## 1. 종합 결론 (Conclusion)
 Answer the PICO question directly. State clearly if the intervention is effective compared to the comparison based on the evidence.
 
 ## 2. 근거 요약 (Summary of Evidence)
-Summarize the key findings from the included studies. Mention the quantity and design of studies (e.g., "5 RCTs were analyzed...").
+Summarize the key findings from the included studies. Mention the quantity and design of studies. Include intervention subcategories and statistical metrics (Mean, SD, N) if they were extracted.
 
-## 3. 근거의 신뢰도 (Confidence in Evidence)
-Discuss the overall Risk of Bias. Are the studies generally high or low quality? How does this affect the certainty of your conclusion?
+## 3. 근거의 신뢰도 및 GRADE 평가 (Confidence in Evidence & GRADE)
+Discuss the overall Risk of Bias. Explicitly mention any studies with "High Risk" and how it downgrades the certainty of your conclusion.
 
 ## 4. 임상적 시사점 (Clinical Implications)
 Discuss the implications for clinical practice based on the findings.

@@ -94,3 +94,5 @@ def parse_and_save_articles_csv(xml_string, output_path):
     # Use utf-8-sig for better compatibility with Excel
     df.to_csv(output_path, index=False, encoding="utf-8-sig")
     print(f"Successfully parsed and saved {len(df)} articles to {output_path}")
+    return df
+

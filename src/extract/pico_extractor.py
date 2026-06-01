@@ -43,14 +43,18 @@ Return a JSON object with EXACTLY these keys:
 Your task is to extract the Intervention (experimental treatment) and Comparison (control treatment) from the text.
 Include doses, materials, and protocols if available.
 
+CRITICAL: For the Intervention, explicitly classify the subcategory (e.g., prosthesis retention type, implant type, material) if described.
+
 Return a JSON object with EXACTLY these keys:
 {
   "intervention": {
     "description": "Brief description of the intervention",
+    "subcategory": "Specific subcategory or type (e.g., Cement-retained vs Screw-retained)",
     "raw_quote": "Exact quote from the text supporting this"
   },
   "comparison": {
     "description": "Brief description of the comparison/control",
+    "subcategory": "Specific subcategory or type",
     "raw_quote": "Exact quote from the text supporting this"
   }
 }"""
@@ -63,10 +67,14 @@ Return a JSON object with EXACTLY these keys:
     o_system_prompt = """You are a specialized biomedical data extraction AI (O-Agent).
 Your task is to extract the Outcomes (primary and secondary measures) and Time points from the text.
 
+CRITICAL: Extract standardized measurement scales (e.g., VAS, PD, CAL) and summary statistics (Mean, Standard Deviation, N) if available, so they can be used for Standardized Mean Difference (SMD) conversion later.
+
 Return a JSON object with EXACTLY these keys:
 {
   "outcome": {
     "description": "Brief description of the outcome measures and time points",
+    "scale_metric": "Name of the scale or metric used (e.g., VAS, mm)",
+    "statistics_summary": "Extracted Mean, SD, N for the groups (if present)",
     "raw_quote": "Exact quote from the text supporting this"
   }
 }"""

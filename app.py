@@ -19,7 +19,7 @@ from src.parse import grobid_client, pubmed_parser, tei_parser
 from src.report import generator
 from src.rob import assessor
 from src.screen import screener
-from src.utils import data_manager, versioning
+from src.utils import data_manager, versioning, db_manager
 
 # --- Configuration & Setup ---
 DATA_DIR = "data"
@@ -559,11 +559,14 @@ def main():
                         ) as f:
                             f.write(filtered_articles_xml)
 
-                        # Parse to CSV
-                        pubmed_parser.parse_and_save_articles_csv(
+                        # Parse to CSV and DB
+                        df_parsed = pubmed_parser.parse_and_save_articles_csv(
                             filtered_articles_xml,
                             os.path.join(TABLES_DIR, "articles.csv"),
                         )
+                        if df_parsed is not None and not df_parsed.empty:
+                            db_manager.import_pubmed_results(df_parsed)
+
                         st.success(
                             t(
                                 "retrieval_success",
@@ -587,20 +590,10 @@ def main():
     # --- Tab 2: Screening ---
     if current_tab == 1:
         st.header(t("step2_header"))
-        csv_path = os.path.join(TABLES_DIR, "articles.csv")
+        
+        df = db_manager.get_articles_df()
 
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
-            
-            # Auto-fix corrupted columns from legacy merges
-            if "title" not in df.columns and "title_x" in df.columns:
-                rename_dict = {}
-                for col in ["doi", "title", "journal", "pub_year", "abstract"]:
-                    if f"{col}_x" in df.columns:
-                        rename_dict[f"{col}_x"] = col
-                df.rename(columns=rename_dict, inplace=True)
-                df.drop(columns=[c for c in df.columns if c.endswith("_y")], inplace=True, errors='ignore')
-                df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+        if not df.empty:
             
             st.dataframe(
                 df[["pmid", "title", "journal", "pub_year"]], use_container_width=True
@@ -618,32 +611,30 @@ def main():
                     progress_bar.progress(current_idx / total_count)
                     if result:
                         status_text.text(f"[{current_idx}/{total_count}] Screening PMID {pmid}... Decision: {result['screening_decision']}")
+                        # Write to DB immediately
+                        db_manager.update_article(
+                            pmid, 
+                            screening_decision=result["screening_decision"],
+                            screening_reason=result["screening_reason"],
+                            pipeline_status=1
+                        )
                     else:
                         status_text.text(f"[{current_idx}/{total_count}] Skipping PMID {pmid} (Already screened)")
                         
                 status_text.text(f"Screening completed! ({total_count}/{total_count})")
                 
-                # Merge checkpoint results back to main dataframe
-                if os.path.exists(checkpoint_csv):
-                    results_df = pd.read_csv(checkpoint_csv)
-                    
-                    cols_to_drop = [c for c in ["screening_decision", "screening_reason", "exclusion_category"] if c in df.columns]
-                    df.drop(columns=cols_to_drop, inplace=True)
-                    
-                    df["pmid"] = df["pmid"].astype(str)
-                    results_df["pmid"] = results_df["pmid"].astype(str)
-                    merged_df = pd.merge(df, results_df, on="pmid", how="left")
-                    merged_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-
-                    # Update stats
-                    st.session_state["stats"]["screened"] = len(merged_df[merged_df["screening_decision"].notna()])
-                    st.session_state["stats"]["included"] = len(
-                        merged_df[merged_df["screening_decision"] == "Included"]
-                    )
-                    st.session_state["stats"]["excluded"] = (
-                        st.session_state["stats"]["screened"]
-                        - st.session_state["stats"]["included"]
-                    )
+                # Reload df from DB to update stats
+                df = db_manager.get_articles_df()
+                
+                # Update stats
+                st.session_state["stats"]["screened"] = len(df[df["screening_decision"].notna()])
+                st.session_state["stats"]["included"] = len(
+                    df[df["screening_decision"] == "Included"]
+                )
+                st.session_state["stats"]["excluded"] = (
+                    st.session_state["stats"]["screened"]
+                    - st.session_state["stats"]["included"]
+                )
                 time.sleep(1)
                 st.rerun()
 
@@ -731,9 +722,8 @@ def main():
         st.header(t("step3_header"))
         st.markdown(t("step3_desc"))
 
-        csv_path = os.path.join(TABLES_DIR, "articles.csv")
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
+        df = db_manager.get_articles_df()
+        if not df.empty:
             if "screening_decision" not in df.columns:
                 st.warning(t("screen_first_warning"))
             else:
@@ -761,10 +751,11 @@ def main():
                                 allowed_pmids=included_pmids,
                                 email=st.session_state["picos"].get("email"),
                             )
-                            df["pdf_download_status"] = (
-                                df["pmid"].astype(str).map(pdf_download_status)
-                            )
-                            df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+                            for pmid, status in pdf_download_status.items():
+                                db_manager.update_article(pmid, pdf_download_status=status)
+                            
+                            # Refresh df to reflect status
+                            df = db_manager.get_articles_df()
 
                             downloaded_pdfs = [
                                 k
@@ -942,17 +933,8 @@ def main():
                                                         st.info(
                                                             f"{t('status_manual')} (Auto-detected)"
                                                         )
-                                                        # Auto-update status in CSV if detected
-                                                        df.loc[
-                                                            df["pmid"].astype(str)
-                                                            == pmid,
-                                                            "pdf_download_status",
-                                                        ] = "Downloaded (Detected)"
-                                                        df.to_csv(
-                                                            csv_path,
-                                                            index=False,
-                                                            encoding="utf-8-sig",
-                                                        )
+                                                        # Auto-update status in DB if detected
+                                                        db_manager.update_article(pmid, pdf_download_status="Downloaded (Detected)")
                                                         # Update cache and stats potentially
                                                         st.session_state["file_cache"][
                                                             cache_key
@@ -1019,15 +1001,7 @@ def main():
                                                         f.write(
                                                             uploaded_file.getbuffer()
                                                         )
-                                                    df.loc[
-                                                        df["pmid"].astype(str) == pmid,
-                                                        "pdf_download_status",
-                                                    ] = "Downloaded (Manual Upload)"
-                                                    df.to_csv(
-                                                        csv_path,
-                                                        index=False,
-                                                        encoding="utf-8-sig",
-                                                    )
+                                                    db_manager.update_article(pmid, pdf_download_status="Downloaded (Manual Upload)")
                                                     st.session_state["file_cache"][
                                                         cache_key
                                                     ] = True
@@ -1049,16 +1023,7 @@ def main():
                                                             cache_key
                                                         ] = file_exists_physical
                                                         if file_exists_physical:
-                                                            df.loc[
-                                                                df["pmid"].astype(str)
-                                                                == pmid,
-                                                                "pdf_download_status",
-                                                            ] = "Downloaded (Manual)"
-                                                            df.to_csv(
-                                                                csv_path,
-                                                                index=False,
-                                                                encoding="utf-8-sig",
-                                                            )
+                                                            db_manager.update_article(pmid, pdf_download_status="Downloaded (Manual)")
                                                             st.toast(
                                                                 t(
                                                                     "file_verified",
@@ -1080,16 +1045,7 @@ def main():
                                                         f"{t('skip_file_btn')} ({pmid})",
                                                         key=f"skip_{pmid}",
                                                     ):
-                                                        df.loc[
-                                                            df["pmid"].astype(str)
-                                                            == pmid,
-                                                            "pdf_download_status",
-                                                        ] = "Skipped_User"
-                                                        df.to_csv(
-                                                            csv_path,
-                                                            index=False,
-                                                            encoding="utf-8-sig",
-                                                        )
+                                                        db_manager.update_article(pmid, pdf_download_status="Skipped_User")
                                                         st.toast(
                                                             t(
                                                                 "file_skipped",
@@ -1108,17 +1064,16 @@ def main():
 
                         # Count ready files
                         ready_count = 0
-                        if os.path.exists(csv_path):
-                            df = pd.read_csv(csv_path)
-                            if "pdf_download_status" in df.columns:
-                                ready_mask = (
-                                    df["pdf_download_status"]
-                                    .astype(str)
-                                    .str.contains(
-                                        r"Downloaded|Exists", case=False, na=False
-                                    )
+                        df = db_manager.get_articles_df()
+                        if not df.empty and "pdf_download_status" in df.columns:
+                            ready_mask = (
+                                df["pdf_download_status"]
+                                .astype(str)
+                                .str.contains(
+                                    r"Downloaded|Exists", case=False, na=False
                                 )
-                                ready_count = len(df[ready_mask])
+                            )
+                            ready_count = len(df[ready_mask])
 
                         st.info(t("analysis_ready", count=ready_count))
 
@@ -1134,8 +1089,8 @@ def main():
                             progress_bar = st.progress(0)
                             status_text = st.empty()
 
-                            # Re-read DF
-                            df = pd.read_csv(csv_path)
+                            # Re-read DF from DB
+                            df = db_manager.get_articles_df()
                             doc_ready_mask = (
                                 df["pdf_download_status"]
                                 .astype(str)
@@ -1149,6 +1104,7 @@ def main():
 
                             # 2. GROBID Parsing
                             status_text.text(t("parsing_pdfs"))
+                            from src.parse import fallback_parser
                             for pmid in ready_pmids:
                                 pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
                                 tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
@@ -1156,6 +1112,15 @@ def main():
                                     tei_path
                                 ):
                                     tei_xml = grobid_client.process_pdf(pdf_path)
+                                    
+                                    # Fallback logic: If GROBID fails or returns very little text
+                                    if not tei_xml or len(tei_xml.strip()) < 500:
+                                        status_text.text(f"GROBID failed for {pmid}. Using Fallback Parser...")
+                                        tei_xml = fallback_parser.extract_text_from_pdf(pdf_path)
+                                        db_manager.update_article(pmid, pdf_download_status="Parsed (Fallback)", pipeline_status=2)
+                                    else:
+                                        db_manager.update_article(pmid, pdf_download_status="Parsed (GROBID)", pipeline_status=2)
+                                        
                                     if tei_xml:
                                         with open(tei_path, "w", encoding="utf-8") as f:
                                             f.write(tei_xml)
@@ -1166,6 +1131,7 @@ def main():
                                 rob_gen = assessor.batch_assess_rob(
                                     TEI_DIR,
                                     os.path.join(TABLES_DIR, "rob_assessment.csv"),
+                                    allowed_pmids=ready_pmids
                                 )
                                 if rob_gen:
                                     for current_idx, total_count, pmid in rob_gen:
@@ -1178,7 +1144,7 @@ def main():
                             # 4. Data Extraction
                             status_text.text(t("extracting_data"))
                             tei_files = [
-                                f for f in os.listdir(TEI_DIR) if f.endswith(".xml")
+                                f for f in os.listdir(TEI_DIR) if f.endswith(".xml") and f.replace(".xml", "") in ready_pmids
                             ]
                             extracted_data = []
 
@@ -1210,6 +1176,12 @@ def main():
                                             for k, v in data.items():
                                                 if isinstance(v, dict):
                                                     flat_data[k] = v.get("description", v.get("design", ""))
+                                                    if "subcategory" in v:
+                                                        flat_data[f"{k}_subcategory"] = v["subcategory"]
+                                                    if "scale_metric" in v:
+                                                        flat_data[f"{k}_scale_metric"] = v["scale_metric"]
+                                                    if "statistics_summary" in v:
+                                                        flat_data[f"{k}_statistics_summary"] = v["statistics_summary"]
                                                     if "raw_quote" in v:
                                                         flat_data[f"{k}_quote"] = v["raw_quote"]
                                                 else:
@@ -1282,6 +1254,7 @@ def main():
                 )
 
             # 2. Generate Report
+            from src.report import generator
             generator.generate_report(
                 st.session_state["stats"],
                 st.session_state["picos"],

@@ -133,3 +133,10 @@
 1. [Issue #10] app.py의 handle_bulk_upload 함수에 PyPDF2를 활용한 사전 무결성 검증(Pre-flight check) 로직 추가 및 자동 리네이밍 헬퍼 안정성 강화.
 2. [Issue #11] screener.py를 Generator 패턴으로 변경하여 실시간 Progress UI 및 Resume 기능 구현. 중단 시 screening_results.csv에 자동 체크포인트 저장.
 3. [Issue #12] 스크리닝 탈락 사유를 4가지 표준 카테고리로 정형화하고, app.py 내 커스텀 HTML/CSS 기반의 PRISMA Flow Diagram 생성 기능 추가.
+[2026-06-02] Master Refactoring: SQLite SSOT, GROBID Fallback, and GRADE Integration
+- [x] Issue #18: SQLite 단일 진실 공급원(SSOT) 아키텍처 도입. `app.py` 1~4단계 파이프라인에서 CSV 대신 SQLite를 통해 상태(`pdf_download_status`, `screening_decision`) 공유 및 관리.
+- [x] Issue #15: GROBID 파싱 실패(또는 텍스트가 너무 짧을 때) 시 `PyMuPDF`를 이용해 원시 텍스트를 추출하는 폴백 파서(`fallback_parser.py`) 추가 구현. `requirements.txt`에 PyMuPDF 추가.
+- [x] Issue #13, #20, #19: `pico_extractor.py` 다중 에이전트 시스템에서 Intervention 세부 분류(Subcategory)와 Outcome 통계 지표(Scale, Mean, SD, N) 추출 프롬프트 강화. `app.py`에서 추출된 결과를 DataFrame에 병합하여 저장.
+- [x] Issue #27, #21, #22, #17: GRADE 규칙을 `synthesizer.py`에 강제 적용하여, RoB 결과 중 "High Risk"가 있을 시 최종 리뷰 결론에서 증거력을 강등(Downgrade)하도록 프롬프트 수정.
+- [x] `app.py`에서 `generator` UnboundLocalError 수정 (Import generator 추가).
+- [x] 모든 작업에 대한 테스트 및 로깅 완료.

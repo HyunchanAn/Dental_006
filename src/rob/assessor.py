@@ -72,14 +72,18 @@ Assess the Risk of Bias. Return ONLY the JSON object.
     return None
 
 
-def batch_assess_rob(tei_dir, output_csv_path):
+def batch_assess_rob(tei_dir, output_csv_path, allowed_pmids=None):
     """
-    Runs RoB assessment for all XML files in the TEI directory.
+    Runs RoB assessment for XML files in the TEI directory.
+    If allowed_pmids is provided, only assesses those PMIDs.
     Yields progress so the UI can be updated.
     """
     rob_results = []
 
     tei_files = [f for f in os.listdir(tei_dir) if f.endswith(".xml")]
+    if allowed_pmids:
+        tei_files = [f for f in tei_files if f.replace(".xml", "") in allowed_pmids]
+
     if not tei_files:
         return
 
