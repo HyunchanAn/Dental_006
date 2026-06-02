@@ -210,9 +210,6 @@ def main():
         return
 
     pmids_df = pd.DataFrame(pmids, columns=["pmid"])
-    pmids_path = os.path.join(TABLES_DIR, "retrieved_pmids.csv")
-    pmids_df.to_csv(pmids_path, index=False)
-    print(f"Saved {len(pmids)} PMIDs to {pmids_path}")
 
     articles_xml = pubmed.fetch_abstracts(pmids)
     if articles_xml:
@@ -250,22 +247,26 @@ def main():
             f.write(filtered_articles_xml)  # Use filtered XML
         print(f"Saved filtered article XML to {xml_path}")
 
-        # Parse XML and save as CSV
-        print("\nParsing XML and creating articles.csv...")
-        csv_path = os.path.join(TABLES_DIR, "articles.csv")
-        pubmed_parser.parse_and_save_articles_csv(filtered_articles_xml, csv_path)  # Use filtered XML
+        # Parse XML and save to DB
+        print("\nParsing XML and importing to database...")
+        parsed_df = pubmed_parser.parse_articles_xml(filtered_articles_xml)
+        data_manager.db_manager.import_pubmed_results(parsed_df)
 
         # --- 2.5 Automated Screening (Title/Abstract) --- #
         print("\nStep 2.5: Automated Screening")
-        if os.path.exists(csv_path):
-            articles_df = pd.read_csv(csv_path, encoding="utf-8-sig")
+        articles_df = data_manager.db_manager.get_articles_df()
+        if not articles_df.empty:
             # Run screening
             screened_df = screener.screen_abstracts(articles_df, picos_config)
-
-            # Save detailed results
-            screening_results_path = os.path.join(TABLES_DIR, "screening_results.csv")
-            screened_df.to_csv(screening_results_path, index=False, encoding="utf-8-sig")
-            print(f"Saved screening results to {screening_results_path}")
+            
+            # Save screening results to DB
+            for idx, row in screened_df.iterrows():
+                data_manager.db_manager.update_article(
+                    row["pmid"],
+                    screening_decision=row.get("screening_decision", ""),
+                    screening_reason=row.get("screening_reason", "")
+                )
+            print(f"Saved screening results to database.")
 
             # Update stats
             stats["screened"] = len(screened_df)
@@ -279,20 +280,13 @@ def main():
 
             print(f"Screening Result: {len(included_df)} included out of {len(screened_df)} total.")
 
-            # Update articles.csv with screening info
-            screened_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-
             if not included_pmids:
                 print("No articles met the inclusion criteria. Exiting pipeline.")
                 # Generate report even if no included articles to show the exclusion flow
                 report_path = os.path.join(DATA_DIR, "report.md")
-                extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
-                rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
-                generator.generate_report(stats, picos_config, extracted_csv_path, rob_csv_path, report_path)
+                generator.generate_report(stats, picos_config, report_path)
                 return
-        else:
-            print("Error: articles.csv not found.")
-            return
+
 
         # --- 3. PDF Downloading --- #
         print("\nStep 3: Downloading PDFs for Included Articles")
@@ -301,16 +295,14 @@ def main():
         # Pass included_pmids to filter downloads
         pdf_download_status = downloader.download_pdfs_from_xml(xml_path, pdf_dir, allowed_pmids=included_pmids)
 
-        # Update articles.csv with PDF download status
-        print("\nUpdating articles.csv with PDF download status...")
+        # Update database with PDF download status
+        print("\nUpdating database with PDF download status...")
         try:
-            articles_df = pd.read_csv(csv_path, encoding="utf-8-sig")
-            # Map status only for downloaded ones, others might be 'Excluded' effectively (no PDF)
-            articles_df["pdf_download_status"] = articles_df["pmid"].astype(str).map(pdf_download_status)
-            articles_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
-            print(f"Updated {csv_path} with PDF download status.")
+            for pmid, status in pdf_download_status.items():
+                data_manager.db_manager.update_article(pmid, pdf_download_status=status)
+            print("Updated database with PDF download status.")
         except Exception as e:
-            print(f"Error updating articles.csv with PDF download status: {e}")
+            print(f"Error updating database with PDF download status: {e}")
 
         # --- 3.5. Parse PDFs with GROBID --- #
         print("\nStep 3.5: Parsing PDFs with GROBID")
@@ -341,10 +333,10 @@ def main():
 
         # --- 3.6. Risk of Bias Assessment --- #
         print("\nStep 3.6: Automated Risk of Bias Assessment")
-        rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
         # Check if we have TEI files
         if os.path.exists(TEI_DIR) and os.listdir(TEI_DIR):
-            assessor.batch_assess_rob(TEI_DIR, rob_csv_path)
+            for _ in assessor.batch_assess_rob(TEI_DIR):
+                pass # The generator yields progress, we need to consume it
         else:
             print("No TEI files found. Skipping RoB assessment.")
 
@@ -372,7 +364,6 @@ def main():
         print("No TEI XML files found to extract data from.")
     else:
         extracted_data = []
-        system_prompt = "You are an expert assistant in biomedical research. Your task is to extract structured information from the full text of a research paper."
 
         for tei_path in tei_files:
             pmid = os.path.basename(tei_path).replace(".xml", "")
@@ -388,64 +379,30 @@ def main():
             # Using a simplified text snippet for brevity in the prompt
             text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
 
-            user_prompt = f"""
-From the following research paper text, please extract the Population, Intervention, Comparison, and Outcome (PICO) elements.
-Also, identify the study design.
-Please provide the output in a JSON format with the keys "population", "intervention", "comparison", "outcome", and "study_design".
-If an element is not mentioned, please use an empty string "".
-
-TEXT:
----
-{text_snippet}
----
-"""
-
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ]
-
-            print("  - Sending text to LLM for PICO extraction...")
-            response_content = llm.get_completion(messages)
-
-            if response_content:
+            print("  - Sending text to LLM for multi-agent PICO extraction...")
+            from src.extract import pico_extractor
+            
+            extracted = pico_extractor.extract_pico_multi_agent(text_snippet)
+            if extracted:
                 print("  - Received response from LLM.")
-                try:
-                    # Use regex to find the JSON block, even with surrounding text
-                    json_match = re.search(r"```json\s*([\s\S]*?)\s*```", response_content)
-                    if json_match:
-                        json_str = json_match.group(1)
-                    else:
-                        # Fallback for when there's no markdown block, just the JSON
-                        json_str = response_content[response_content.find("{") : response_content.rfind("}") + 1]
-
-                    pico_data = json.loads(json_str)
-                    pico_data["pmid"] = pmid  # Add pmid for reference
-                    extracted_data.append(pico_data)
-                    print(f"  - Successfully extracted: {pico_data}")
-                except (json.JSONDecodeError, TypeError, AttributeError) as e:
-                    print(f"  - Error parsing LLM response for {pmid}: {e}")
-                    print(f"  - Raw response: {response_content}")
+                extracted["pmid"] = pmid  # Add pmid for reference
+                extracted_data.append(extracted)
+                print(f"  - Successfully extracted: {extracted}")
             else:
                 print(f"  - No response from LLM for {pmid}.")
 
         if extracted_data:
-            # Save the extracted data to a CSV file
-            extracted_df = pd.DataFrame(extracted_data)
-            # Reorder columns
-            cols = ["pmid"] + [c for c in extracted_df.columns if c != "pmid"]
-            extracted_df = extracted_df[cols]
-
-            extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
-            extracted_df.to_csv(extracted_csv_path, index=False, encoding="utf-8-sig")
-            print(f"\nSaved all extracted PICO data to {extracted_csv_path}")
+            # Save the extracted data to the database
+            for pico_data in extracted_data:
+                pmid = pico_data["pmid"]
+                pico_json = json.dumps(pico_data, ensure_ascii=False)
+                data_manager.db_manager.update_article(pmid, pico_data=pico_json)
+            print(f"\nSaved all extracted PICO data to database.")
 
     # --- 7. Reporting ---
     print("\nStep 7: Generating Final Report")
     report_path = os.path.join(DATA_DIR, "report.md")
-    extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
-    rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
-    generator.generate_report(stats, picos_config, extracted_csv_path, rob_csv_path, report_path)
+    generator.generate_report(stats, picos_config, report_path)
 
     print("\n--- Project Enhancements Complete---")
     print(f"See {report_path} for the systematic review summary.")

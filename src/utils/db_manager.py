@@ -36,6 +36,8 @@ def init_db():
             screening_decision TEXT,
             screening_reason TEXT,
             pdf_download_status TEXT,
+            pico_data TEXT,
+            rob_data TEXT,
             pipeline_status INTEGER DEFAULT 0
         )
     """)
@@ -60,8 +62,9 @@ def import_pubmed_results(df):
         return
 
     conn = _get_conn()
-    # Convert dataframe to list of dicts
-    records = df.to_dict("records")
+    # Convert dataframe to list of dicts, replacing NaN with empty string
+    df_clean = df.fillna("")
+    records = df_clean.to_dict("records")
 
     c = conn.cursor()
     for row in records:
@@ -82,7 +85,6 @@ def import_pubmed_results(df):
             ),
         )
     conn.commit()
-    _export_to_csv()
 
 
 def update_article(pmid, **kwargs):
@@ -96,13 +98,20 @@ def update_article(pmid, **kwargs):
     conn = _get_conn()
     c = conn.cursor()
 
-    set_clause = ", ".join([f"{k} = ?" for k in kwargs.keys()])
-    values = list(kwargs.values())
+    # Sanitize: convert string 'nan', 'NaN', and Python None/NaN to empty string ""
+    sanitized_kwargs = {}
+    for k, v in kwargs.items():
+        if pd.isna(v) or str(v).lower() == "nan":
+            sanitized_kwargs[k] = ""
+        else:
+            sanitized_kwargs[k] = v
+
+    set_clause = ", ".join([f"{k} = ?" for k in sanitized_kwargs.keys()])
+    values = list(sanitized_kwargs.values())
     values.append(str(pmid))
 
     c.execute(f"UPDATE articles SET {set_clause} WHERE pmid = ?", values)
     conn.commit()
-    _export_to_csv()
 
 
 def get_articles_df(filters=None):
@@ -137,17 +146,6 @@ def get_article(pmid):
     c.execute("SELECT * FROM articles WHERE pmid = ?", (str(pmid),))
     row = c.fetchone()
     return dict(row) if row else None
-
-
-def _export_to_csv():
-    """
-    Exports the current state of the database to tables/articles.csv
-    for backward compatibility with existing report logic.
-    """
-    os.makedirs(TABLES_DIR, exist_ok=True)
-    df = get_articles_df()
-    if not df.empty:
-        df.to_csv(os.path.join(TABLES_DIR, "articles.csv"), index=False)
 
 
 # Auto-initialize on import

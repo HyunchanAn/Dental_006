@@ -3,13 +3,12 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 
 
-def parse_and_save_articles_csv(xml_string, output_path):
+def parse_articles(xml_string):
     """
-    Parses the XML content from PubMed and saves the key information into a CSV file.
+    Parses the XML content from PubMed and returns a Pandas DataFrame.
 
     Args:
         xml_string (str): The raw XML string fetched from PubMed.
-        output_path (str): The path to save the output CSV file.
     """
     try:
         root = ET.fromstring(xml_string)
@@ -85,7 +84,5 @@ def parse_and_save_articles_csv(xml_string, output_path):
     if initial_count > final_count:
         print(f"Deduplication: Removed {initial_count - final_count} duplicate articles. ({initial_count} -> {final_count})")
 
-    # Use utf-8-sig for better compatibility with Excel
-    df.to_csv(output_path, index=False, encoding="utf-8-sig")
-    print(f"Successfully parsed and saved {len(df)} articles to {output_path}")
+    print(f"Successfully parsed {len(df)} articles.")
     return df

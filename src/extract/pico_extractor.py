@@ -23,6 +23,12 @@ def extract_pico_multi_agent(text_snippet):
 Your task is to extract the Population/Patients characteristics and Study Design from the text.
 Include demographics, sample size, and inclusion/exclusion criteria if available.
 
+CRITICAL INSTRUCTIONS (STRICT COMPLIANCE REQUIRED):
+1. Extract information strictly based on the provided text snippet. Do not use external knowledge or mix data from other contexts.
+2. If the clear data for a specific field is not found in the text, output '-' instead of guessing.
+3. Do not infer or hallucinate missing values.
+4. Do NOT confuse baseline demographics or prevalence rates with intervention outcomes. Population must only contain baseline cohort information.
+
 Return a JSON object with EXACTLY these keys:
 {
   "population": {
@@ -45,7 +51,11 @@ Return a JSON object with EXACTLY these keys:
 Your task is to extract the Intervention (experimental treatment) and Comparison (control treatment) from the text.
 Include doses, materials, and protocols if available.
 
-CRITICAL: For the Intervention, explicitly classify the subcategory (e.g., prosthesis retention type, implant type, material) if described.
+CRITICAL INSTRUCTIONS (STRICT COMPLIANCE REQUIRED):
+1. Extract information strictly based on the provided text snippet. Do not use external knowledge or mix data from other contexts.
+2. If the clear data for a specific field is not found in the text, output '-' instead of guessing.
+3. Do not infer or hallucinate missing values.
+4. For the Intervention and Comparison, explicitly classify the subcategory (e.g., prosthesis retention type, implant type, material) if clearly described. If not clearly described, output '-'.
 
 Return a JSON object with EXACTLY these keys:
 {
@@ -69,7 +79,12 @@ Return a JSON object with EXACTLY these keys:
     o_system_prompt = """You are a specialized biomedical data extraction AI (O-Agent).
 Your task is to extract the Outcomes (primary and secondary measures) and Time points from the text.
 
-CRITICAL: Extract standardized measurement scales (e.g., VAS, PD, CAL) and summary statistics (Mean, Standard Deviation, N) if available, so they can be used for Standardized Mean Difference (SMD) conversion later.
+CRITICAL INSTRUCTIONS (STRICT COMPLIANCE REQUIRED):
+1. Extract information strictly based on the provided text snippet. Do not use external knowledge or mix data from other contexts.
+2. If the clear data for a specific field is not found in the text, output '-' instead of guessing.
+3. Do not infer or hallucinate missing values.
+4. Extract standardized measurement scales (e.g., VAS, PD, CAL) and summary statistics (Mean, Standard Deviation, N) ONLY if they are explicitly present in the text snippet. If absent, output '-'.
+5. Do NOT confuse baseline demographics, baseline clinical measurements, or pre-existing conditions with intervention outcomes. Outcomes MUST be the results measured AFTER the intervention.
 
 Return a JSON object with EXACTLY these keys:
 {

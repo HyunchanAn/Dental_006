@@ -16,6 +16,8 @@ def assess_risk_of_bias(tei_path):
     llm = llm_client.LLMClient()
 
     full_text = tei_parser.extract_text_from_tei(tei_path)
+    if full_text == "CLOUDFLARE_BLOCK":
+        return None
     if not full_text:
         return None
 
@@ -72,7 +74,7 @@ Assess the Risk of Bias. Return ONLY the JSON object.
     return None
 
 
-def batch_assess_rob(tei_dir, output_csv_path, allowed_pmids=None):
+def batch_assess_rob(tei_dir, allowed_pmids=None):
     """
     Runs RoB assessment for XML files in the TEI directory.
     If allowed_pmids is provided, only assesses those PMIDs.
@@ -109,5 +111,8 @@ def batch_assess_rob(tei_dir, output_csv_path, allowed_pmids=None):
         yield (idx + 1, total, pmid)
 
     if rob_results:
-        df = pd.DataFrame(rob_results)
-        df.to_csv(output_csv_path, index=False, encoding="utf-8-sig")
+        from src.utils import db_manager
+        for res in rob_results:
+            pmid = res["pmid"]
+            rob_json = json.dumps(res, ensure_ascii=False)
+            db_manager.update_article(pmid, rob_data=rob_json)

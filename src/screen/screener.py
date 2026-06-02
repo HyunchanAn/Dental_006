@@ -7,7 +7,7 @@ import pandas as pd
 from src.llm import client as llm_client
 
 
-def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
+def screen_abstracts(articles_df, picos_data):
     """
     Screens articles based on Title and Abstract using an LLM and PICO criteria.
     Yields progress and results one by one for UI updates and checkpointing.
@@ -15,7 +15,6 @@ def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
     Args:
         articles_df (pd.DataFrame): DataFrame containing 'pmid', 'title', 'abstract'.
         picos_data (dict): Dictionary containing PICO elements (population, intervention, etc.).
-        checkpoint_csv (str): Path to CSV for saving checkpoints.
 
     Yields:
         tuple: (current_index, total_count, pmid, result_dict)
@@ -24,15 +23,13 @@ def screen_abstracts(articles_df, picos_data, checkpoint_csv=None):
 
     # Load existing checkpoints to skip already screened articles and yield them
     screened_results = {}
-    if checkpoint_csv and os.path.exists(checkpoint_csv):
-        try:
-            chk_df = pd.read_csv(checkpoint_csv)
-            if "pmid" in chk_df.columns:
-                for _, r in chk_df.iterrows():
-                    pmid_str = str(r["pmid"])
-                    screened_results[pmid_str] = r.to_dict()
-        except Exception:
-            pass
+    from src.utils import db_manager
+    chk_df = db_manager.get_articles_df()
+    if not chk_df.empty and "screening_decision" in chk_df.columns:
+        for _, r in chk_df.iterrows():
+            pmid_str = str(r["pmid"])
+            if pd.notna(r.get("screening_decision")) and str(r.get("screening_decision")).strip() != "":
+                screened_results[pmid_str] = r.to_dict()
 
     # Check LLM connection
     if not llm.get_completion([{"role": "user", "content": "Test"}]):
@@ -150,12 +147,12 @@ Is this paper relevant? Return JSON.
 
         result = {"pmid": pmid, "screening_decision": decision, "screening_reason": reason, "exclusion_category": category}
 
-        # Checkpointing (save immediately)
-        if checkpoint_csv:
-            res_df = pd.DataFrame([result])
-            if not os.path.exists(checkpoint_csv):
-                res_df.to_csv(checkpoint_csv, index=False, encoding="utf-8-sig")
-            else:
-                res_df.to_csv(checkpoint_csv, mode="a", header=False, index=False, encoding="utf-8-sig")
+        # Checkpointing (save immediately to DB)
+        db_manager.update_article(
+            pmid,
+            screening_decision=decision,
+            screening_reason=reason,
+            exclusion_category=category
+        )
 
         yield (idx + 1, total, pmid, result)

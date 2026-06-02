@@ -3,45 +3,45 @@ import pandas as pd
 from src.llm import client as llm_client
 
 
-def synthesize_answer(picos, extracted_csv_path, rob_csv_path, lang="KO"):
+def synthesize_answer(picos, lang="KO"):
     """
-    Synthesizes an answer to the PICO question based on extracted data and RoB.
+    Synthesizes an answer to the PICO question based on extracted data and RoB from the database.
     """
     print("--- Starting Synthesis ---")
+    import json
+    from src.utils import db_manager
 
     # 1. Load Data
-    extracted_data = ""
-    if extracted_csv_path and pd.io.common.file_exists(extracted_csv_path):
-        try:
-            df = pd.read_csv(extracted_csv_path)
-            # Convert to a readable string format
-            for index, row in df.iterrows():
-                extracted_data += f"\n[Study {index + 1}] PMID: {row.get('pmid', 'N/A')}\n"
-                extracted_data += f" - Population: {row.get('population', 'N/A')}\n"
-                extracted_data += f" - Intervention: {row.get('intervention', 'N/A')}\n"
-                extracted_data += f" - Comparison: {row.get('comparison', 'N/A')}\n"
-                extracted_data += f" - Outcome: {row.get('outcome', 'N/A')}\n"
-                extracted_data += f" - Study Design: {row.get('study_design', 'N/A')}\n"
-        except Exception as e:
-            print(f"Error reading extracted CSV: {e}")
+    extracted_list = []
+    rob_list = []
+    
+    articles_df = db_manager.get_articles_df()
+    if not articles_df.empty:
+        # PICO
+        if "pico_data" in articles_df.columns:
+            for _, row in articles_df.iterrows():
+                if row.get("pico_data"):
+                    try:
+                        pico = json.loads(row["pico_data"])
+                        extracted_list.append(pico)
+                    except Exception as e:
+                        print(f"Error reading extracted PICO data: {e}")
 
-    rob_data = ""
-    if rob_csv_path and pd.io.common.file_exists(rob_csv_path):
-        try:
-            df = pd.read_csv(rob_csv_path)
-            for _index, row in df.iterrows():
-                rob_data += f"\n[Study PMID: {row.get('pmid', 'N/A')}]\n"
-                # Simplify RoB presentation
-                rob_data += f" - Randomization: {row.get('Randomization_Level', 'N/A')}\n"
-                rob_data += f" - Deviations: {row.get('Deviations_Level', 'N/A')}\n"
-                rob_data += f" - Missing Data: {row.get('MissingData_Level', 'N/A')}\n"
-                rob_data += f" - Measurement: {row.get('Measurement_Level', 'N/A')}\n"
-                rob_data += f" - Reporting: {row.get('Reporting_Level', 'N/A')}\n"
-        except Exception as e:
-            print(f"Error reading RoB CSV: {e}")
+        # RoB
+        if "rob_data" in articles_df.columns:
+            for _, row in articles_df.iterrows():
+                if row.get("rob_data"):
+                    try:
+                        rob = json.loads(row["rob_data"])
+                        rob_list.append(rob)
+                    except Exception as e:
+                        print(f"Error reading RoB data: {e}")
 
-    if not extracted_data:
+    if not extracted_list:
         return "No extracted data available to synthesize an answer."
+
+    extracted_data = json.dumps(extracted_list, ensure_ascii=False, indent=2)
+    rob_data = json.dumps(rob_list, ensure_ascii=False, indent=2)
 
     # 2. Construct Prompt
     llm = llm_client.LLMClient()

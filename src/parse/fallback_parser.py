@@ -22,6 +22,19 @@ def extract_text_from_pdf(pdf_path):
         # Clean up null bytes and weird chars
         full_text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\xff]", "", full_text)
 
+        # Cloudflare / WAF Block Detection
+        lower_text = full_text.lower()
+        if "just a moment" in lower_text or "please stand by" in lower_text or "enable javascript and cookies" in lower_text or "cloudflare" in lower_text:
+            print(f"Warning: Blocked by Cloudflare or WAF in {pdf_path}. Considering extraction failed.")
+            try:
+                import os
+                from src.utils import db_manager
+                pmid = os.path.basename(pdf_path).replace(".pdf", "")
+                db_manager.update_article(pmid, pdf_download_status="fetch_failed")
+            except Exception as e:
+                print(f"Failed to update db: {e}")
+            return "CLOUDFLARE_BLOCK"
+
         # Create a dummy TEI structure so tei_parser doesn't crash completely,
         # or we can just pass the raw text into a standard TEI format.
         # Actually, let's build a minimal valid TEI XML.

@@ -539,9 +539,8 @@ def main():
                         )
 
                         # Save PMIDs
-                        pd.DataFrame(pmids, columns=["pmid"]).to_csv(
-                            os.path.join(TABLES_DIR, "retrieved_pmids.csv"), index=False
-                        )
+                        pmid_df = pd.DataFrame(pmids, columns=["pmid"])
+                        db_manager.import_pubmed_results(pmid_df)
 
                         # Fetch Abstracts
                         articles_xml = pubmed.fetch_abstracts(
@@ -579,9 +578,8 @@ def main():
                             f.write(filtered_articles_xml)
 
                         # Parse to CSV and DB
-                        df_parsed = pubmed_parser.parse_and_save_articles_csv(
-                            filtered_articles_xml,
-                            os.path.join(TABLES_DIR, "articles.csv"),
+                        df_parsed = pubmed_parser.parse_articles(
+                            filtered_articles_xml
                         )
                         if df_parsed is not None and not df_parsed.empty:
                             db_manager.import_pubmed_results(df_parsed)
@@ -604,8 +602,7 @@ def main():
                         st.warning(t("no_articles"))
         # Navigation Button (Step 1 -> Step 2)
         # Show only if articles have been retrieved
-        csv_path = os.path.join(TABLES_DIR, "articles.csv")
-        if os.path.exists(csv_path) or st.session_state["stats"]["total_found"] > 0:
+        if st.session_state["stats"]["total_found"] > 0:
             st.divider()
             col_next, _ = st.columns([1, 4])
             with col_next:
@@ -619,7 +616,15 @@ def main():
         df = db_manager.get_articles_df()
 
         if not df.empty:
-            st.dataframe(df[["pmid", "title", "journal", "pub_year"]], use_container_width=True)
+            disp_df = df[["pmid", "title", "journal", "pub_year"]].copy()
+            disp_df["pmid"] = disp_df["pmid"].apply(lambda x: f"https://pubmed.ncbi.nlm.nih.gov/{x}/" if pd.notna(x) and str(x).strip() else x)
+            st.dataframe(
+                disp_df, 
+                use_container_width=True,
+                column_config={
+                    "pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")
+                }
+            )
 
             auto_start_screening = False
             if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
@@ -631,8 +636,7 @@ def main():
                 progress_bar = st.progress(0)
                 status_text = st.empty()
 
-                checkpoint_csv = os.path.join(TABLES_DIR, "screening_results.csv")
-                screen_gen = screener.screen_abstracts(df, st.session_state["picos"], checkpoint_csv)
+                screen_gen = screener.screen_abstracts(df, st.session_state["picos"])
 
                 for current_idx, total_count, pmid, result in screen_gen:
                     progress_bar.progress(current_idx / total_count)
@@ -734,9 +738,13 @@ def main():
                     "아래 표에서 `screening_decision` 항목을 더블클릭하여 결과를 수동으로 변경(Included/Excluded)할 수 있습니다. 변경된 내용은 DB에 즉시 반영되며, 차트와 통계에 업데이트됩니다."
                 )
 
+                # Prepare display dataframe with URLs for PMIDs
+                df_display = df.copy()
+                df_display["pmid"] = df_display["pmid"].apply(lambda x: f"https://pubmed.ncbi.nlm.nih.gov/{x}/" if pd.notna(x) and str(x).strip() else x)
+
                 # Editor for User Override
                 edited_df = st.data_editor(
-                    df[display_cols],
+                    df_display[display_cols],
                     use_container_width=True,
                     disabled=["pmid", "title", "screening_reason", "exclusion_category"],
                     column_config={
@@ -745,7 +753,8 @@ def main():
                             help="판정 결과를 오버라이드합니다.",
                             options=["Included", "Excluded"],
                             required=True,
-                        )
+                        ),
+                        "pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")
                     },
                     key="screening_editor",
                 )
@@ -756,8 +765,9 @@ def main():
                     orig_decision = df.loc[idx, "screening_decision"]
                     new_decision = row["screening_decision"]
                     if orig_decision != new_decision:
-                        pmid = row["pmid"]
-                        db_manager.update_article(pmid, screening_decision=new_decision)
+                        # Reconstruct PMID
+                        raw_pmid = str(row["pmid"]).replace("https://pubmed.ncbi.nlm.nih.gov/", "").replace("/", "")
+                        db_manager.update_article(raw_pmid, screening_decision=new_decision)
                         changed = True
 
                 if changed:
@@ -769,8 +779,7 @@ def main():
 
         # Navigation Button (Step 2 -> Step 3)
         # Show only if screening has been performed
-        screening_csv_path = os.path.join(TABLES_DIR, "screening_results.csv")
-        if os.path.exists(screening_csv_path) or st.session_state["stats"]["screened"] > 0:
+        if st.session_state["stats"]["screened"] > 0:
             st.divider()
             col_next, _ = st.columns([1, 4])
             with col_next:
@@ -1116,10 +1125,9 @@ def main():
                                             f.write(tei_xml)
                             progress_bar.progress(50)
 
-                            # 3. RoB Assessment
                             if os.path.exists(TEI_DIR):
                                 rob_gen = assessor.batch_assess_rob(
-                                    TEI_DIR, os.path.join(TABLES_DIR, "rob_assessment.csv"), allowed_pmids=ready_pmids
+                                    TEI_DIR, allowed_pmids=ready_pmids
                                 )
                                 if rob_gen:
                                     for current_idx, total_count, pmid in rob_gen:
@@ -1152,7 +1160,17 @@ def main():
                                     full_text = tei_parser.extract_text_from_tei(
                                         os.path.join(TEI_DIR, tei_file), optimize_context=True
                                     )
-                                    if full_text:
+                                    if full_text == "CLOUDFLARE_BLOCK":
+                                        db_manager.update_article(
+                                            pmid, 
+                                            pdf_download_status="Failed (Cloudflare Block)", 
+                                            pipeline_status=-1,
+                                            pico_data="",
+                                            rob_data=""
+                                        )
+                                        status_text.text(f"[{idx + 1}/{total_tei}] Skipped PMID {pmid} (Cloudflare Block)")
+                                        continue
+                                    elif full_text:
                                         text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
 
                                         data = pico_extractor.extract_pico_multi_agent(text_snippet)
@@ -1173,22 +1191,48 @@ def main():
                                                 else:
                                                     flat_data[k] = str(v)
                                             extracted_data.append(flat_data)
+                                            
+                                            # Write to DB immediately
+                                            import json
+                                            db_manager.update_article(
+                                                pmid,
+                                                pico_data=json.dumps(data, ensure_ascii=False)
+                                            )
 
                                 if extracted_data:
-                                    pd.DataFrame(extracted_data).to_csv(
-                                        os.path.join(TABLES_DIR, "extracted_pico.csv"),
-                                        index=False,
-                                    )
-
+                                    pass # Handled by DB
                             progress_bar.progress(100)
                             status_text.text(t("analysis_complete"))
                             st.success(t("analysis_complete"))
 
         # --- Human-in-the-Loop Verification & Navigation (Step 3 -> Step 4) ---
-        extracted_csv_path = os.path.join(TABLES_DIR, "extracted_pico.csv")
-        rob_csv_path = os.path.join(TABLES_DIR, "rob_assessment.csv")
+        # Fetch data from DB
+        articles_df = data_manager.db_manager.get_articles_df()
+        
+        pico_records = []
+        rob_records = []
+        if not articles_df.empty:
+            for _, row in articles_df.iterrows():
+                if row.get("pico_data"):
+                    try: pico_records.append(json.loads(row["pico_data"]))
+                    except: pass
+                if row.get("rob_data"):
+                    try:
+                        rob_json = json.loads(row["rob_data"])
+                        flat_result = {"pmid": rob_json["pmid"]}
+                        for domain, details in rob_json.items():
+                            if domain == "pmid": continue
+                            if isinstance(details, dict):
+                                flat_result[f"{domain}_Level"] = details.get("level", "Unclear")
+                                quote = details.get("quote", "")
+                                reasoning = details.get("reasoning", "")
+                                flat_result[f"{domain}_Explanation"] = f"Quote: '{quote}' | Reasoning: {reasoning}"
+                            else:
+                                flat_result[domain] = str(details)
+                        rob_records.append(flat_result)
+                    except: pass
 
-        if os.path.exists(extracted_csv_path) and os.path.exists(rob_csv_path):
+        if len(pico_records) > 0 and len(rob_records) > 0:
             if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
                 if not st.session_state.get("human_verified", False):
                     st.session_state["human_verified"] = True
@@ -1204,18 +1248,61 @@ def main():
                 )
 
             if not st.session_state.get("run_mode") == "scoping":
-                pico_df = pd.read_csv(extracted_csv_path)
-                rob_df = pd.read_csv(rob_csv_path)
+                pico_df = pd.DataFrame(pico_records)
+                if not pico_df.empty and "pmid" in pico_df.columns:
+                    pico_df["pmid"] = pico_df["pmid"].apply(lambda x: f"https://pubmed.ncbi.nlm.nih.gov/{x}/" if pd.notna(x) and str(x).strip() else x)
+                
+                rob_df = pd.DataFrame(rob_records)
+                if not rob_df.empty and "pmid" in rob_df.columns:
+                    rob_df["pmid"] = rob_df["pmid"].apply(lambda x: f"https://pubmed.ncbi.nlm.nih.gov/{x}/" if pd.notna(x) and str(x).strip() else x)
 
                 st.markdown("#### PICO Data")
-                edited_pico = st.data_editor(pico_df, num_rows="dynamic", key="pico_editor", use_container_width=True)
+                edited_pico = st.data_editor(
+                    pico_df, 
+                    num_rows="dynamic", 
+                    key="pico_editor", 
+                    use_container_width=True,
+                    column_config={"pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")}
+                )
 
                 st.markdown("#### Risk of Bias (RoB)")
-                edited_rob = st.data_editor(rob_df, num_rows="dynamic", key="rob_editor", use_container_width=True)
+                edited_rob = st.data_editor(
+                    rob_df, 
+                    num_rows="dynamic", 
+                    key="rob_editor", 
+                    use_container_width=True,
+                    column_config={"pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")}
+                )
 
                 if st.button("💾 확정 및 저장 (Confirm & Save)"):
-                    edited_pico.to_csv(extracted_csv_path, index=False, encoding="utf-8-sig")
-                    edited_rob.to_csv(rob_csv_path, index=False, encoding="utf-8-sig")
+                    # Save back to DB
+                    for _, row in edited_pico.iterrows():
+                        if pd.notna(row.get("pmid")):
+                            raw_pmid = str(row["pmid"]).replace("https://pubmed.ncbi.nlm.nih.gov/", "").replace("/", "")
+                            pico_dict = row.to_dict()
+                            pico_dict["pmid"] = raw_pmid
+                            data_manager.db_manager.update_article(raw_pmid, pico_data=json.dumps(pico_dict, ensure_ascii=False))
+                    
+                    for _, row in edited_rob.iterrows():
+                        if pd.notna(row.get("pmid")):
+                            raw_pmid = str(row["pmid"]).replace("https://pubmed.ncbi.nlm.nih.gov/", "").replace("/", "")
+                            # We reconstruct the nested JSON
+                            rob_dict = {"pmid": raw_pmid}
+                            domains = ["Randomization", "Deviations", "MissingData", "Measurement", "Reporting"]
+                            for domain in domains:
+                                level = row.get(f"{domain}_Level", "Unclear")
+                                explanation = row.get(f"{domain}_Explanation", "")
+                                # Basic parse of quote/reasoning
+                                quote = ""
+                                reasoning = explanation
+                                if "Quote: '" in explanation and "' | Reasoning: " in explanation:
+                                    parts = explanation.split("' | Reasoning: ")
+                                    if len(parts) == 2:
+                                        quote = parts[0].replace("Quote: '", "")
+                                        reasoning = parts[1]
+                                rob_dict[domain] = {"quote": quote, "reasoning": reasoning, "level": level}
+                            data_manager.db_manager.update_article(str(row["pmid"]), rob_data=json.dumps(rob_dict, ensure_ascii=False))
+                            
                     st.session_state["human_verified"] = True
                     st.success("데이터가 확정되었습니다! 이제 다음 단계로 넘어갈 수 있습니다.")
                     time.sleep(1)
@@ -1236,7 +1323,6 @@ def main():
         current_lang = st.session_state["lang"]
         report_filename = f"report_{current_lang}.md"
         report_path = os.path.join(DATA_DIR, report_filename)
-        articles_csv_path = os.path.join(TABLES_DIR, "articles.csv")
 
         auto_generate = False
         if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
@@ -1250,8 +1336,6 @@ def main():
             with st.spinner("AI is synthesizing the answer to your PICO question..."):
                 synthesis_result = synthesizer.synthesize_answer(
                     st.session_state["picos"],
-                    os.path.join(TABLES_DIR, "extracted_pico.csv"),
-                    os.path.join(TABLES_DIR, "rob_assessment.csv"),
                     lang=current_lang,
                 )
 
@@ -1261,12 +1345,9 @@ def main():
             generator.generate_report(
                 st.session_state["stats"],
                 st.session_state["picos"],
-                os.path.join(TABLES_DIR, "extracted_pico.csv"),
-                os.path.join(TABLES_DIR, "rob_assessment.csv"),
                 report_path,
                 lang=current_lang,
                 synthesis_result=synthesis_result,
-                articles_csv_path=articles_csv_path,
                 run_mode=st.session_state.get("run_mode", "hitl"),
             )
             st.session_state["generating_report"] = False

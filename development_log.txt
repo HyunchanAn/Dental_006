@@ -140,3 +140,8 @@
 - [x] Issue #27, #21, #22, #17: GRADE 규칙을 `synthesizer.py`에 강제 적용하여, RoB 결과 중 "High Risk"가 있을 시 최종 리뷰 결론에서 증거력을 강등(Downgrade)하도록 프롬프트 수정.
 - [x] `app.py`에서 `generator` UnboundLocalError 수정 (Import generator 추가).
 - [x] 모든 작업에 대한 테스트 및 로깅 완료.
+
+[2026-06-02 16:11:00] [Hyunchan An] 이슈 #37 리팩토링 및 검증 완료.
+1. db_manager 중앙 집중형 구조(SSOT)로 일원화 완료: app.py, main.py 내 구형 to_csv(), read_csv() 코드를 모두 제거.
+2. Cloudflare 방화벽 텍스트 오염 차단: fallback_parser.py 및 tei_parser.py에 가드 코드를 추가하여 status를 fetch_failed로 업데이트하고 연산을 중단시킴.
+3. PICO 추출 프롬프트 오류 방지 및 JSON 피딩: pico_extractor.py에 베이스라인 혼동 방지 프롬프트를 강제하고, synthesizer.py의 동적 컨텍스트 매퍼가 정형화된 JSON 파라미터를 LLM에 피딩하도록 리팩토링함.

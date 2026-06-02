@@ -159,15 +159,15 @@ def generate_prisma_mermaid(stats, lang="EN"):
     return mermaid_code
 
 
-def _get_analyzed_pmids(articles_csv_path):
+def _get_analyzed_pmids():
     """
     Returns the set of PMIDs that were actually analyzed (PDF retrieved and not skipped).
     This is the ground truth for what went through the analysis pipeline.
     """
-    if not articles_csv_path or not os.path.exists(articles_csv_path):
-        return None
-
-    articles_df = pd.read_csv(articles_csv_path)
+    from src.utils import db_manager
+    articles_df = db_manager.get_articles_df()
+    if articles_df.empty:
+        return set()
     if "pdf_download_status" not in articles_df.columns:
         return set(articles_df["pmid"].astype(str).tolist())
 
@@ -244,32 +244,32 @@ Input:
 def generate_report(
     stats,
     picos,
-    extracted_csv_path,
-    rob_csv_path,
     output_path,
     lang="EN",
     synthesis_result=None,
-    articles_csv_path=None,
     run_mode="hitl",
 ):
     """
     Generates a comprehensive Markdown report.
-    Recalculates stats from actual CSV data for accuracy.
-    Filters RoB and PICO data to only include analyzed (PDF-retrieved) PMIDs.
+    Recalculates stats from DB for accuracy.
+    Filters RoB and PICO data from DB.
     """
     print(f"\n--- Generating Final Report ({lang}) ---")
 
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
 
-    # Recalculate stats from actual CSV data for accuracy
+    # Recalculate stats from DB for accuracy
     recalculated_stats = dict(stats)
+    from src.utils import db_manager
+    import json
+    
+    articles_df = db_manager.get_articles_df()
 
-    if articles_csv_path and os.path.exists(articles_csv_path):
-        articles_df = pd.read_csv(articles_csv_path)
+    if not articles_df.empty:
         recalculated_stats["total_found"] = len(articles_df)
 
         if "screening_decision" in articles_df.columns:
-            screened_mask = articles_df["screening_decision"].notna()
+            screened_mask = articles_df["screening_decision"] != ""
             recalculated_stats["screened"] = int(screened_mask.sum())
             recalculated_stats["included"] = int((articles_df["screening_decision"] == "Included").sum())
             recalculated_stats["excluded"] = recalculated_stats["screened"] - recalculated_stats["included"]
@@ -277,6 +277,7 @@ def generate_report(
             recalculated_stats["screened"] = len(articles_df)
             recalculated_stats["included"] = len(articles_df)
             recalculated_stats["excluded"] = 0
+
 
         if "pdf_download_status" in articles_df.columns:
             retrieved_mask = (
@@ -288,8 +289,11 @@ def generate_report(
 
     s = recalculated_stats
 
-    # Get the set of PMIDs that actually went through the analysis pipeline
-    analyzed_pmids = _get_analyzed_pmids(articles_csv_path)
+    # Extract analyzed PMIDs from DB
+    analyzed_pmids = None
+    if not articles_df.empty and "pdf_download_status" in articles_df.columns:
+        analyzed_mask = articles_df["pdf_download_status"].isin(["Downloaded", "Already Downloaded", "Downloaded (Unpaywall)", "Downloaded (PMC)"])
+        analyzed_pmids = set(articles_df[analyzed_mask]["pmid"].astype(str).tolist())
 
     with open(output_path, "w", encoding="utf-8") as f:
         # Watermark
@@ -335,13 +339,18 @@ def generate_report(
 
         # Extracted Data Summary
         f.write(f"## {t['extract_header']}\n")
-        if os.path.exists(extracted_csv_path):
-            df = pd.read_csv(extracted_csv_path)
-            # Filter to only include PMIDs that were actually analyzed
-            if analyzed_pmids is not None:
-                df["pmid"] = df["pmid"].astype(str)
-                df = df[df["pmid"].isin(analyzed_pmids)]
-
+        
+        pico_records = []
+        if not articles_df.empty and "pico_data" in articles_df.columns:
+            for _, row in articles_df.iterrows():
+                if str(row["pmid"]) in (analyzed_pmids or set()) and row["pico_data"]:
+                    try:
+                        pico_records.append(json.loads(row["pico_data"]))
+                    except:
+                        pass
+                        
+        if pico_records:
+            df = pd.DataFrame(pico_records)
             # Translate if target language is Korean
             if lang == "KO":
                 print("Translating extracted data to Korean...")
@@ -355,12 +364,29 @@ def generate_report(
 
         # RoB Summary
         f.write(f"## {t['rob_header']}\n")
-        if os.path.exists(rob_csv_path):
-            rob_df = pd.read_csv(rob_csv_path)
-            # Filter to only include PMIDs that were actually analyzed
-            if analyzed_pmids is not None:
-                rob_df["pmid"] = rob_df["pmid"].astype(str)
-                rob_df = rob_df[rob_df["pmid"].isin(analyzed_pmids)]
+        rob_records = []
+        if not articles_df.empty and "rob_data" in articles_df.columns:
+            for _, row in articles_df.iterrows():
+                if str(row["pmid"]) in (analyzed_pmids or set()) and row["rob_data"]:
+                    try:
+                        rob_json = json.loads(row["rob_data"])
+                        # Flatten
+                        flat_result = {"pmid": rob_json["pmid"]}
+                        for domain, details in rob_json.items():
+                            if domain == "pmid": continue
+                            if isinstance(details, dict):
+                                flat_result[f"{domain}_Level"] = details.get("level", "Unclear")
+                                quote = details.get("quote", "")
+                                reasoning = details.get("reasoning", "")
+                                flat_result[f"{domain}_Explanation"] = f"Quote: '{quote}' | Reasoning: {reasoning}"
+                            else:
+                                flat_result[domain] = str(details)
+                        rob_records.append(flat_result)
+                    except:
+                        pass
+                        
+        if rob_records:
+            rob_df = pd.DataFrame(rob_records)
             f.write(f"{t['rob_count'].format(count=len(rob_df))}\n\n")
             f.write(rob_df.to_markdown(index=False))
         else:
@@ -369,10 +395,8 @@ def generate_report(
 
         # References Section
         f.write("## 7. References\n")
-        if articles_csv_path and os.path.exists(articles_csv_path) and analyzed_pmids:
-            articles_df = pd.read_csv(articles_csv_path)
-            articles_df["pmid"] = articles_df["pmid"].astype(str)
-            ref_df = articles_df[articles_df["pmid"].isin(analyzed_pmids)]
+        if not articles_df.empty and analyzed_pmids:
+            ref_df = articles_df[articles_df["pmid"].astype(str).isin(analyzed_pmids)]
             if not ref_df.empty:
                 for _, row in ref_df.iterrows():
                     title = row.get("title", "No Title")

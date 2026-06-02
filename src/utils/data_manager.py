@@ -16,11 +16,6 @@ def clear_generated_data_files():
     print("이전 데이터를 삭제합니다...")
     files_to_delete = [
         os.path.join(RAW_DATA_DIR, "articles.xml"),
-        os.path.join(TABLES_DIR, "retrieved_pmids.csv"),
-        os.path.join(TABLES_DIR, "articles.csv"),
-        os.path.join(TABLES_DIR, "screening_results.csv"),
-        os.path.join(TABLES_DIR, "rob_assessment.csv"),
-        os.path.join(TABLES_DIR, "extracted_pico.csv"),
     ]
 
     for f in files_to_delete:
