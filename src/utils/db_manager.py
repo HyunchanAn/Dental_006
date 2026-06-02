@@ -35,12 +35,30 @@ def init_db():
             abstract TEXT,
             screening_decision TEXT,
             screening_reason TEXT,
+            exclusion_category TEXT,
             pdf_download_status TEXT,
             pico_data TEXT,
             rob_data TEXT,
             pipeline_status INTEGER DEFAULT 0
         )
     """)
+
+    # Add columns for backward compatibility if they are missing
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN pico_data TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN rob_data TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN exclusion_category TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
 
 

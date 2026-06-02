@@ -1,5 +1,3 @@
-import pandas as pd
-
 from src.llm import client as llm_client
 
 
@@ -9,12 +7,13 @@ def synthesize_answer(picos, lang="KO"):
     """
     print("--- Starting Synthesis ---")
     import json
+
     from src.utils import db_manager
 
     # 1. Load Data
     extracted_list = []
     rob_list = []
-    
+
     articles_df = db_manager.get_articles_df()
     if not articles_df.empty:
         # PICO

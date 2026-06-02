@@ -1,10 +1,8 @@
 import json
 import os
-import re
 import xml.etree.ElementTree as ET  # Added for XML parsing
 from datetime import datetime, timedelta
 
-import pandas as pd
 import yaml
 
 from src.ingest import downloader, pubmed
@@ -13,7 +11,7 @@ from src.parse import grobid_client, pubmed_parser, tei_parser
 from src.report import generator
 from src.rob import assessor
 from src.screen import screener
-from src.utils import data_manager
+from src.utils import data_manager, db_manager
 
 # Define file paths
 DATA_DIR = "data"
@@ -209,7 +207,7 @@ def main():
         print("No articles found after user selection. Exiting pipeline.")
         return
 
-    pmids_df = pd.DataFrame(pmids, columns=["pmid"])
+
 
     articles_xml = pubmed.fetch_abstracts(pmids)
     if articles_xml:
@@ -250,23 +248,23 @@ def main():
         # Parse XML and save to DB
         print("\nParsing XML and importing to database...")
         parsed_df = pubmed_parser.parse_articles_xml(filtered_articles_xml)
-        data_manager.db_manager.import_pubmed_results(parsed_df)
+        db_manager.import_pubmed_results(parsed_df)
 
         # --- 2.5 Automated Screening (Title/Abstract) --- #
         print("\nStep 2.5: Automated Screening")
-        articles_df = data_manager.db_manager.get_articles_df()
+        articles_df = db_manager.get_articles_df()
         if not articles_df.empty:
             # Run screening
             screened_df = screener.screen_abstracts(articles_df, picos_config)
-            
+
             # Save screening results to DB
-            for idx, row in screened_df.iterrows():
-                data_manager.db_manager.update_article(
+            for _, row in screened_df.iterrows():
+                db_manager.update_article(
                     row["pmid"],
                     screening_decision=row.get("screening_decision", ""),
-                    screening_reason=row.get("screening_reason", "")
+                    screening_reason=row.get("screening_reason", ""),
                 )
-            print(f"Saved screening results to database.")
+            print("Saved screening results to database.")
 
             # Update stats
             stats["screened"] = len(screened_df)
@@ -287,7 +285,6 @@ def main():
                 generator.generate_report(stats, picos_config, report_path)
                 return
 
-
         # --- 3. PDF Downloading --- #
         print("\nStep 3: Downloading PDFs for Included Articles")
         pdf_dir = os.path.join(DATA_DIR, "pdf")
@@ -299,7 +296,7 @@ def main():
         print("\nUpdating database with PDF download status...")
         try:
             for pmid, status in pdf_download_status.items():
-                data_manager.db_manager.update_article(pmid, pdf_download_status=status)
+                db_manager.update_article(pmid, pdf_download_status=status)
             print("Updated database with PDF download status.")
         except Exception as e:
             print(f"Error updating database with PDF download status: {e}")
@@ -336,7 +333,7 @@ def main():
         # Check if we have TEI files
         if os.path.exists(TEI_DIR) and os.listdir(TEI_DIR):
             for _ in assessor.batch_assess_rob(TEI_DIR):
-                pass # The generator yields progress, we need to consume it
+                pass  # The generator yields progress, we need to consume it
         else:
             print("No TEI files found. Skipping RoB assessment.")
 
@@ -381,7 +378,7 @@ def main():
 
             print("  - Sending text to LLM for multi-agent PICO extraction...")
             from src.extract import pico_extractor
-            
+
             extracted = pico_extractor.extract_pico_multi_agent(text_snippet)
             if extracted:
                 print("  - Received response from LLM.")
@@ -396,8 +393,8 @@ def main():
             for pico_data in extracted_data:
                 pmid = pico_data["pmid"]
                 pico_json = json.dumps(pico_data, ensure_ascii=False)
-                data_manager.db_manager.update_article(pmid, pico_data=pico_json)
-            print(f"\nSaved all extracted PICO data to database.")
+                db_manager.update_article(pmid, pico_data=pico_json)
+            print("\nSaved all extracted PICO data to database.")
 
     # --- 7. Reporting ---
     print("\nStep 7: Generating Final Report")

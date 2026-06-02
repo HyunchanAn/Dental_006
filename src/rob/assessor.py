@@ -2,8 +2,6 @@ import json
 import os
 import re
 
-import pandas as pd
-
 from src.llm import client as llm_client
 from src.parse import tei_parser
 
@@ -112,6 +110,7 @@ def batch_assess_rob(tei_dir, allowed_pmids=None):
 
     if rob_results:
         from src.utils import db_manager
+
         for res in rob_results:
             pmid = res["pmid"]
             rob_json = json.dumps(res, ensure_ascii=False)

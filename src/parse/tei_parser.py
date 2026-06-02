@@ -59,19 +59,25 @@ def extract_text_from_tei(xml_path, optimize_context=True):
 
         # Clean up excessive whitespace and newlines
         final_text = " ".join(text_content.split())
-        
+
         # Cloudflare / WAF Block Detection
         lower_text = final_text.lower()
-        if "just a moment" in lower_text or "please stand by" in lower_text or "enable javascript and cookies" in lower_text or "cloudflare" in lower_text:
+        if (
+            "just a moment" in lower_text
+            or "please stand by" in lower_text
+            or "enable javascript and cookies" in lower_text
+            or "cloudflare" in lower_text
+        ):
             print(f"Warning: Blocked by Cloudflare or WAF in {xml_path}. Considering extraction failed.")
             try:
                 from src.utils import db_manager
+
                 pmid = os.path.basename(xml_path).replace(".xml", "")
                 db_manager.update_article(pmid, pdf_download_status="fetch_failed")
             except Exception as e:
                 print(f"Failed to update db: {e}")
             return "CLOUDFLARE_BLOCK"
-            
+
         return final_text
 
     except ET.ParseError as e:

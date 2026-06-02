@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 
 import pandas as pd
@@ -165,6 +164,7 @@ def _get_analyzed_pmids():
     This is the ground truth for what went through the analysis pipeline.
     """
     from src.utils import db_manager
+
     articles_df = db_manager.get_articles_df()
     if articles_df.empty:
         return set()
@@ -260,9 +260,10 @@ def generate_report(
 
     # Recalculate stats from DB for accuracy
     recalculated_stats = dict(stats)
-    from src.utils import db_manager
     import json
-    
+
+    from src.utils import db_manager
+
     articles_df = db_manager.get_articles_df()
 
     if not articles_df.empty:
@@ -278,7 +279,6 @@ def generate_report(
             recalculated_stats["included"] = len(articles_df)
             recalculated_stats["excluded"] = 0
 
-
         if "pdf_download_status" in articles_df.columns:
             retrieved_mask = (
                 articles_df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
@@ -292,7 +292,9 @@ def generate_report(
     # Extract analyzed PMIDs from DB
     analyzed_pmids = None
     if not articles_df.empty and "pdf_download_status" in articles_df.columns:
-        analyzed_mask = articles_df["pdf_download_status"].isin(["Downloaded", "Already Downloaded", "Downloaded (Unpaywall)", "Downloaded (PMC)"])
+        analyzed_mask = articles_df["pdf_download_status"].isin(
+            ["Downloaded", "Already Downloaded", "Downloaded (Unpaywall)", "Downloaded (PMC)"]
+        )
         analyzed_pmids = set(articles_df[analyzed_mask]["pmid"].astype(str).tolist())
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -339,16 +341,16 @@ def generate_report(
 
         # Extracted Data Summary
         f.write(f"## {t['extract_header']}\n")
-        
+
         pico_records = []
         if not articles_df.empty and "pico_data" in articles_df.columns:
             for _, row in articles_df.iterrows():
                 if str(row["pmid"]) in (analyzed_pmids or set()) and row["pico_data"]:
                     try:
                         pico_records.append(json.loads(row["pico_data"]))
-                    except:
+                    except Exception:
                         pass
-                        
+
         if pico_records:
             df = pd.DataFrame(pico_records)
             # Translate if target language is Korean
@@ -373,7 +375,8 @@ def generate_report(
                         # Flatten
                         flat_result = {"pmid": rob_json["pmid"]}
                         for domain, details in rob_json.items():
-                            if domain == "pmid": continue
+                            if domain == "pmid":
+                                continue
                             if isinstance(details, dict):
                                 flat_result[f"{domain}_Level"] = details.get("level", "Unclear")
                                 quote = details.get("quote", "")
@@ -382,9 +385,9 @@ def generate_report(
                             else:
                                 flat_result[domain] = str(details)
                         rob_records.append(flat_result)
-                    except:
+                    except Exception:
                         pass
-                        
+
         if rob_records:
             rob_df = pd.DataFrame(rob_records)
             f.write(f"{t['rob_count'].format(count=len(rob_df))}\n\n")

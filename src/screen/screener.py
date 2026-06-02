@@ -1,5 +1,4 @@
 import json
-import os
 import re
 
 import pandas as pd
@@ -24,6 +23,7 @@ def screen_abstracts(articles_df, picos_data):
     # Load existing checkpoints to skip already screened articles and yield them
     screened_results = {}
     from src.utils import db_manager
+
     chk_df = db_manager.get_articles_df()
     if not chk_df.empty and "screening_decision" in chk_df.columns:
         for _, r in chk_df.iterrows():
@@ -148,11 +148,6 @@ Is this paper relevant? Return JSON.
         result = {"pmid": pmid, "screening_decision": decision, "screening_reason": reason, "exclusion_category": category}
 
         # Checkpointing (save immediately to DB)
-        db_manager.update_article(
-            pmid,
-            screening_decision=decision,
-            screening_reason=reason,
-            exclusion_category=category
-        )
+        db_manager.update_article(pmid, screening_decision=decision, screening_reason=reason, exclusion_category=category)
 
         yield (idx + 1, total, pmid, result)

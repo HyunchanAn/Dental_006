@@ -24,11 +24,18 @@ def extract_text_from_pdf(pdf_path):
 
         # Cloudflare / WAF Block Detection
         lower_text = full_text.lower()
-        if "just a moment" in lower_text or "please stand by" in lower_text or "enable javascript and cookies" in lower_text or "cloudflare" in lower_text:
+        if (
+            "just a moment" in lower_text
+            or "please stand by" in lower_text
+            or "enable javascript and cookies" in lower_text
+            or "cloudflare" in lower_text
+        ):
             print(f"Warning: Blocked by Cloudflare or WAF in {pdf_path}. Considering extraction failed.")
             try:
                 import os
+
                 from src.utils import db_manager
+
                 pmid = os.path.basename(pdf_path).replace(".pdf", "")
                 db_manager.update_article(pmid, pdf_download_status="fetch_failed")
             except Exception as e:
