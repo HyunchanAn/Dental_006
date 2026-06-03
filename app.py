@@ -3,15 +3,16 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+
 import streamlit as st
 import yaml
 
 sys.path.append(os.getcwd())
 
 from src.ingest import pubmed
-from src.utils import data_manager, db_manager, versioning
 from src.parse import pubmed_parser
 from src.ui import sidebar, step1_search, step2_screen, step3_analysis, step4_extraction, step5_report
+from src.utils import data_manager, db_manager, versioning
 
 # --- Configuration & Setup ---
 DATA_DIR = "data"
@@ -28,25 +29,19 @@ os.makedirs(PDF_DIR, exist_ok=True)
 
 st.set_page_config(page_title="Systematic Reviewer AI", layout="wide")
 
+
 # (Translation dict logic kept minimal for brevity, we can reuse if needed, or put in ui/translations.py. Let's inline a small helper)
 # Due to line constraints and cleanliness, I'll provide a minimal T function assuming Korean is default.
 def t(key, **kwargs):
     # Minimal translation fallback if full dictionary is removed to keep it < 50 lines.
     # We will just return the key if not found, but we kept Korean as text in components mostly.
     # To keep it identical, let's keep a tiny dictionary for tabs.
-    trans = {
-        "tabs": [
-            "🔍 1. Search (PICO)",
-            "👀 2. Screening",
-            "⚙️ 3. Analysis Pipeline",
-            "📝 4. Extraction",
-            "📊 5. Report"
-        ]
-    }
+    trans = {"tabs": ["🔍 1. Search (PICO)", "👀 2. Screening", "⚙️ 3. Analysis Pipeline", "📝 4. Extraction", "📊 5. Report"]}
     val = trans.get(key, key)
     if kwargs and isinstance(val, str):
         return val.format(**kwargs)
     return val
+
 
 def load_config():
     if os.path.exists(CONFIG_PATH):
@@ -54,25 +49,34 @@ def load_config():
             return yaml.safe_load(f).get("picos", {})
     return {}
 
+
 def save_config(picos_data):
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.dump({"picos": picos_data}, f, allow_unicode=True, sort_keys=False)
 
+
 def construct_search_query(picos):
     query_parts = []
+
     def format_part(term, field_tag="[tiab]"):
-        if not term: return None
+        if not term:
+            return None
         term = term.strip()
-        if "[" in term and "]" in term: return f"({term})"
-        if " OR " in term or " AND " in term: return f"({term})"
-        if " " in term: return f'"{term}"{field_tag}'
+        if "[" in term and "]" in term:
+            return f"({term})"
+        if " OR " in term or " AND " in term:
+            return f"({term})"
+        if " " in term:
+            return f'"{term}"{field_tag}'
         return f"{term}{field_tag}"
+
     query_parts.append(format_part(picos.get("population")))
     query_parts.append(format_part(picos.get("intervention")))
     query_parts.append(format_part(picos.get("comparison")))
     query_parts.append(format_part(picos.get("outcome")))
     query_parts.append(format_part(picos.get("study_design"), "[pt]"))
     return " AND ".join(filter(None, query_parts))
+
 
 def init_session_state():
     if "stats" not in st.session_state:
@@ -88,20 +92,25 @@ def init_session_state():
     if "file_cache" not in st.session_state:
         st.session_state["file_cache"] = {}
 
+
 # --- Callbacks ---
 def update_state(key, value):
     st.session_state[key] = value
 
+
 def pop_state(key, default):
     return st.session_state.pop(key, default)
+
 
 def update_config(key, value):
     st.session_state["picos"][key] = value
     save_config(st.session_state["picos"])
 
+
 def update_config_batch(updates):
     st.session_state["picos"].update(updates)
     save_config(st.session_state["picos"])
+
 
 def reset_data():
     data_manager.clear_generated_data_files()
@@ -109,16 +118,20 @@ def reset_data():
     st.session_state["picos"] = {}
     save_config({})
 
+
 def next_step():
     st.session_state["current_tab_index"] += 1
     st.rerun()
+
 
 def set_tab(idx):
     st.session_state["current_tab_index"] = idx
     st.rerun()
 
+
 def update_stats(**kwargs):
     st.session_state["stats"].update(kwargs)
+
 
 def check_file_cache(pmid, path):
     key = f"exists_{pmid}"
@@ -126,34 +139,48 @@ def check_file_cache(pmid, path):
         st.session_state["file_cache"][key] = os.path.exists(path)
     return st.session_state["file_cache"][key]
 
+
 def update_file_cache(pmid, val):
     st.session_state["file_cache"][f"exists_{pmid}"] = val
+
 
 def execute_pubmed_search(query, max_ret, config):
     today = datetime.now()
     end_date = today.strftime("%Y/%m/%d")
     start_date = (today - timedelta(days=20 * 365)).strftime("%Y/%m/%d")
     _, total_count = pubmed.fetch_pmids(
-        query, max_ret=1, mindate=start_date, maxdate=end_date, sort="relevance",
-        email=config.get("email"), api_key=config.get("api_key"),
+        query,
+        max_ret=1,
+        mindate=start_date,
+        maxdate=end_date,
+        sort="relevance",
+        email=config.get("email"),
+        api_key=config.get("api_key"),
     )
     st.session_state["stats"]["total_found"] = total_count
 
     if total_count > 0:
         st.info(f"총 {total_count}개의 논문 발견. 상위 {max_ret}개 가져오는 중...")
         pmids, _ = pubmed.fetch_pmids(
-            query, max_ret=max_ret, mindate=start_date, maxdate=end_date, sort="relevance",
-            email=config.get("email"), api_key=config.get("api_key"),
+            query,
+            max_ret=max_ret,
+            mindate=start_date,
+            maxdate=end_date,
+            sort="relevance",
+            email=config.get("email"),
+            api_key=config.get("api_key"),
         )
         articles_xml = pubmed.fetch_abstracts(pmids, email=config.get("email"), api_key=config.get("api_key"))
-        
+
         # Filter by Year
         root = ET.fromstring(articles_xml)
         filtered_articles_elements = []
         current_year = datetime.now().year
         for article in root.findall(".//PubmedArticle"):
             pub_year_node = article.find(".//PubDate/Year")
-            pub_year = int(pub_year_node.text) if pub_year_node is not None and pub_year_node.text.isdigit() else current_year + 1
+            pub_year = (
+                int(pub_year_node.text) if pub_year_node is not None and pub_year_node.text.isdigit() else current_year + 1
+            )
             if pub_year <= current_year:
                 filtered_articles_elements.append(article)
 
@@ -177,9 +204,12 @@ def execute_pubmed_search(query, max_ret, config):
     else:
         st.warning("조건에 맞는 논문을 찾을 수 없습니다.")
 
+
 def handle_bulk_upload(uploaded_files, df):
     import re
+
     from pypdf import PdfReader
+
     success_count = 0
     results = []
     for uploaded_file in uploaded_files:
@@ -210,9 +240,11 @@ def handle_bulk_upload(uploaded_files, df):
             results.append(f"⚠️ {filename}에서 PMID를 추출하지 못했습니다.")
     return results, success_count
 
+
 def handle_data_editor_change():
     # Helper for df editing if needed directly via callback
     pass
+
 
 # --- Main App Router ---
 def main():
@@ -245,6 +277,7 @@ def main():
     sidebar.render(st.session_state["picos"], st.session_state, **callbacks)
 
     tabs_labels = t("tabs")
+
     def update_tab_index():
         st.session_state["current_tab_index"] = tabs_labels.index(st.session_state["nav_radio"])
 
@@ -255,7 +288,7 @@ def main():
     st.divider()
 
     current_tab = st.session_state["current_tab_index"]
-    
+
     # Simple Router
     if current_tab == 0:
         step1_search.render(st.session_state["picos"], st.session_state, **callbacks)
@@ -267,6 +300,7 @@ def main():
         step4_extraction.render(st.session_state["picos"], st.session_state, **callbacks)
     elif current_tab == 4:
         step5_report.render(st.session_state["picos"], st.session_state, **callbacks)
+
 
 if __name__ == "__main__":
     main()

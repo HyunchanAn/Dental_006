@@ -1,19 +1,23 @@
-import streamlit as st
 import os
 from datetime import datetime
+
+import streamlit as st
+
 from src.llm import synthesizer
 from src.report import generator
 
 DATA_DIR = "data"
 
+
 def render(config: dict, state: dict, **callbacks) -> None:
     """
     Renders Step 5: Final Report Generation.
     """
-    t = callbacks.get("t", lambda k, **kw: k)
-    
+
     st.header("Step 5: Final Report")
-    st.warning("⚠️ 주의: 모든 비뚤림 위험(RoB) 평가 및 데이터 추출 결과는 AI가 생성한 '제안'입니다. 학술적 엄밀성을 위해 반드시 최종 검토를 거쳐주세요.")
+    st.warning(
+        "⚠️ 주의: 모든 비뚤림 위험(RoB) 평가 및 데이터 추출 결과는 AI가 생성한 '제안'입니다. 학술적 엄밀성을 위해 반드시 최종 검토를 거쳐주세요."
+    )
 
     current_lang = state.get("lang", "KO")
     report_filename = f"report_{current_lang}.md"

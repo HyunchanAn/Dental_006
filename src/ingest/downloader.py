@@ -1,9 +1,12 @@
+import asyncio
+import datetime
+import json
 import os
 import time
 import xml.etree.ElementTree as ET
 
 import requests
-import asyncio
+
 from .scihub_fallback import SciHubDownloader
 
 
@@ -14,10 +17,11 @@ def get_request_headers(email=None):
     """
     try:
         from fake_useragent import UserAgent
+
         ua = UserAgent(os="windows", browsers=["chrome", "edge"]).random
     except Exception:
         ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-        
+
     contact = email if email else "systematic-reviewer-ai@example.com"
     return {
         "User-Agent": ua,
@@ -80,68 +84,60 @@ def get_semantic_scholar_pdf_url(paper_id, email=None):
     return None
 
 
-import json
-import datetime
-
 def write_debug_log(pmid, doi, url, response, exception=None):
     """
     Writes a debug log in JSON format for a failed PDF download attempt.
     """
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "logs")
     os.makedirs(log_dir, exist_ok=True)
-    
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     pmid_str = str(pmid) if pmid else "unknown"
     log_filename = os.path.join(log_dir, f"download_fail_{pmid_str}_{timestamp}.json")
-    
+
     headers = {}
     status_code = None
     body_snippet = ""
     anti_bot_signs = []
-    
+
     if response is not None:
         headers = dict(response.request.headers) if hasattr(response, "request") and response.request else {}
         status_code = response.status_code
         try:
             body_snippet = response.text[:1000]
             lower_body = response.text.lower()
-            if "access denied" in lower_body: anti_bot_signs.append("Access Denied")
-            if "cloudflare" in lower_body: anti_bot_signs.append("Cloudflare")
-            if "captcha" in lower_body: anti_bot_signs.append("Captcha")
-            if "just a moment" in lower_body: anti_bot_signs.append("Just a moment")
+            if "access denied" in lower_body:
+                anti_bot_signs.append("Access Denied")
+            if "cloudflare" in lower_body:
+                anti_bot_signs.append("Cloudflare")
+            if "captcha" in lower_body:
+                anti_bot_signs.append("Captcha")
+            if "just a moment" in lower_body:
+                anti_bot_signs.append("Just a moment")
         except Exception:
             body_snippet = "Could not decode body"
-    
+
     proxy_used = os.environ.get("HTTP_PROXY") or os.environ.get("HTTPS_PROXY") or "None"
-    
+
     log_data = {
-        "target_identifiers": {
-            "pmid": pmid,
-            "doi": doi,
-            "url": url
-        },
+        "target_identifiers": {"pmid": pmid, "doi": doi, "url": url},
         "network_context": {
             "request_headers": headers,
             "user_agent": headers.get("User-Agent", "Unknown"),
-            "proxy_vpn_used": proxy_used
+            "proxy_vpn_used": proxy_used,
         },
-        "http_status": {
-            "status_code": status_code,
-            "body_snippet": body_snippet
-        },
-        "anti_bot_sign": {
-            "detected_signs": anti_bot_signs,
-            "has_anti_bot": len(anti_bot_signs) > 0
-        },
-        "exception": str(exception) if exception else None
+        "http_status": {"status_code": status_code, "body_snippet": body_snippet},
+        "anti_bot_sign": {"detected_signs": anti_bot_signs, "has_anti_bot": len(anti_bot_signs) > 0},
+        "exception": str(exception) if exception else None,
     }
-    
+
     try:
         with open(log_filename, "w", encoding="utf-8") as f:
             json.dump(log_data, f, ensure_ascii=False, indent=4)
         print(f"  - Debug log written to {log_filename}")
     except Exception as e:
         print(f"  - Failed to write debug log: {e}")
+
 
 def download_pdf_with_playwright(pdf_url, output_path):
     """
@@ -153,7 +149,7 @@ def download_pdf_with_playwright(pdf_url, output_path):
     except ImportError:
         print("  - Playwright or stealth not installed, skipping advanced fallback.")
         return False
-        
+
     print(f"  - Using Playwright Headless Browser for {pdf_url}...")
     try:
         with sync_playwright() as p:
@@ -161,46 +157,46 @@ def download_pdf_with_playwright(pdf_url, output_path):
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(
                 viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
             )
             page = context.new_page()
-            
+
             # Apply stealth to bypass bot detection
             stealth_sync(page)
-            
+
             # Setup route to intercept the PDF download if it triggers automatically
             # Or just goto the URL and wait for PDF
             try:
                 # Wait until network is mostly idle to let JS redirects happen
-                response = page.goto(pdf_url, wait_until="networkidle", timeout=30000)
-            except Exception as e:
+                page.goto(pdf_url, wait_until="networkidle", timeout=30000)
+            except Exception:
                 # Might throw if it navigates to a PDF directly in some versions
                 pass
-                
+
             # If the current URL is a PDF or if there is a PDF viewer, we can just fetch the current page url
             # But the best way to get a PDF from a page is to use the request context to fetch the final URL.
             final_url = page.url
-            
+
             # Some publishers render the PDF using pdf.js, so we grab the content if it's application/pdf
             # Actually, `page.goto` response might be the PDF
             # A more robust way to download the PDF using the browser context:
             cookies = context.cookies()
             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
-            
+
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                "Cookie": cookie_str
+                "Cookie": cookie_str,
             }
-            
+
             browser.close()
-            
+
         # Re-try the final URL with requests using the cookies obtained by playwright
         res = requests.get(final_url, headers=headers, stream=True, timeout=60)
         res.raise_for_status()
-        
+
         if "application/pdf" not in res.headers.get("Content-Type", "").lower():
             return False
-            
+
         with open(output_path, "wb") as f:
             for chunk in res.iter_content(chunk_size=8192):
                 f.write(chunk)
@@ -210,6 +206,7 @@ def download_pdf_with_playwright(pdf_url, output_path):
         print(f"  - Playwright fallback failed: {e}")
         return False
 
+
 def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None):
     """
     Downloads a PDF from a URL and saves it to the specified path.
@@ -217,22 +214,22 @@ def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None)
     # 1. URL Parsing Rule Update (Angle Orthodontist)
     if "angle.org/doi/pdf" in pdf_url:
         pdf_url = pdf_url.replace("www.angle.org/doi/pdf", "meridian.allenpress.com/angle-orthodontist/article-pdf")
-        
+
     response = None
     try:
         response = requests.get(pdf_url, headers=get_request_headers(email), stream=True, timeout=60)
         response.raise_for_status()
-        
+
         # Sometimes it returns HTML instead of PDF
         if "application/pdf" not in response.headers.get("Content-Type", "").lower():
             # If standard request returns HTML (possibly WAF or redirect), try playwright fallback
             print(f"  - Target URL returned {response.headers.get('Content-Type')}, trying Playwright fallback...")
             if download_pdf_with_playwright(pdf_url, output_path):
                 return True
-            
+
             write_debug_log(pmid, doi, pdf_url, response, Exception("Content-Type is not application/pdf"))
             return False
-            
+
         with open(output_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
@@ -291,7 +288,9 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None,
     if total_articles == 0:
         return {}
 
-    print(f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> SemanticScholar -> SciHub)...")
+    print(
+        f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> SemanticScholar -> SciHub)..."
+    )
     download_status = {}
     download_count = 0
 

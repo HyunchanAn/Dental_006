@@ -1,7 +1,10 @@
-import streamlit as st
 import time
+
 import pandas as pd
+import streamlit as st
+
 from src.screen import screener
+
 
 def render(config: dict, state: dict, **callbacks) -> None:
     """
@@ -9,7 +12,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     """
     t = callbacks.get("t", lambda k, **kw: k)
     db_manager = callbacks.get("db_manager")
-    
+
     st.header(t("step2_header"))
 
     df = db_manager.get_articles_df()
@@ -30,7 +33,11 @@ def render(config: dict, state: dict, **callbacks) -> None:
         auto_start_screening = False
         if state.get("run_mode") == "scoping" and state.get("scoping_agreed"):
             # Check if ANY article is unscreened (df.isna().any()) or empty string
-            if "screening_decision" not in df.columns or df["screening_decision"].isna().any() or (df["screening_decision"] == "").any():
+            if (
+                "screening_decision" not in df.columns
+                or df["screening_decision"].isna().any()
+                or (df["screening_decision"] == "").any()
+            ):
                 auto_start_screening = True
 
         if st.button(t("start_screening")) or auto_start_screening:
@@ -63,7 +70,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
             screened = len(df[df["screening_decision"].notna() & (df["screening_decision"] != "")])
             included = len(df[df["screening_decision"] == "Included"])
             excluded = screened - included
-            
+
             callbacks["update_stats"](screened=screened, included=included, excluded=excluded)
 
             if state.get("run_mode") == "scoping" and state.get("scoping_agreed"):
@@ -74,7 +81,10 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 st.rerun()
 
         # Show Screening Results if available
-        if "screening_decision" in df.columns and len(df[df["screening_decision"].notna() & (df["screening_decision"] != "")]) > 0:
+        if (
+            "screening_decision" in df.columns
+            and len(df[df["screening_decision"].notna() & (df["screening_decision"] != "")]) > 0
+        ):
             st.divider()
             st.subheader(t("screening_results"))
             stats = state.get("stats", {})
@@ -90,9 +100,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
             total_included = stats.get("included", 0)
 
             if "exclusion_category" in df.columns:
-                exclusion_counts = (
-                    df[df["screening_decision"] == "Excluded"]["exclusion_category"].value_counts().to_dict()
-                )
+                exclusion_counts = df[df["screening_decision"] == "Excluded"]["exclusion_category"].value_counts().to_dict()
                 exclusion_html = "".join([f"<li>{k}: {v}</li>" for k, v in exclusion_counts.items() if str(k).strip()])
             else:
                 exclusion_html = f"<li>{t('prisma_no_category')}</li>"
@@ -138,15 +146,13 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 "아래 표에서 `screening_decision` 항목을 더블클릭하여 결과를 수동으로 변경(Included/Excluded)할 수 있습니다. 변경된 내용은 DB에 즉시 반영되며, 차트와 통계에 업데이트됩니다."
             )
 
-            edited_df = st.data_editor(
+            st.data_editor(
                 df[display_cols],
                 hide_index=True,
                 column_config={
                     "pmid": st.column_config.TextColumn("PMID", disabled=True),
                     "title": st.column_config.TextColumn("Title", disabled=True),
-                    "screening_decision": st.column_config.SelectboxColumn(
-                        "Decision", options=["Included", "Excluded"]
-                    ),
+                    "screening_decision": st.column_config.SelectboxColumn("Decision", options=["Included", "Excluded"]),
                     "screening_reason": st.column_config.TextColumn("Reason"),
                     "exclusion_category": st.column_config.SelectboxColumn(
                         "Exclusion Category",
@@ -163,7 +169,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 },
                 use_container_width=True,
                 key="screening_editor",
-                on_change=callbacks["handle_data_editor_change"]
+                on_change=callbacks["handle_data_editor_change"],
             )
 
             # Navigation Button (Step 2 -> Step 3)
