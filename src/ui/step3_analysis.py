@@ -84,7 +84,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     if "pdf_download_status" in df.columns:
         status_series = df["pdf_download_status"].astype(str).str.strip()
         is_attempted = (status_series != "") & (status_series.str.lower() != "nan") & (status_series.str.lower() != "none")
-        is_not_success = ~status_series.str.contains(r"Downloaded|Exists|Skipped", case=False, na=False)
+        is_not_success = ~status_series.str.contains(r"Downloaded|Exists|Skipped|Parsed", case=False, na=False)
         failed_mask = is_attempted & is_not_success
         failed_df = df[failed_mask]
 
@@ -192,7 +192,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     ready_count = 0
     df = db_manager.get_articles_df()
     if not df.empty and "pdf_download_status" in df.columns:
-        ready_mask = df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
+        ready_mask = df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists|Parsed", case=False, na=False)
         ready_count = len(df[ready_mask])
 
     st.info(t("analysis_ready", count=ready_count))
@@ -213,7 +213,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
         status_text = st.empty()
 
         df = db_manager.get_articles_df()
-        doc_ready_mask = df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
+        doc_ready_mask = df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists|Parsed", case=False, na=False)
         ready_pmids = df[doc_ready_mask]["pmid"].astype(str).tolist()
 
         status_text.text("PDF 텍스트 추출 (GROBID)...")
