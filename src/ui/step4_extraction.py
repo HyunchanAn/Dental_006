@@ -10,7 +10,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     Renders Step 4: Data Extraction and Human Verification.
     """
     t = callbacks.get("t", lambda k, **kw: k)
-    db_manager = callbacks.get("db_manager")
+    db_manager = callbacks["db_manager"]
 
     st.header("Step 4: Data Extraction Verification")
 
@@ -94,7 +94,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
         for _, row in edited_rob.iterrows():
             if pd.notna(row.get("pmid")):
                 raw_pmid = str(row["pmid"]).replace("https://pubmed.ncbi.nlm.nih.gov/", "").replace("/", "")
-                rob_dict = {"pmid": raw_pmid}
+                rob_dict: dict = {"pmid": raw_pmid}
                 domains = ["Randomization", "Deviations", "MissingData", "Measurement", "Reporting"]
                 for domain in domains:
                     level = row.get(f"{domain}_Level", "Unclear")

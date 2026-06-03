@@ -19,8 +19,8 @@ def render(config: dict, state: dict, **callbacks) -> None:
     Renders Step 3: Analysis Pipeline (Download, GROBID, RoB).
     """
     t = callbacks.get("t", lambda k, **kw: k)
-    db_manager = callbacks.get("db_manager")
-    vm = callbacks.get("vm")
+    db_manager = callbacks["db_manager"]
+    vm = callbacks["vm"]
 
     st.header(t("step3_header"))
     st.markdown(t("step3_desc"))

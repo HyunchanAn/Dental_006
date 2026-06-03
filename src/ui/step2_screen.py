@@ -11,7 +11,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     Renders Step 2: Automated Screening.
     """
     t = callbacks.get("t", lambda k, **kw: k)
-    db_manager = callbacks.get("db_manager")
+    db_manager = callbacks["db_manager"]
 
     st.header(t("step2_header"))
 
