@@ -1,7 +1,10 @@
-import streamlit as st
 import time
 from datetime import datetime, timedelta
+
+import streamlit as st
+
 from src.ingest import pubmed
+
 
 def render(config: dict, state: dict, **callbacks) -> None:
     """
@@ -20,36 +23,40 @@ def render(config: dict, state: dict, **callbacks) -> None:
 
     is_scoping = state.get("run_mode") == "scoping" and state.get("scoping_agreed")
     btn_label = "🚀 AI 스코핑 자동 실행 (Auto Run End-to-End)" if is_scoping else "✨ PICO 자동 추출 (Auto-extract with AI)"
-    
+
     if st.button(btn_label, type="primary" if is_scoping else "secondary"):
         if topic_description:
             from src.llm import pico_extractor
-            
+
             max_retries = 3 if is_scoping else 1
             feedback = ""
             success = False
 
             for attempt in range(max_retries):
-                with st.spinner(f"AI가 PICO를 분석 중입니다... (시도 {attempt+1}/{max_retries})"):
+                with st.spinner(f"AI가 PICO를 분석 중입니다... (시도 {attempt + 1}/{max_retries})"):
                     extracted = pico_extractor.extract_pico_from_description(topic_description, feedback)
                     if extracted:
                         callbacks["update_config_batch"](extracted)
                         # We need to use updated config for the query
                         current_config = {**config, **extracted}
-                        
+
                         if not is_scoping:
                             st.success("PICO 추출 완료! 아래 필드가 업데이트되었습니다.")
                             success = True
                             break
-                            
+
                         # In scoping mode, verify the query
                         query = callbacks["construct_search_query"](current_config)
                         today = datetime.now()
                         end_date = today.strftime("%Y/%m/%d")
                         start_date = (today - timedelta(days=20 * 365)).strftime("%Y/%m/%d")
                         _, total_count = pubmed.fetch_pmids(
-                            query, max_ret=1, mindate=start_date, maxdate=end_date,
-                            email=current_config.get("email"), api_key=current_config.get("api_key"),
+                            query,
+                            max_ret=1,
+                            mindate=start_date,
+                            maxdate=end_date,
+                            email=current_config.get("email"),
+                            api_key=current_config.get("api_key"),
                         )
                         if total_count >= 20:
                             st.success(f"PICO 추출 및 쿼리 생성 완료! 예상 논문 수: {total_count}")
@@ -59,7 +66,9 @@ def render(config: dict, state: dict, **callbacks) -> None:
                             break
                         else:
                             feedback = f"The query '{query}' returned {total_count} results. We need at least 20 results. Please use broader MeSH terms or synonyms. Remove overly restrictive constraints."
-                            st.warning(f"검색 결과가 {total_count}건입니다 (최소 20건 필요). 조건을 완화하여 재시도합니다... (시도 {attempt+1}/{max_retries})")
+                            st.warning(
+                                f"검색 결과가 {total_count}건입니다 (최소 20건 필요). 조건을 완화하여 재시도합니다... (시도 {attempt + 1}/{max_retries})"
+                            )
                     else:
                         st.error("PICO 추출에 실패했습니다.")
                         break
@@ -107,11 +116,11 @@ def render(config: dict, state: dict, **callbacks) -> None:
     with col_s2:
         # Retrieve auto_trigger_search flag without leaving it in state permanently
         auto_search = callbacks["pop_state"]("auto_trigger_search", False)
-        
+
         if st.button(t("search_button")) or auto_search:
             with st.spinner(t("searching")):
                 callbacks["execute_pubmed_search"](query, max_ret, config)
-                
+
     # Navigation Button (Step 1 -> Step 2)
     stats = state.get("stats", {})
     if stats.get("total_found", 0) > 0:

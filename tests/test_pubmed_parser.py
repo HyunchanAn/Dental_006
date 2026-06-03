@@ -1,6 +1,5 @@
-import pytest
-import pandas as pd
 from src.parse import pubmed_parser
+
 
 def test_parse_articles_basic():
     xml_data = """<?xml version="1.0" ?>
@@ -33,6 +32,7 @@ def test_parse_articles_basic():
     assert df.iloc[0]["abstract"] == "Test Abstract"
     assert df.iloc[0]["doi"] == "10.1234/test"
 
+
 def test_parse_articles_deduplication_title():
     xml_data = """<?xml version="1.0" ?>
     <PubmedArticleSet>
@@ -53,6 +53,7 @@ def test_parse_articles_deduplication_title():
     df = pubmed_parser.parse_articles(xml_data)
     assert len(df) == 1
     assert df.iloc[0]["pmid"] == "1"
+
 
 def test_parse_articles_empty_title_not_dropped():
     xml_data = """<?xml version="1.0" ?>

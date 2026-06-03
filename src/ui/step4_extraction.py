@@ -1,7 +1,9 @@
-import streamlit as st
-import pandas as pd
 import json
 import time
+
+import pandas as pd
+import streamlit as st
+
 
 def render(config: dict, state: dict, **callbacks) -> None:
     """
@@ -11,7 +13,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     db_manager = callbacks.get("db_manager")
 
     st.header("Step 4: Data Extraction Verification")
-    
+
     articles_df = db_manager.get_articles_df()
 
     pico_records = []
@@ -68,9 +70,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
         num_rows="dynamic",
         key="pico_editor",
         use_container_width=True,
-        column_config={
-            "pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")
-        },
+        column_config={"pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")},
     )
 
     st.markdown("#### Risk of Bias (RoB)")
@@ -79,9 +79,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
         num_rows="dynamic",
         key="rob_editor",
         use_container_width=True,
-        column_config={
-            "pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")
-        },
+        column_config={"pmid": st.column_config.LinkColumn("PMID", display_text=r"https://pubmed\.ncbi\.nlm\.nih\.gov/(.*)/")},
     )
 
     if st.button("💾 확정 및 저장 (Confirm & Save)"):

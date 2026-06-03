@@ -9,6 +9,7 @@ PDF_DIR = os.path.join(DATA_DIR, "pdf")
 TEI_DIR = os.path.join(DATA_DIR, "tei")
 LOGS_DIR = os.path.join(DATA_DIR, "logs")
 
+
 def clear_generated_data_files():
     """
     Deletes specific generated data files and contents of the PDF directory,

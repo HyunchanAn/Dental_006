@@ -1,7 +1,9 @@
-import streamlit as st
 import subprocess
-import requests
 import time
+
+import requests
+import streamlit as st
+
 
 def render(config: dict, state: dict, **callbacks) -> None:
     """
@@ -38,7 +40,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
             callbacks["update_config"]("email", email_input)
             callbacks["update_config"]("api_key", api_key_input)
             st.toast("Settings saved!", icon="💾")
-            
+
         st.divider()
 
         # System Status
@@ -63,10 +65,10 @@ def render(config: dict, state: dict, **callbacks) -> None:
                     st.error("❌ Ollama", icon="🦙")
             except Exception:
                 st.error("❌ Ollama", icon="🦙")
-                
+
         if st.button("🔄 상태 새로고침 (Refresh)", use_container_width=True):
             st.rerun()
-            
+
         st.divider()
 
         # Mode Selector
@@ -87,13 +89,11 @@ def render(config: dict, state: dict, **callbacks) -> None:
             st.warning(
                 "⚠️ **예비 타당성 검토 모드**\n\n본 모드는 예비 연구 기획 및 문헌 탐색(Scoping) 목적으로만 제한됩니다. LLM 추론 특성상 누락이나 환각이 포함될 수 있으므로, 실제 정밀 임상 연구 및 학술지 출판물(Publication) 데이터로의 직접적인 인용 및 활용을 절대 금지합니다."
             )
-            scoping_agreed = st.checkbox(
-                "위 경고사항을 확인했으며, 동의합니다.", value=state.get("scoping_agreed", False)
-            )
+            scoping_agreed = st.checkbox("위 경고사항을 확인했으며, 동의합니다.", value=state.get("scoping_agreed", False))
             if scoping_agreed != state.get("scoping_agreed", False):
                 callbacks["update_state"]("scoping_agreed", scoping_agreed)
                 st.rerun()
-                
+
         st.divider()
 
         # Project Data Reset

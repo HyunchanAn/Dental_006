@@ -44,6 +44,7 @@ def extract_text_from_pdf(pdf_path):
 
         # Escape XML special characters to prevent "not well-formed" errors
         import html
+
         escaped_text = html.escape(full_text)
 
         # Create a dummy TEI structure so tei_parser doesn't crash completely,

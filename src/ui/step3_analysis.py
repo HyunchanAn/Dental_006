@@ -1,9 +1,10 @@
-import streamlit as st
-import time
 import os
-import pandas as pd
+import time
+
+import streamlit as st
+
 from src.ingest import downloader
-from src.parse import grobid_client, fallback_parser
+from src.parse import fallback_parser, grobid_client
 from src.rob import assessor
 
 DATA_DIR = "data"
@@ -12,6 +13,7 @@ TABLES_DIR = os.path.join(DATA_DIR, "tables")
 TEI_DIR = os.path.join(DATA_DIR, "tei")
 PDF_DIR = os.path.join(DATA_DIR, "pdf")
 
+
 def render(config: dict, state: dict, **callbacks) -> None:
     """
     Renders Step 3: Analysis Pipeline (Download, GROBID, RoB).
@@ -19,7 +21,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     t = callbacks.get("t", lambda k, **kw: k)
     db_manager = callbacks.get("db_manager")
     vm = callbacks.get("vm")
-    
+
     st.header(t("step3_header"))
     st.markdown(t("step3_desc"))
 
@@ -43,7 +45,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
     st.subheader(t("download_section"))
 
     xml_path = os.path.join(RAW_DATA_DIR, "articles.xml")
-    
+
     auto_download = False
     if state.get("run_mode") == "scoping" and state.get("scoping_agreed"):
         if "pdf_download_status" not in df.columns:
@@ -70,9 +72,9 @@ def render(config: dict, state: dict, **callbacks) -> None:
 
         df = db_manager.get_articles_df()
         downloaded_pdfs = [k for k, v in pdf_download_status.items() if "Downloaded" in v or "Already" in v]
-        
+
         callbacks["update_stats"](retrieved=len(downloaded_pdfs))
-        
+
         progress_bar.progress(100)
         st.success(t("download_complete"))
         time.sleep(1)
@@ -80,9 +82,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
 
     # --- Check for missing files & Manual Helper ---
     if "pdf_download_status" in df.columns:
-        failed_mask = ~df["pdf_download_status"].astype(str).str.contains(
-            r"Downloaded|Exists|Skipped", case=False, na=False
-        )
+        failed_mask = ~df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists|Skipped", case=False, na=False)
         failed_df = df[failed_mask]
 
         if not failed_df.empty:
@@ -121,7 +121,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 current_page = total_pages - 1
             if current_page < 0:
                 current_page = 0
-            
+
             if current_page != state.get("failed_pdfs_page", 0):
                 callbacks["update_state"]("failed_pdfs_page", current_page)
 
@@ -146,9 +146,9 @@ def render(config: dict, state: dict, **callbacks) -> None:
                     pmid = str(row["pmid"])
                     display_title = row.get("title", f"PMID {pmid}")
                     target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
-                    
+
                     st.markdown(f"**{display_title}**")
-                    
+
                     # Status Badge
                     status = str(row.get("pdf_download_status", "Failed"))
                     file_exists = callbacks["check_file_cache"](pmid, target_path)
@@ -245,11 +245,12 @@ def render(config: dict, state: dict, **callbacks) -> None:
 
         status_text.text("데이터 추출 중...")
         tei_files = [f for f in os.listdir(TEI_DIR) if f.endswith(".xml") and f.replace(".xml", "") in ready_pmids]
-        
+
         if tei_files:
+            import json
+
             from src.extract import pico_extractor
             from src.parse import tei_parser
-            import json
 
             total_tei = len(tei_files)
             for idx, tei_file in enumerate(tei_files):
@@ -262,7 +263,11 @@ def render(config: dict, state: dict, **callbacks) -> None:
                     full_text = tei_parser.extract_text_from_tei(os.path.join(TEI_DIR, tei_file), optimize_context=True)
                     if full_text == "CLOUDFLARE_BLOCK":
                         db_manager.update_article(
-                            pmid, pdf_download_status="Failed (Cloudflare Block)", pipeline_status=-1, pico_data="", rob_data=""
+                            pmid,
+                            pdf_download_status="Failed (Cloudflare Block)",
+                            pipeline_status=-1,
+                            pico_data="",
+                            rob_data="",
                         )
                         continue
                     elif full_text:
@@ -276,7 +281,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
         progress_bar.empty()
         status_text.empty()
         st.success(t("analysis_complete"))
-        
+
         # In scaffolding mode we auto jump
         if state.get("run_mode") == "scoping" and state.get("scoping_agreed"):
             st.info("🚀 Scoping 모드 작동 중: 다음 단계(최종 보고서)로 자동 진입합니다...")
