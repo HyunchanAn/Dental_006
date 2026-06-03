@@ -42,6 +42,10 @@ def extract_text_from_pdf(pdf_path):
                 print(f"Failed to update db: {e}")
             return "CLOUDFLARE_BLOCK"
 
+        # Escape XML special characters to prevent "not well-formed" errors
+        import html
+        escaped_text = html.escape(full_text)
+
         # Create a dummy TEI structure so tei_parser doesn't crash completely,
         # or we can just pass the raw text into a standard TEI format.
         # Actually, let's build a minimal valid TEI XML.
@@ -53,7 +57,7 @@ xsi:schemaLocation="http://www.tei-c.org/ns/1.0 /grobid/schemas/tei/tei.xsd">
     <text>
         <body>
             <div>
-                <p>{full_text}</p>
+                <p>{escaped_text}</p>
             </div>
         </body>
     </text>

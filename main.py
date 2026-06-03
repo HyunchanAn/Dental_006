@@ -290,7 +290,12 @@ def main():
         pdf_dir = os.path.join(DATA_DIR, "pdf")
 
         # Pass included_pmids to filter downloads
-        pdf_download_status = downloader.download_pdfs_from_xml(xml_path, pdf_dir, allowed_pmids=included_pmids)
+        pdf_download_status = downloader.download_pdfs_from_xml(
+            xml_path, 
+            pdf_dir, 
+            allowed_pmids=included_pmids,
+            enable_scihub_fallback=picos_config.get("enable_scihub_fallback", False)
+        )
 
         # Update database with PDF download status
         print("\nUpdating database with PDF download status...")

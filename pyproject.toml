@@ -25,7 +25,10 @@ dependencies = [
     "streamlit>=1.30.0",
     "loguru>=0.7.2",
     "pydantic-settings>=2.1.0",
-    "rouge-score>=0.1.2"
+    "rouge-score>=0.1.2",
+    "playwright>=1.40.0",
+    "playwright-stealth>=1.0.6",
+    "fake-useragent>=1.5.1"
 ]
 
 [project.optional-dependencies]

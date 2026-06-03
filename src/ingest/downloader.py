@@ -3,6 +3,8 @@ import time
 import xml.etree.ElementTree as ET
 
 import requests
+import asyncio
+from .scihub_fallback import SciHubDownloader
 
 
 def get_request_headers(email=None):
@@ -246,45 +248,7 @@ def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None)
     return False
 
 
-def try_pmc_download(pmcid, output_path, email=None, timeout=60, pmid=None, doi=None):
-    """
-    Attempts to download a PDF directly from PubMed Central using its PMCID.
-    """
-    if not pmcid:
-        return False
-
-    print(f"  - Trying PubMed Central with PMCID: {pmcid}")
-    fetch_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-    params = {"db": "pmc", "id": pmcid, "rettype": "pdf", "retmode": "binary"}
-    response = None
-    try:
-        response = requests.post(
-            fetch_url,
-            data=params,
-            headers=get_request_headers(email),
-            stream=True,
-            timeout=timeout,
-        )
-
-        if "application/pdf" not in response.headers.get("Content-Type", ""):
-            print(f"  - PMC did not return a PDF. Content-Type: {response.headers.get('Content-Type')}")
-            write_debug_log(pmid, doi, fetch_url, response, Exception("Content-Type is not application/pdf"))
-            return False
-
-        response.raise_for_status()
-
-        with open(output_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        print("  - SUCCESS: Downloaded PDF from PMC.")
-        return True
-    except requests.exceptions.RequestException as e:
-        print(f"  - Failed to download from PMC: {e}")
-        write_debug_log(pmid, doi, fetch_url, response, e)
-        return False
-
-
-def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None):
+def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None, enable_scihub_fallback=False):
     """
     Parses a PubMed XML file, extracts DOIs and PMCIDs, and attempts to download open-access PDFs
     using a fallback strategy (Unpaywall -> PMC).
@@ -327,9 +291,11 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
     if total_articles == 0:
         return {}
 
-    print(f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> PMC)...")
+    print(f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> SemanticScholar -> SciHub)...")
     download_status = {}
     download_count = 0
+
+    scihub_downloader = SciHubDownloader() if enable_scihub_fallback else None
 
     for i, article in enumerate(articles):
         pmid_node = article.find(".//PMID")
@@ -358,16 +324,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
                 else:
                     download_status[pmid] = "Download Failed (Unpaywall)"
 
-        # --- Strategy 2: Try PubMed Central (if Unpaywall failed) ---
-        if not downloaded:
-            pmc_node = article.find(".//ArticleId[@IdType='pmc']")
-            pmcid = pmc_node.text if pmc_node is not None else None
-            if pmcid:
-                if try_pmc_download(pmcid, output_filename, email=email, pmid=pmid, doi=doi):
-                    download_status[pmid] = "Downloaded (PMC)"
-                    downloaded = True
-
-        # --- Strategy 3: Try Semantic Scholar (if others failed) ---
+        # --- Strategy 2: Try Semantic Scholar (if Unpaywall failed) ---
         if not downloaded:
             # Try by DOI first, then by PMID
             paper_id = f"DOI:{doi}" if doi else (f"PMID:{pmid}" if pmid else None)
@@ -379,10 +336,16 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None)
                         download_status[pmid] = "Downloaded (SemanticScholar)"
                         downloaded = True
 
+        # --- Strategy 3: Try Sci-Hub Direct Fallback (if enabled and others failed) ---
+        if not downloaded and enable_scihub_fallback and doi:
+            downloaded = asyncio.run(scihub_downloader.download_by_doi(doi, output_filename))
+            if downloaded:
+                download_status[pmid] = "Downloaded (Sci-Hub)"
+
         if not downloaded:
-            print("  - No open access source found via Unpaywall, PMC, or Semantic Scholar.")
+            print("  - No open access source found via Unpaywall, Semantic Scholar, or Sci-Hub.")
             download_status[pmid] = "No OA Source Found"
-            write_debug_log(pmid, doi, None, None, Exception("No OA Source Found via Unpaywall, PMC, or Semantic Scholar"))
+            write_debug_log(pmid, doi, None, None, Exception("No OA Source Found via Unpaywall, Semantic Scholar, or Sci-Hub"))
 
         if downloaded:
             download_count += 1

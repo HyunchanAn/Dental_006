@@ -511,15 +511,15 @@ def main():
                                 query, max_ret=1, mindate=start_date, maxdate=end_date,
                                 email=st.session_state["picos"].get("email"), api_key=st.session_state["picos"].get("api_key"),
                             )
-                            if total_count > 0:
+                            if total_count >= 20:
                                 st.success(f"PICO 추출 및 쿼리 생성 완료! 예상 논문 수: {total_count}")
                                 st.session_state["picos"]["query"] = query
                                 success = True
                                 st.session_state["auto_trigger_search"] = True
                                 break
                             else:
-                                feedback = f"The query '{query}' returned 0 results. Please use broader MeSH terms or synonyms. Remove overly restrictive constraints."
-                                st.warning(f"검색 결과가 0건입니다. 조건을 완화하여 재시도합니다... (시도 {attempt+1}/{max_retries})")
+                                feedback = f"The query '{query}' returned {total_count} results. We need at least 20 results. Please use broader MeSH terms or synonyms. Remove overly restrictive constraints."
+                                st.warning(f"검색 결과가 {total_count}건입니다 (최소 20건 필요). 조건을 완화하여 재시도합니다... (시도 {attempt+1}/{max_retries})")
                         else:
                             st.error("PICO 추출에 실패했습니다.")
                             break
@@ -528,7 +528,7 @@ def main():
                     time.sleep(1)
                     st.rerun()
                 elif is_scoping:
-                    st.error("3회 시도에도 불구하고 검색 결과가 0건입니다. 연구 주제를 더 포괄적으로 변경해주세요.")
+                    st.error("3회 시도에도 불구하고 검색 결과가 20건 미만입니다. 연구 주제를 더 포괄적으로 변경해주세요.")
             else:
                 st.warning("먼저 연구 주제를 입력해주세요.")
 
@@ -893,6 +893,7 @@ def main():
                                 PDF_DIR,
                                 allowed_pmids=included_pmids,
                                 email=st.session_state["picos"].get("email"),
+                                enable_scihub_fallback=st.session_state["picos"].get("enable_scihub_fallback", False),
                             )
                             for pmid, status in pdf_download_status.items():
                                 db_manager.update_article(pmid, pdf_download_status=status)
@@ -1265,56 +1266,60 @@ def main():
 
                                 total_tei = len(tei_files)
                                 for idx, tei_file in enumerate(tei_files):
-                                    pmid = tei_file.replace(".xml", "")
-                                    status_text.text(f"[{idx + 1}/{total_tei}] Extracting PICO for PMID {pmid}...")
-                                    progress = 75 + int(((idx + 1) / total_tei) * 25)
-                                    progress_bar.progress(progress)
+                                    try:
+                                        pmid = tei_file.replace(".xml", "")
+                                        status_text.text(f"[{idx + 1}/{total_tei}] Extracting PICO for PMID {pmid}...")
+                                        progress = 75 + int(((idx + 1) / total_tei) * 25)
+                                        progress_bar.progress(progress)
 
-                                    # Use optimized context slicing for PICO extraction
-                                    full_text = tei_parser.extract_text_from_tei(
-                                        os.path.join(TEI_DIR, tei_file), optimize_context=True
-                                    )
-                                    if full_text == "CLOUDFLARE_BLOCK":
-                                        db_manager.update_article(
-                                            pmid,
-                                            pdf_download_status="Failed (Cloudflare Block)",
-                                            pipeline_status=-1,
-                                            pico_data="",
-                                            rob_data="",
+                                        # Use optimized context slicing for PICO extraction
+                                        full_text = tei_parser.extract_text_from_tei(
+                                            os.path.join(TEI_DIR, tei_file), optimize_context=True
                                         )
-                                        status_text.text(f"[{idx + 1}/{total_tei}] Skipped PMID {pmid} (Cloudflare Block)")
-                                        continue
-                                    elif full_text:
-                                        text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
+                                        if full_text == "CLOUDFLARE_BLOCK":
+                                            db_manager.update_article(
+                                                pmid,
+                                                pdf_download_status="Failed (Cloudflare Block)",
+                                                pipeline_status=-1,
+                                                pico_data="",
+                                                rob_data="",
+                                            )
+                                            status_text.text(f"[{idx + 1}/{total_tei}] Skipped PMID {pmid} (Cloudflare Block)")
+                                            continue
+                                        elif full_text:
+                                            text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
 
-                                        data = pico_extractor.extract_pico_multi_agent(text_snippet)
-                                        if data:
-                                            # Flatten the nested dict for dataframe compatibility
-                                            flat_data = {"pmid": pmid}
-                                            for k, v in data.items():
-                                                if isinstance(v, dict):
-                                                    flat_data[k] = v.get("description", v.get("design", ""))
-                                                    if "subcategory" in v:
-                                                        flat_data[f"{k}_subcategory"] = v["subcategory"]
-                                                    if "scale_metric" in v:
-                                                        flat_data[f"{k}_scale_metric"] = v["scale_metric"]
-                                                    if "statistics_summary" in v:
-                                                        flat_data[f"{k}_statistics_summary"] = v["statistics_summary"]
-                                                    if "raw_quote" in v:
-                                                        flat_data[f"{k}_quote"] = v["raw_quote"]
-                                                else:
-                                                    flat_data[k] = str(v)
-                                            extracted_data.append(flat_data)
+                                            data = pico_extractor.extract_pico_multi_agent(text_snippet)
+                                            if data:
+                                                # Flatten the nested dict for dataframe compatibility
+                                                flat_data = {"pmid": pmid}
+                                                for k, v in data.items():
+                                                    if isinstance(v, dict):
+                                                        flat_data[k] = v.get("description", v.get("design", ""))
+                                                        if "subcategory" in v:
+                                                            flat_data[f"{k}_subcategory"] = v["subcategory"]
+                                                        if "scale_metric" in v:
+                                                            flat_data[f"{k}_scale_metric"] = v["scale_metric"]
+                                                        if "statistics_summary" in v:
+                                                            flat_data[f"{k}_statistics_summary"] = v["statistics_summary"]
+                                                        if "raw_quote" in v:
+                                                            flat_data[f"{k}_quote"] = v["raw_quote"]
+                                                    else:
+                                                        flat_data[k] = str(v)
+                                                extracted_data.append(flat_data)
 
-                                            # Write to DB immediately
-                                            import json
+                                                # Write to DB immediately
+                                                import json
 
-                                            db_manager.update_article(pmid, pico_data=json.dumps(data, ensure_ascii=False))
+                                                db_manager.update_article(pmid, pico_data=json.dumps(data, ensure_ascii=False))
+                                    except Exception as e:
+                                        print(f"Error extracting PICO for {tei_file}: {e}")
+                                        status_text.text(f"[{idx + 1}/{total_tei}] Failed to extract PICO for PMID {pmid}")
 
                                 if extracted_data:
                                     pass  # Handled by DB
-                            progress_bar.progress(100)
-                            status_text.text(t("analysis_complete"))
+                            progress_bar.empty()
+                            status_text.empty()
                             st.success(t("analysis_complete"))
 
         # --- Human-in-the-Loop Verification & Navigation (Step 3 -> Step 4) ---

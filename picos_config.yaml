@@ -7,3 +7,4 @@ picos:
   study_design: '"Comparative Study"[pt] OR "Cohort Studies"[Mesh] OR "Meta-analysis"[pt]'
   email: chemahc94@pusan.ac.kr
   api_key: ''
+  enable_scihub_fallback: true

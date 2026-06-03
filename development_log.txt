@@ -187,3 +187,64 @@
 
 [2026-06-03 16:11:11] Feature Update: No OA Source Logging
 - Unpaywall, PMC, Semantic Scholar 모든 채널에서 PDF URL을 찾지 못한 경우(No OA Source Found)에도 write_debug_log를 호출하여 실패 로그를 남기도록 개선.
+
+[2026-06-03 16:29:59] Feature Update: AI PICO Extraction Validation
+- 1단계 PICO 자동 추출 과정에서, 예상되는 PubMed 검색 결과 논문 수가 20개 미만일 경우 조건을 완화하여 최대 3회까지 재추출하도록 조건문(>0 -> >=20) 상향 조정 및 프롬프트 개선 적용.
+
+[2026-06-03 02:23:09] Bug Fix: Full AI-driven Scoping Mode Auto-Start
+- Issue: In Full AI-driven Scoping mode, navigating to the screening tab did not automatically start the screening process if there were previously screened articles in the database.
+- Resolution: Changed the condition for auto_start_screening and auto_download in app.py from checking if all articles are unscreened (len == 0) to checking if ANY article is unscreened (df.isna().any()). This ensures the pipeline continues automatically for newly fetched PMIDs.
+
+[2026-06-03 02:39:31] Bug Fix: Empty string evaluation in Full AI-driven Scoping Mode
+- Issue: The previous fix for auto-start checked isna().any(), but new rows inserted by PubMed search actually get parsed into the SQLite database and often return as empty strings instead of true NaN or None in Pandas, causing the auto-start check to fail.
+- Resolution: Added empty string check to both the auto-screening and auto-download condition blocks to ensure newly imported empty records correctly trigger the automated pipeline.
+
+[2026-06-03 02:40:44] Bug Fix: Infinite loop in PDF Download step (Full AI-driven Scoping Mode)
+- Issue: The application entered an infinite loop of downloading PDFs and reloading the page. This occurred because the auto-download check evaluated ALL articles (including excluded ones) for missing download status. Since excluded articles are never downloaded, their status remains empty, causing the check to persistently pass and re-trigger the download process upon every reload.
+- Resolution: Modified the logic in app.py to specifically check the included_df (Included articles only) for missing download statuses rather than the entire df.
+
+[2026-06-03 02:44:27] Bug Fix: Empty Title and Abstract from PubMed Search
+- Issue: In Tab 1, PMIDs were being saved to the database immediately after the ID fetch but before the full XML was fetched and parsed. Since the database insertion used INSERT OR IGNORE, the subsequent insertion of the fully parsed data (containing titles and abstracts) was ignored because the PMIDs already existed. This caused many articles to have blank titles and abstracts in the database.
+- Resolution 1: Removed the premature PMID save block in app.py so the data is only saved once after full parsing.
+- Resolution 2: Fixed deduplication logic in pubmed_parser.py to prevent it from accidentally dropping multiple distinct articles that had empty titles.
+- Note: The reason empty title/abstract articles were marked as Included is because the LLM prompt explicitly instructs it to default to Included if the abstract is missing or vague, which is intended behavior for conservative screening.
+
+[2026-06-03 02:57:47] Feature Implementation & Bug Fix
+- 테스트 코드(pytest) 작성: pubmed_parser, db_manager, pico_extractor, screener 등 핵심 모듈 100% 통과 완료.
+- HiTL 기능 보완: 데이터 추출 단계(Tab 3)에서 RoB 데이터 수동 오버라이드 시 PMID 대신 URL이 저장되던 버그 수정(db_manager.update_article 호출 시 raw_pmid 사용).
+- Full AI-driven Scoping Mode 고도화: 1단계 탭에 자동 추출 버튼을 원클릭 자동 실행 버튼으로 통합. 검색 결과가 0건일 경우 최대 3회까지 LLM에 피드백을 주며 조건을 완화해 재검색하도록 재시도(Retry) 로직 추가.
+- 전체 단계 원클릭화: 1단계부터 4단계 보고서 생성까지 사용자의 추가 조작 없이 자동 전환 및 실행되도록 세션 상태 기반 트리거 로직 추가.
+
+[2026-06-03 03:03:48] UI Update: Analysis Pipeline Progress Display
+- Issue: In Tab 3 Analysis Pipeline, the UI seemed to get stuck at the GROBID Fallback Parser message while actually waiting for the LLM Risk of Bias (RoB) assessment for subsequent PDFs.
+- Fix: Added real-time progress indicators Parsing PDF for PMID... during the PDF iteration, and Starting Risk of Bias Assessment (this may take a while)... before the LLM calls to prevent confusion and indicate actual progress.
+
+[2026-06-03 15:38:08] Issue #38 Resolved: Added Debug Logging for PDF Downloader
+- downloader.py의 download_pdf_from_url 및 try_pmc_download 함수에 pmid, doi 인자를 추가.
+- 안티 봇 및 네트워크 실패 메타데이터를 수집하기 위해 write_debug_log 구현 완료.
+- 타겟 식별자, HTTP 에러 내용(Cloudflare 방어 스크립트 등 탐지) 및 네트워크 헤더 정보를 포함하여 data/logs/ 하위에 JSON 덤프 생성 기능 추가 완료.
+
+[2026-06-03 16:02:13] Issue #39 Resolved: Critical Failures in PDF Downloader
+- fake-useragent 라이브러리를 도입하여 동적 User-Agent 생성 및 최신 브라우저 Sec-Ch-Ua 헤더 삽입 완료.
+- efetch.fcgi (PMC)에서 Content-Type이 application/pdf가 아닐 때 정상적으로 Semantic Scholar 라우트로 Fallback 되도록 아키텍처 확인 및 WAF 차단 시 Playwright 브라우저 기반 다운로드 모듈을 동작하도록 연계.
+- Angle Orthodontist URL 매핑 규칙 업데이트(angle.org -> meridian.allenpress.com).
+- playwright, playwright-stealth 엔진을 도입하여 Headless Browser fallback 파이프라인 개발 및 통합 완료.
+
+[2026-06-03 16:11:11] Feature Update: No OA Source Logging
+- Unpaywall, PMC, Semantic Scholar 모든 채널에서 PDF URL을 찾지 못한 경우(No OA Source Found)에도 write_debug_log를 호출하여 실패 로그를 남기도록 개선.
+
+[2026-06-03 16:29:59] Feature Update: AI PICO Extraction Validation
+- 1단계 PICO 자동 추출 과정에서, 예상되는 PubMed 검색 결과 논문 수가 20개 미만일 경우 조건을 완화하여 최대 3회까지 재추출하도록 조건문(>0 -> >=20) 상향 조정 및 프롬프트 개선 적용.
+
+[2026-06-03 16:38:18] Bug Fix: TEI XML Parsing Error
+- GROBID 실패 시 사용되는 Fallback Parser가 PDF 텍스트를 XML 구조에 넣을 때, < 또는 & 같은 특수문자를 이스케이프(html.escape)하지 않아 발생하는 XML Parsing Error (not well-formed) 문제 해결. 
+- 비정상적으로 생성된 기존 XML 캐시 파일 삭제 및 DB pipeline_status 초기화 완료.
+
+[2026-06-03 16:40:30] Feature Update: Reset Project Data
+- '프로젝트 및 데이터 초기화(Reset Data)' 기능 실행 시, 기존의 PDF 파일, DB, raw XML 뿐만 아니라 data/logs의 디버깅 로그 파일들과 data/tei의 파싱된 캐시 파일들까지 모두 일괄 삭제되도록 src/utils/data_manager.py의 삭제 스코프를 확장함.
+
+[2026-06-03 17:49:00] Issue #40 Resolved: Sci-Hub Direct Fallback Router 구현 및 efetch.fcgi 노이즈 다운로드 제거
+- picos_config.yaml에 enable_scihub_fallback 옵션 추가하여 Opt-in 환경 마련.
+- src/ingest/scihub_fallback.py를 생성하여 Playwright 비동기 기반의 Sci-Hub 미러 우회 및 다운로드 엔진 구현 완료.
+- src/ingest/downloader.py에서 PDF 획득 용도로 남용되던 구형 PMC efetch.fcgi 라우트(try_pmc_download) 완전히 제거.
+- app.py 및 main.py에 enable_scihub_fallback 플래그를 파이프라인에 전달하도록 연동 완료.

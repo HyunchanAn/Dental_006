@@ -10,6 +10,9 @@ tabulate
 asreview-makita
 streamlit
 rouge-score
+playwright
+playwright-stealth
+fake-useragent
 
 # Note: Other dependencies like PyTorch, vLLM, and Docker for GROBID
 # should be installed on the development machine (home PC) as per the memo.

@@ -6,7 +6,8 @@ DATA_DIR = "data"
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
 TABLES_DIR = os.path.join(DATA_DIR, "tables")
 PDF_DIR = os.path.join(DATA_DIR, "pdf")
-
+TEI_DIR = os.path.join(DATA_DIR, "tei")
+LOGS_DIR = os.path.join(DATA_DIR, "logs")
 
 def clear_generated_data_files():
     """
@@ -26,15 +27,18 @@ def clear_generated_data_files():
             except Exception as e:
                 print(f"오류: {f} 삭제 실패. {e}")
 
-    if os.path.exists(PDF_DIR):
-        for item in os.listdir(PDF_DIR):
-            item_path = os.path.join(PDF_DIR, item)
-            if os.path.isfile(item_path) and item.lower().endswith(".pdf"):  # Only delete PDFs
-                try:
-                    os.remove(item_path)
-                    print(f" - 삭제됨: {item_path}")
-                except Exception as e:
-                    print(f"오류: {item_path} 삭제 실패. {e}")
+    dirs_to_clear = [PDF_DIR, TEI_DIR, LOGS_DIR]
+
+    for d in dirs_to_clear:
+        if os.path.exists(d):
+            for item in os.listdir(d):
+                item_path = os.path.join(d, item)
+                if os.path.isfile(item_path):  # Delete all files in these directories
+                    try:
+                        os.remove(item_path)
+                        print(f" - 삭제됨: {item_path}")
+                    except Exception as e:
+                        print(f"오류: {item_path} 삭제 실패. {e}")
 
     print("이전 데이터 파일 삭제 완료.")
 
