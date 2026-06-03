@@ -252,3 +252,4 @@
 2026-06-03: Fix translation dictionary in app.py after UI refactor. Extracted original TRANSLATIONS into src/ui/translations.py and updated app.py imports to resolve missing Korean strings.
 2026-06-03: Fixed bug in step3_analysis where manual download helper appeared for articles before PDF download was even attempted.
 2026-06-04: Fixed bug where 'Next Step' button disappears after Step 3 analysis completes. Added 'Parsed' to ready_mask.
+2026-06-04: Added HTML text extraction fallback for PDF download failures (Issue #42). Utilizes Playwright and BeautifulSoup4 to fetch raw text and save it as a TEI XML structure.

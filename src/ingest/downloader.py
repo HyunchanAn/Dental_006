@@ -139,7 +139,7 @@ def write_debug_log(pmid, doi, url, response, exception=None):
         print(f"  - Failed to write debug log: {e}")
 
 
-def download_pdf_with_playwright(pdf_url, output_path):
+def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
     """
     Fallback downloader using Playwright Headless Browser to bypass WAF, Cloudflare and Meta redirects.
     """
@@ -195,19 +195,30 @@ def download_pdf_with_playwright(pdf_url, output_path):
         res.raise_for_status()
 
         if "application/pdf" not in res.headers.get("Content-Type", "").lower():
+            if tei_path:
+                print("  - URL returned HTML. Extracting full text via BeautifulSoup...")
+                html_content = res.text
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(html_content, 'html.parser')
+                text = soup.get_text(separator=' ', strip=True)
+                xml_content = f'<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader/><text><body><div><p>{text}</p></div></body></text></TEI>'
+                with open(tei_path, "w", encoding="utf-8") as f:
+                    f.write(xml_content)
+                print("  - SUCCESS: Extracted HTML text to TEI XML.")
+                return "html"
             return False
 
         with open(output_path, "wb") as f:
             for chunk in res.iter_content(chunk_size=8192):
                 f.write(chunk)
         print("  - SUCCESS: Downloaded PDF via Playwright session.")
-        return True
+        return "pdf"
     except Exception as e:
         print(f"  - Playwright fallback failed: {e}")
         return False
 
 
-def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None):
+def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None, tei_path=None):
     """
     Downloads a PDF from a URL and saves it to the specified path.
     """
@@ -224,8 +235,9 @@ def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None)
         if "application/pdf" not in response.headers.get("Content-Type", "").lower():
             # If standard request returns HTML (possibly WAF or redirect), try playwright fallback
             print(f"  - Target URL returned {response.headers.get('Content-Type')}, trying Playwright fallback...")
-            if download_pdf_with_playwright(pdf_url, output_path):
-                return True
+            pw_res = download_pdf_with_playwright(pdf_url, output_path, tei_path)
+            if pw_res:
+                return pw_res
 
             write_debug_log(pmid, doi, pdf_url, response, Exception("Content-Type is not application/pdf"))
             return False
@@ -233,19 +245,20 @@ def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None)
         with open(output_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        return True
+        return "pdf"
     except requests.exceptions.RequestException as e:
         print(f"  - Failed to download PDF from {pdf_url}: {e}")
         # If it failed due to 403 or other WAF rules, attempt Playwright fallback
         if response and response.status_code in [403, 404, 429, 503]:
             print("  - Received HTTP Error. Attempting Playwright fallback...")
-            if download_pdf_with_playwright(pdf_url, output_path):
-                return True
+            pw_res = download_pdf_with_playwright(pdf_url, output_path, tei_path)
+            if pw_res:
+                return pw_res
         write_debug_log(pmid, doi, pdf_url, response, e)
     return False
 
 
-def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None, enable_scihub_fallback=False):
+def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None, enable_scihub_fallback=False, tei_dir=None):
     """
     Parses a PubMed XML file, extracts DOIs and PMCIDs, and attempts to download open-access PDFs
     using a fallback strategy (Unpaywall -> PMC).
@@ -317,8 +330,13 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None,
             pdf_url = get_unpaywall_pdf_url(doi, email=email)
             if pdf_url:
                 print(f"  - Found Unpaywall OA link for DOI {doi}. Attempting download...")
-                if download_pdf_from_url(pdf_url, output_filename, email=email, pmid=pmid, doi=doi):
+                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
+                res = download_pdf_from_url(pdf_url, output_filename, email=email, pmid=pmid, doi=doi, tei_path=tei_path)
+                if res == "pdf":
                     download_status[pmid] = "Downloaded (Unpaywall)"
+                    downloaded = True
+                elif res == "html":
+                    download_status[pmid] = "Downloaded (HTML Fallback)"
                     downloaded = True
                 else:
                     download_status[pmid] = "Download Failed (Unpaywall)"
@@ -331,8 +349,13 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None,
                 pdf_url = get_semantic_scholar_pdf_url(paper_id, email=email)
                 if pdf_url:
                     print(f"  - Found Semantic Scholar OA link for {paper_id}. Attempting download...")
-                    if download_pdf_from_url(pdf_url, output_filename, email=email, pmid=pmid, doi=doi):
+                    tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
+                    res = download_pdf_from_url(pdf_url, output_filename, email=email, pmid=pmid, doi=doi, tei_path=tei_path)
+                    if res == "pdf":
                         download_status[pmid] = "Downloaded (SemanticScholar)"
+                        downloaded = True
+                    elif res == "html":
+                        download_status[pmid] = "Downloaded (HTML Fallback)"
                         downloaded = True
 
         # --- Strategy 3: Try Sci-Hub Direct Fallback (if enabled and others failed) ---

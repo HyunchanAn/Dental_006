@@ -66,6 +66,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
             allowed_pmids=included_pmids,
             email=config.get("email"),
             enable_scihub_fallback=config.get("enable_scihub_fallback", False),
+            tei_dir=TEI_DIR,
         )
         for pmid, status in pdf_download_status.items():
             db_manager.update_article(pmid, pdf_download_status=status)
