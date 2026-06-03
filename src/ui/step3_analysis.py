@@ -82,7 +82,10 @@ def render(config: dict, state: dict, **callbacks) -> None:
 
     # --- Check for missing files & Manual Helper ---
     if "pdf_download_status" in df.columns:
-        failed_mask = ~df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists|Skipped", case=False, na=False)
+        status_series = df["pdf_download_status"].astype(str).str.strip()
+        is_attempted = (status_series != "") & (status_series.str.lower() != "nan") & (status_series.str.lower() != "none")
+        is_not_success = ~status_series.str.contains(r"Downloaded|Exists|Skipped", case=False, na=False)
+        failed_mask = is_attempted & is_not_success
         failed_df = df[failed_mask]
 
         if not failed_df.empty:
