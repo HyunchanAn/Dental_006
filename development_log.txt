@@ -249,3 +249,4 @@
 - src/ingest/downloader.py에서 PDF 획득 용도로 남용되던 구형 PMC efetch.fcgi 라우트(try_pmc_download) 완전히 제거.
 - app.py 및 main.py에 enable_scihub_fallback 플래그를 파이프라인에 전달하도록 연동 완료.
 2026-06-03: UI Refactoring Issue #41 Part 2 complete. Splitted app.py into src/ui modular components. Added GitHub Actions cache for playwright.
+2026-06-03: Fix translation dictionary in app.py after UI refactor. Extracted original TRANSLATIONS into src/ui/translations.py and updated app.py imports to resolve missing Korean strings.
