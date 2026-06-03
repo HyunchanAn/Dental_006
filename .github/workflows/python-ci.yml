@@ -27,6 +27,18 @@ jobs:
         uv venv
         uv pip install -e ".[dev,test]"
 
+    - name: Cache Playwright Browsers
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-
+
+    - name: Install Playwright Browsers
+      run: |
+        uv run playwright install chromium
+
     - name: Run Ruff Linter (Style and Quality check)
       run: |
         uv run ruff check .

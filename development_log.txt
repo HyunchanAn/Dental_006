@@ -248,3 +248,4 @@
 - src/ingest/scihub_fallback.py를 생성하여 Playwright 비동기 기반의 Sci-Hub 미러 우회 및 다운로드 엔진 구현 완료.
 - src/ingest/downloader.py에서 PDF 획득 용도로 남용되던 구형 PMC efetch.fcgi 라우트(try_pmc_download) 완전히 제거.
 - app.py 및 main.py에 enable_scihub_fallback 플래그를 파이프라인에 전달하도록 연동 완료.
+2026-06-03: UI Refactoring Issue #41 Part 2 complete. Splitted app.py into src/ui modular components. Added GitHub Actions cache for playwright.
