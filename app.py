@@ -480,20 +480,55 @@ def main():
             height=100,
         )
 
-        if st.button("✨ PICO 자동 추출 (Auto-extract with AI)"):
+        is_scoping = st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed")
+        btn_label = "🚀 AI 스코핑 자동 실행 (Auto Run End-to-End)" if is_scoping else "✨ PICO 자동 추출 (Auto-extract with AI)"
+        
+        if st.button(btn_label, type="primary" if is_scoping else "secondary"):
             if topic_description:
                 from src.llm import pico_extractor
+                
+                max_retries = 3 if is_scoping else 1
+                feedback = ""
+                success = False
 
-                with st.spinner("AI가 PICO를 분석 중입니다..."):
-                    extracted = pico_extractor.extract_pico_from_description(topic_description)
-                    if extracted:
-                        st.session_state["picos"].update(extracted)
-                        # Sync individual fields to session state to update UI immediately
-                        st.success("PICO 추출 완료! 아래 필드가 업데이트되었습니다.")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("PICO 추출에 실패했습니다.")
+                for attempt in range(max_retries):
+                    with st.spinner(f"AI가 PICO를 분석 중입니다... (시도 {attempt+1}/{max_retries})"):
+                        extracted = pico_extractor.extract_pico_from_description(topic_description, feedback)
+                        if extracted:
+                            st.session_state["picos"].update(extracted)
+                            
+                            if not is_scoping:
+                                st.success("PICO 추출 완료! 아래 필드가 업데이트되었습니다.")
+                                success = True
+                                break
+                                
+                            # In scoping mode, verify the query
+                            query = construct_search_query(st.session_state["picos"])
+                            today = datetime.now()
+                            end_date = today.strftime("%Y/%m/%d")
+                            start_date = (today - timedelta(days=20 * 365)).strftime("%Y/%m/%d")
+                            _, total_count = pubmed.fetch_pmids(
+                                query, max_ret=1, mindate=start_date, maxdate=end_date,
+                                email=st.session_state["picos"].get("email"), api_key=st.session_state["picos"].get("api_key"),
+                            )
+                            if total_count > 0:
+                                st.success(f"PICO 추출 및 쿼리 생성 완료! 예상 논문 수: {total_count}")
+                                st.session_state["picos"]["query"] = query
+                                success = True
+                                st.session_state["auto_trigger_search"] = True
+                                break
+                            else:
+                                feedback = f"The query '{query}' returned 0 results. Please use broader MeSH terms or synonyms. Remove overly restrictive constraints."
+                                st.warning(f"검색 결과가 0건입니다. 조건을 완화하여 재시도합니다... (시도 {attempt+1}/{max_retries})")
+                        else:
+                            st.error("PICO 추출에 실패했습니다.")
+                            break
+
+                if success:
+                    time.sleep(1)
+                    st.rerun()
+                elif is_scoping:
+                    st.error("3회 시도에도 불구하고 검색 결과가 0건입니다. 연구 주제를 더 포괄적으로 변경해주세요.")
             else:
                 st.warning("먼저 연구 주제를 입력해주세요.")
 
@@ -535,8 +570,8 @@ def main():
         with col_s1:
             max_ret = st.number_input(t("max_articles"), min_value=1, max_value=1000, value=20)
         with col_s2:
-            st.markdown("<br>", unsafe_allow_html=True)  # Spacer
-            if st.button(t("search_button")):
+            auto_search = st.session_state.pop("auto_trigger_search", False)
+            if st.button(t("search_button")) or auto_search:
                 with st.spinner(t("searching")):
                     today = datetime.now()
                     end_date = today.strftime("%Y/%m/%d")
@@ -567,9 +602,7 @@ def main():
                             api_key=st.session_state["picos"].get("api_key"),
                         )
 
-                        # Save PMIDs
-                        pmid_df = pd.DataFrame(pmids, columns=["pmid"])
-                        db_manager.import_pubmed_results(pmid_df)
+                        # PMIDs fetched, proceeding to fetch abstracts
 
                         # Fetch Abstracts
                         articles_xml = pubmed.fetch_abstracts(
@@ -657,7 +690,7 @@ def main():
 
             auto_start_screening = False
             if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
-                if "screening_decision" not in df.columns or len(df[df["screening_decision"].notna()]) == 0:
+                if "screening_decision" not in df.columns or df["screening_decision"].isna().any() or (df["screening_decision"] == "").any():
                     auto_start_screening = True
 
             if st.button(t("start_screening")) or auto_start_screening:
@@ -840,7 +873,17 @@ def main():
                         st.subheader(t("download_section"))
 
                         xml_path = os.path.join(RAW_DATA_DIR, "articles.xml")
-                        if st.button(t("download_btn"), type="primary"):
+                        
+                        auto_download = False
+                        if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
+                            if "pdf_download_status" not in df.columns:
+                                auto_download = True
+                            else:
+                                included_missing = included_df["pdf_download_status"]
+                                if included_missing.isna().any() or (included_missing == "").any():
+                                    auto_download = True
+
+                        if auto_download or st.button(t("download_btn"), type="primary"):
                             progress_bar = st.progress(0)
                             status_text = st.empty()
                             status_text.text(t("downloading_pdfs"))
@@ -949,13 +992,50 @@ def main():
                                 for _, row in batch_df.iterrows():
                                     with st.container(border=True):
                                         pmid = str(row["pmid"])
-                                        title = row.get("title", "No Title")
+                                        display_title = row.get("title")
                                         doi = row.get("doi")
+                                        
+                                        if pd.isna(display_title) or not str(display_title).strip() or pd.isna(doi) or not str(doi).strip():
+                                            # Auto-heal missing title or DOI from PubMed
+                                            try:
+                                                fetch_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={pmid}&retmode=xml"
+                                                res = requests.get(fetch_url, timeout=3)
+                                                if res.status_code == 200:
+                                                    root = ET.fromstring(res.text)
+                                                    updates = {}
+                                                    
+                                                    if pd.isna(display_title) or not str(display_title).strip():
+                                                        t_node = root.find(".//ArticleTitle")
+                                                        if t_node is not None and t_node.text:
+                                                            display_title = t_node.text
+                                                            updates["title"] = display_title
+                                                            
+                                                    if pd.isna(doi) or not str(doi).strip():
+                                                        doi_node = root.find(".//ArticleId[@IdType='doi']")
+                                                        if doi_node is None:
+                                                            doi_node = root.find(".//ELocationID[@EIdType='doi']")
+                                                        if doi_node is not None and doi_node.text:
+                                                            doi = doi_node.text
+                                                            updates["doi"] = doi
+                                                            
+                                                    if updates:
+                                                        db_manager.update_article(pmid, **updates)
+                                            except Exception:
+                                                pass
+                                            
+                                        if pd.isna(display_title) or not str(display_title).strip():
+                                            display_title = f"PMID {pmid}"
+                                            search_query = str(pmid)
+                                        else:
+                                            search_query = str(display_title)
+                                        
                                         target_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
                                         file_exists = os.path.exists(target_path)
 
                                         pubmed_link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-                                        scholar_link = f"https://scholar.google.com/scholar?q={pmid}"
+                                        import urllib.parse
+                                        title_encoded = urllib.parse.quote(search_query)
+                                        scholar_link = f"https://scholar.google.com/scholar?q={title_encoded}"
                                         if isinstance(doi, str) and doi.strip():
                                             doi_link = f"https://doi.org/{doi}"
                                             sci_hub_link = f"https://sci-hub.st/{doi}"
@@ -963,7 +1043,7 @@ def main():
                                             doi_link = None
                                             sci_hub_link = f"https://sci-hub.st/{pmid}"
 
-                                        st.markdown(f"**{title}**")
+                                        st.markdown(f"**{display_title}**")
 
                                         # Status Badge & File Detection
                                         status = str(row.get("pdf_download_status", "Failed"))
@@ -1104,7 +1184,14 @@ def main():
 
                         st.info(t("analysis_ready", count=ready_count))
 
-                        if st.button(t("analysis_btn"), type="primary"):
+                        auto_analyze = False
+                        if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):
+                            if not df.empty and "pipeline_status" in df.columns:
+                                unparsed_mask = ready_mask & (df["pipeline_status"].fillna(0) < 2)
+                                if unparsed_mask.any():
+                                    auto_analyze = True
+
+                        if auto_analyze or st.button(t("analysis_btn"), type="primary"):
                             # Create a run version and archive current data
                             run_path = vm.create_run(st.session_state["picos"])
                             vm.archive_current_data(run_path, TABLES_DIR, RAW_DATA_DIR)
@@ -1127,7 +1214,9 @@ def main():
                             status_text.text(t("parsing_pdfs"))
                             from src.parse import fallback_parser
 
-                            for pmid in ready_pmids:
+                            total_ready = len(ready_pmids)
+                            for idx, pmid in enumerate(ready_pmids):
+                                status_text.text(f"[{idx + 1}/{total_ready}] Parsing PDF for PMID {pmid}...")
                                 pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
                                 tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
                                 if os.path.exists(pdf_path) and not os.path.exists(tei_path):
@@ -1135,7 +1224,7 @@ def main():
 
                                     # Fallback logic: If GROBID fails or returns very little text
                                     if not tei_xml or len(tei_xml.strip()) < 500:
-                                        status_text.text(f"GROBID failed for {pmid}. Using Fallback Parser...")
+                                        status_text.text(f"[{idx + 1}/{total_ready}] GROBID failed for {pmid}. Using Fallback Parser...")
                                         tei_xml = fallback_parser.extract_text_from_pdf(pdf_path)
                                         db_manager.update_article(
                                             pmid, pdf_download_status="Parsed (Fallback)", pipeline_status=2
@@ -1151,11 +1240,13 @@ def main():
                             progress_bar.progress(50)
 
                             if os.path.exists(TEI_DIR):
+                                # Update UI before starting the generator
+                                status_text.text("Starting Risk of Bias Assessment (this may take a while)...")
                                 rob_gen = assessor.batch_assess_rob(TEI_DIR, allowed_pmids=ready_pmids)
                                 if rob_gen:
                                     for current_idx, total_count, pmid in rob_gen:
                                         status_text.text(
-                                            f"[{current_idx}/{total_count}] Assessing Risk of Bias for PMID {pmid}..."
+                                            f"[{current_idx}/{total_count}] Completed Risk of Bias for PMID {pmid}. Assessing next..."
                                         )
                                         # Calculate progress between 50% and 75%
                                         progress = 50 + int((current_idx / total_count) * 25)
@@ -1334,7 +1425,7 @@ def main():
                                         quote = parts[0].replace("Quote: '", "")
                                         reasoning = parts[1]
                                 rob_dict[domain] = {"quote": quote, "reasoning": reasoning, "level": level}
-                            db_manager.update_article(str(row["pmid"]), rob_data=json.dumps(rob_dict, ensure_ascii=False))
+                            db_manager.update_article(raw_pmid, rob_data=json.dumps(rob_dict, ensure_ascii=False))
 
                     st.session_state["human_verified"] = True
                     st.success("데이터가 확정되었습니다! 이제 다음 단계로 넘어갈 수 있습니다.")

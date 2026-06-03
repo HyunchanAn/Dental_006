@@ -26,6 +26,8 @@ def parse_articles(xml_string):
 
         # Extract DOI
         doi_node = article.find(".//ArticleId[@IdType='doi']")
+        if doi_node is None:
+            doi_node = article.find(".//ELocationID[@EIdType='doi']")
         article_data["doi"] = doi_node.text if doi_node is not None else ""
 
         # Extract Title
@@ -77,7 +79,10 @@ def parse_articles(xml_string):
         return re.sub(r"[^a-zA-Z0-9]", "", title.lower())
 
     df["normalized_title"] = df["title"].apply(normalize_title)
-    df = df.drop_duplicates(subset=["normalized_title"], keep="first")
+    has_title = df[df["normalized_title"] != ""].copy()
+    no_title = df[df["normalized_title"] == ""].copy()
+    has_title = has_title.drop_duplicates(subset=["normalized_title"], keep="first")
+    df = pd.concat([has_title, no_title])
     df = df.drop(columns=["normalized_title"])
 
     final_count = len(df)

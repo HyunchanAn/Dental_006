@@ -4,7 +4,7 @@ import re
 from src.llm import client as llm_client
 
 
-def extract_pico_from_description(description):
+def extract_pico_from_description(description, feedback=""):
     """
     Extracts PICO elements from a natural language research topic description using LLM.
     Returns a dictionary with keys: population, intervention, comparison, outcome, study_design.
@@ -82,6 +82,8 @@ Research Topic Description:
 
 Extract PICO. Return ONLY the JSON object. Do not include markdown code blocks.
 """
+    if feedback:
+        user_prompt += f"\n\nFeedback from previous attempt:\n{feedback}"
 
     messages = [
         {"role": "system", "content": system_prompt},
