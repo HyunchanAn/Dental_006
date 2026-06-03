@@ -12,6 +12,7 @@ sys.path.append(os.getcwd())
 from src.ingest import pubmed
 from src.parse import pubmed_parser
 from src.ui import sidebar, step1_search, step2_screen, step3_analysis, step4_extraction, step5_report
+from src.ui.translations import TRANSLATIONS
 from src.utils import data_manager, db_manager, versioning
 
 # --- Configuration & Setup ---
@@ -30,17 +31,12 @@ os.makedirs(PDF_DIR, exist_ok=True)
 st.set_page_config(page_title="Systematic Reviewer AI", layout="wide")
 
 
-# (Translation dict logic kept minimal for brevity, we can reuse if needed, or put in ui/translations.py. Let's inline a small helper)
-# Due to line constraints and cleanliness, I'll provide a minimal T function assuming Korean is default.
 def t(key, **kwargs):
-    # Minimal translation fallback if full dictionary is removed to keep it < 50 lines.
-    # We will just return the key if not found, but we kept Korean as text in components mostly.
-    # To keep it identical, let's keep a tiny dictionary for tabs.
-    trans = {"tabs": ["🔍 1. Search (PICO)", "👀 2. Screening", "⚙️ 3. Analysis Pipeline", "📝 4. Extraction", "📊 5. Report"]}
-    val = trans.get(key, key)
-    if kwargs and isinstance(val, str):
-        return val.format(**kwargs)
-    return val
+    lang = st.session_state.get("lang", "KO")
+    text = TRANSLATIONS[lang].get(key, key)
+    if kwargs and isinstance(text, str):
+        return text.format(**kwargs)
+    return text
 
 
 def load_config():
