@@ -1,170 +1,26 @@
-import os
-import sqlite3
-import threading
+# 다중 DB 지원 및 중복 제거 구현 체크리스트
 
-import pandas as pd
+## 1. 데이터베이스 마이그레이션 (`src/utils/db_manager.py`)
+- `[x]` `articles` 테이블의 PK를 `id` (UUID)로 변경하는 단일 트랜잭션 마이그레이션 로직 구현 (기존 데이터 보존)
+- `[x]` 기존 `pmid` 컬럼 Nullable 처리 및 `source_db` (출처) 컬럼 추가
+- `[x]` `pipeline_meta` 등 중복 제거 통계 보존을 위한 구조 신설
 
-DATA_DIR = "data"
-TABLES_DIR = os.path.join(DATA_DIR, "tables")
-DB_PATH = os.path.join(DATA_DIR, "app_state.db")
+## 2. 외부 데이터 파싱 및 정제 (`src/ingest/external_parser.py`)
+- `[/]` RIS, CSV 파일 리더 구현 (`rispy` 또는 `pandas`)
+- `[/]` 필드 매핑 (`title`, `abstract`, `doi`, `journal`, `pub_year`, `first_author`) 및 `source_db` 기입
+- `[/]` PMID가 없는 경우 고유 `id` 부여 로직 구현
 
-# Use threading.local to avoid SQLite 'same thread' errors in Streamlit
-_local = threading.local()
+## 3. 중복 제거 엔진 (`src/ingest/deduplicator.py`)
+- `[/]` 마스터 레코드 유지 정책 (완전 드롭 방식, PubMed > Embase > Cochrane 우선)
+- `[/]` 1단계 매칭: DOI
+- `[/]` 2단계 매칭: Title 정규화 매칭
+- `[/]` 3단계 매칭: Title 1차 + `pub_year` + `first_author` (Last name 정규화 추출) 교차 검증 로직 구현
 
+## 4. UI 연동 및 리포팅 반영 (`src/ui/step1_search.py`, `src/report/generator.py`)
+- `[ ]` 1단계 화면에 외부 DB 결과 업로드용 `st.expander` 및 `st.file_uploader` 추가
+- `[ ]` 파일 업로드 시 파싱 -> 중복 제거 -> DB 적재 워크플로우 연동
+- `[ ]` PRISMA 리포트 생성 시 중복 제거된 외부 DB 문헌 수 통계 자동 반영
 
-def _get_conn():
-    if not hasattr(_local, "conn"):
-        # Ensure directory exists
-        os.makedirs(DATA_DIR, exist_ok=True)
-        _local.conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-        _local.conn.row_factory = sqlite3.Row
-    return _local.conn
-
-
-def init_db():
-    """Initializes the database schema."""
-    conn = _get_conn()
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS articles (
-            pmid TEXT PRIMARY KEY,
-            doi TEXT,
-            title TEXT,
-            journal TEXT,
-            pub_year TEXT,
-            abstract TEXT,
-            screening_decision TEXT,
-            screening_reason TEXT,
-            exclusion_category TEXT,
-            pdf_download_status TEXT,
-            pico_data TEXT,
-            rob_data TEXT,
-            pipeline_status INTEGER DEFAULT 0
-        )
-    """)
-
-    # Add columns for backward compatibility if they are missing
-    try:
-        c.execute("ALTER TABLE articles ADD COLUMN pico_data TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        c.execute("ALTER TABLE articles ADD COLUMN rob_data TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        c.execute("ALTER TABLE articles ADD COLUMN exclusion_category TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    conn.commit()
-
-
-def clear_db():
-    """Clears all records from the database."""
-    conn = _get_conn()
-    c = conn.cursor()
-    c.execute("DROP TABLE IF EXISTS articles")
-    conn.commit()
-    init_db()
-
-
-def import_pubmed_results(df):
-    """
-    Imports initial PubMed search results into the database.
-    Ignores existing PMIDs to avoid overwriting state.
-    """
-    if df.empty:
-        return
-
-    conn = _get_conn()
-    # Convert dataframe to list of dicts, replacing NaN with empty string
-    df_clean = df.fillna("")
-    records = df_clean.to_dict("records")
-
-    c = conn.cursor()
-    for row in records:
-        c.execute(
-            """
-            INSERT OR IGNORE INTO articles
-            (pmid, doi, title, journal, pub_year, abstract, pipeline_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                str(row.get("pmid", "")),
-                str(row.get("doi", "")),
-                str(row.get("title", "")),
-                str(row.get("journal", "")),
-                str(row.get("pub_year", "")),
-                str(row.get("abstract", "")),
-                0,  # Fetched
-            ),
-        )
-    conn.commit()
-
-
-def update_article(pmid, **kwargs):
-    """
-    Updates specific fields for an article.
-    Example: update_article("1234", screening_decision="Included", pipeline_status=1)
-    """
-    if not kwargs:
-        return
-
-    conn = _get_conn()
-    c = conn.cursor()
-
-    # Sanitize: convert string 'nan', 'NaN', and Python None/NaN to empty string ""
-    sanitized_kwargs = {}
-    for k, v in kwargs.items():
-        if pd.isna(v) or str(v).lower() == "nan":
-            sanitized_kwargs[k] = ""
-        else:
-            sanitized_kwargs[k] = v
-
-    set_clause = ", ".join([f"{k} = ?" for k in sanitized_kwargs.keys()])
-    values = list(sanitized_kwargs.values())
-    values.append(str(pmid))
-
-    c.execute(f"UPDATE articles SET {set_clause} WHERE pmid = ?", values)
-    conn.commit()
-
-
-def get_articles_df(filters=None):
-    """
-    Returns a DataFrame of articles, optionally filtered.
-    filters: dict of column=value
-    """
-    conn = _get_conn()
-
-    query = "SELECT * FROM articles"
-    params = []
-
-    if filters:
-        conditions = []
-        for k, v in filters.items():
-            if v is None:
-                conditions.append(f"{k} IS NULL")
-            else:
-                conditions.append(f"{k} = ?")
-                params.append(v)
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-
-    df = pd.read_sql_query(query, conn, params=params)
-    return df
-
-
-def get_article(pmid):
-    """Returns a dictionary representation of a single article, or None."""
-    conn = _get_conn()
-    c = conn.cursor()
-    c.execute("SELECT * FROM articles WHERE pmid = ?", (str(pmid),))
-    row = c.fetchone()
-    return dict(row) if row else None
-
-
-# Auto-initialize on import
-init_db()
+## 5. 테스트 및 검증 (`tests/`)
+- `[ ]` DB 마이그레이션 안정성 테스트
+- `[ ]` 저자명/타이틀 정규화 기반 3단계 중복 제거 엣지 케이스 테스트

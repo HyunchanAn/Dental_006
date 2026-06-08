@@ -62,6 +62,17 @@ def generate_prisma_mermaid(stats, lang="EN"):
     """
     s = stats
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
+    
+    if lang == "KO":
+        prisma_id = "식별(Identification)<br/>데이터베이스 검색 결과"
+        prisma_dups = "스크리닝 전 제외됨<br/>(중복 문헌)"
+    else:
+        prisma_id = "Identification<br/>Records identified from Databases"
+        prisma_dups = "Records removed before screening<br/>(Duplicate records)"
+
+    gross_total = s.get("gross_total_found", s.get("total_found", 0))
+    dups = s.get("duplicates_removed", 0)
+
     # Custom HTML/CSS PRISMA Flowchart to perfectly match academic layout requirements
     mermaid_code = f"""
 <div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; max-width: 800px; margin: 20px auto; color: #1e293b; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #e2e8f0;">
@@ -73,7 +84,13 @@ def generate_prisma_mermaid(stats, lang="EN"):
     </div>
     <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
       <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
-        <b>{t["prisma_id"]}</b><br/>(n = {s.get("total_found", 0)})
+        <b>{prisma_id}</b><br/>(n = {gross_total})
+      </div>
+      <div style="width: 50px; height: 2px; background-color: #64748b; position: relative;">
+        <div style="position: absolute; right: -2px; top: -4px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 6px solid #64748b;"></div>
+      </div>
+      <div style="border: 1px solid #64748b; padding: 15px; background: #f1f5f9; width: 250px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
+        <b>{prisma_dups}</b><br/>(n = {dups})
       </div>
     </div>
   </div>
@@ -268,6 +285,15 @@ def generate_report(
 
     if not articles_df.empty:
         recalculated_stats["total_found"] = len(articles_df)
+        
+        # Pull duplicates stats from DB metadata
+        try:
+            total_dups = int(db_manager.get_meta("total_duplicates_removed", 0))
+        except Exception:
+            total_dups = 0
+            
+        recalculated_stats["duplicates_removed"] = total_dups
+        recalculated_stats["gross_total_found"] = len(articles_df) + total_dups
 
         if "screening_decision" in articles_df.columns:
             screened_mask = articles_df["screening_decision"] != ""
