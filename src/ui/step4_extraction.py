@@ -28,7 +28,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
             if row.get("rob_data"):
                 try:
                     rob_json = json.loads(row["rob_data"])
-                    flat_result = {"pmid": rob_json["pmid"]}
+                    flat_result = {"pmid": str(row["pmid"])}
                     for domain, details in rob_json.items():
                         if domain == "pmid":
                             continue

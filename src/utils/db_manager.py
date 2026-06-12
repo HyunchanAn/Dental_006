@@ -65,6 +65,26 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN authors TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN volume TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN issue TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN pages TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
 
 

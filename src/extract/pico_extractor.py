@@ -31,6 +31,7 @@ CRITICAL INSTRUCTIONS (STRICT COMPLIANCE REQUIRED):
 2. If the clear data for a specific field is not found in the text, output '-' instead of guessing.
 3. Do not infer or hallucinate missing values.
 4. Do NOT confuse baseline demographics or prevalence rates with intervention outcomes. Population must only contain baseline cohort information.
+5. If the provided text is empty, contains less than 100 words, or appears to be a stub/error message (e.g., 'Redirecting', 'Not Assessable', 'Login', '403 Forbidden', 'Cloudflare'), DO NOT attempt to extract data. Instead, output '-' for all description fields. DO NOT hallucinate or guess based on outside knowledge.
 
 Return a JSON object with EXACTLY these keys:
 {
@@ -59,6 +60,7 @@ CRITICAL INSTRUCTIONS (STRICT COMPLIANCE REQUIRED):
 2. If the clear data for a specific field is not found in the text, output '-' instead of guessing.
 3. Do not infer or hallucinate missing values.
 4. For the Intervention and Comparison, explicitly classify the subcategory (e.g., prosthesis retention type, implant type, material) if clearly described. If not clearly described, output '-'.
+5. If the provided text is empty, contains less than 100 words, or appears to be a stub/error message (e.g., 'Redirecting', 'Not Assessable', 'Login', '403 Forbidden', 'Cloudflare'), DO NOT attempt to extract data. Instead, output '-' for all description fields. DO NOT hallucinate or guess based on outside knowledge.
 
 Return a JSON object with EXACTLY these keys:
 {
@@ -88,6 +90,7 @@ CRITICAL INSTRUCTIONS (STRICT COMPLIANCE REQUIRED):
 3. Do not infer or hallucinate missing values.
 4. Extract standardized measurement scales (e.g., VAS, PD, CAL) and summary statistics (Mean, Standard Deviation, N) ONLY if they are explicitly present in the text snippet. If absent, output '-'.
 5. Do NOT confuse baseline demographics, baseline clinical measurements, or pre-existing conditions with intervention outcomes. Outcomes MUST be the results measured AFTER the intervention.
+6. If the provided text is empty, contains less than 100 words, or appears to be a stub/error message (e.g., 'Redirecting', 'Not Assessable', 'Login', '403 Forbidden', 'Cloudflare'), DO NOT attempt to extract data. Instead, output '-' for all description fields. DO NOT hallucinate or guess based on outside knowledge.
 
 Return a JSON object with EXACTLY these keys:
 {

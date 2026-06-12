@@ -1,13 +1,12 @@
 {
     "target_identifiers": {
-        "pmid": "39729161",
-        "doi": "10.1007/s00784-024-06066-7",
+        "pmid": "21909496",
+        "doi": null,
         "url": null
     },
     "network_context": {
-        "request_headers": {},
-        "user_agent": "Unknown",
-        "proxy_vpn_used": "None"
+        "request_headers": null,
+        "user_agent": "Unknown"
     },
     "http_status": {
         "status_code": null,
@@ -17,5 +16,5 @@
         "detected_signs": [],
         "has_anti_bot": false
     },
-    "exception": "No OA Source Found via Unpaywall, Semantic Scholar, or Sci-Hub"
+    "exception": "No OA Source Found"
 }

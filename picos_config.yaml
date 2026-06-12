@@ -1,10 +1,9 @@
 picos:
-  population: '"Child"[Mesh] OR "Adolescent*"[tiab] OR "Adult"[tiab] OR "Pediatric*"[tiab]'
-  intervention: '"Orthodontics"[Mesh] OR "Orthodontic*"[tiab] OR "Brace*"[tiab]'
-  comparison: '"Adult"[tiab] OR "Adolescent*"[tiab] OR "Child"[Mesh]'
-  outcome: '"Prognosis"[Mesh] OR "Treatment outcome"[tiab] OR "Success rate"[tiab]
-    OR "Predictor*"[tiab]'
-  study_design: '"Comparative Study"[pt] OR "Cohort Studies"[Mesh] OR "Meta-analysis"[pt]'
-  email: chemahc94@pusan.ac.kr
-  api_key: ''
-  enable_scihub_fallback: true
+  population: '"Aged"[Mesh] OR "Aged, 80 and over"[Mesh] OR "Elderly"[tiab]'
+  intervention: '"Dental Implants"[Mesh] OR "Dental Implant*"[tiab]'
+  comparison: '"Denture, Partial, Removable"[Mesh] OR "Denture*"[tiab] OR "Partial
+    denture*"[tiab]'
+  outcome: '"Occlusion"[Mesh] OR "Mastication"[Mesh] OR "Function"[Mesh] OR "Success
+    rate"[tiab]'
+  study_design: '"Comparative Study"[pt] OR "Review"[pt] OR "Randomized Controlled
+    Trial"[pt]'

@@ -56,12 +56,14 @@ REPORT_TRANSLATIONS = {
 }
 
 
-def generate_prisma_mermaid(stats, lang="EN"):
+def generate_prisma_mermaid(s, lang="KO", analyzed_pmids=None):
     """
-    Generates a Mermaid JS code for PRISMA flow diagram.
+    Generates a PRISMA flow diagram using Mermaid graph and HTML nodes.
+    's' is a dictionary containing the statistics.
     """
-    s = stats
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
+
+    included_count = len(analyzed_pmids) if analyzed_pmids is not None else s.get("retrieved", 0)
 
     if lang == "KO":
         prisma_id = "식별(Identification)<br/>데이터베이스 검색 결과"
@@ -166,7 +168,7 @@ def generate_prisma_mermaid(stats, lang="EN"):
     <div style="flex-grow: 1; padding-left: 20px; display: flex; align-items: center; min-height: 80px;">
       <div style="border: 1px solid #64748b; padding: 15px; background: #f8fafc; width: 300px; text-align: left; border-radius: 2px; box-shadow: 2px 2px 0px rgba(0,0,0,0.05);">
         <b>{t["prisma_retrieved"]}</b><br/>(n = {s.get("retrieved", 0)})<br/><br/>
-        <b>{t["prisma_included"]}</b><br/>(n = {s.get("retrieved", 0)})
+        <b>{t["prisma_included"]}</b><br/>(n = {included_count})
       </div>
     </div>
   </div>
@@ -318,9 +320,7 @@ def generate_report(
     # Extract analyzed PMIDs from DB
     analyzed_pmids = None
     if not articles_df.empty and "pdf_download_status" in articles_df.columns:
-        analyzed_mask = articles_df["pdf_download_status"].isin(
-            ["Downloaded", "Already Downloaded", "Downloaded (Unpaywall)", "Downloaded (PMC)"]
-        )
+        analyzed_mask = articles_df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists", case=False, na=False)
         analyzed_pmids = set(articles_df[analyzed_mask]["pmid"].astype(str).tolist())
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -345,7 +345,10 @@ def generate_report(
 
         # Synthesis
         if synthesis_result:
-            f.write("## 6. 결론 및 고찰 (Synthesis)\n")
+            if lang == "KO":
+                f.write("## 6. 결론 및 고찰 (Synthesis)\n")
+            else:
+                f.write("## 6. Synthesis\n")
             # Strip any double asterisks just in case the LLM includes them
             clean_synthesis = synthesis_result.replace("**", "")
             f.write(clean_synthesis)
@@ -353,7 +356,7 @@ def generate_report(
 
         # PRISMA Flow
         f.write(f"## {t['prisma_header']}\n")
-        f.write(generate_prisma_mermaid(s, lang=lang))
+        f.write(generate_prisma_mermaid(s, lang=lang, analyzed_pmids=analyzed_pmids))
         f.write("\n")
 
         # Statistics Summary
@@ -379,10 +382,13 @@ def generate_report(
 
         if pico_records:
             df = pd.DataFrame(pico_records)
-            # Translate if target language is Korean
+            # Translate to target language
             if lang == "KO":
                 print("Translating extracted data to Korean...")
                 df = translate_dataframe(df, target_lang="KO")
+            elif lang == "EN":
+                print("Translating extracted data to English...")
+                df = translate_dataframe(df, target_lang="EN")
 
             f.write(f"{t['extract_count']}: {len(df)}\n\n")
             f.write(df.to_markdown(index=False))
@@ -399,7 +405,7 @@ def generate_report(
                     try:
                         rob_json = json.loads(row["rob_data"])
                         # Flatten
-                        flat_result = {"pmid": rob_json["pmid"]}
+                        flat_result = {"pmid": str(row["pmid"])}
                         for domain, details in rob_json.items():
                             if domain == "pmid":
                                 continue
@@ -429,10 +435,30 @@ def generate_report(
             if not ref_df.empty:
                 for _, row in ref_df.iterrows():
                     title = row.get("title", "No Title")
+                    if title and not title.endswith('.'):
+                        title += "."
                     journal = row.get("journal", "Unknown Journal")
                     year = row.get("pub_year", "n.d.")
+                    authors = row.get("authors", "")
+                    if not authors:
+                        authors = "Anonymous."
+                    elif not authors.endswith('.'):
+                        authors += "."
+                    volume = row.get("volume", "")
+                    issue = row.get("issue", "")
+                    pages = row.get("pages", "")
                     pmid = row.get("pmid", "Unknown PMID")
-                    f.write(f"- {title}. *{journal}* ({year}). PMID: {pmid}\n")
+
+                    # Vancouver Format: Author(s). Title. Journal. Year;Volume(Issue):Pages.
+                    ref_str = f"- {authors} {title} {journal}. {year}"
+                    if volume:
+                        ref_str += f";{volume}"
+                        if issue:
+                            ref_str += f"({issue})"
+                        if pages:
+                            ref_str += f":{pages}"
+                    ref_str += f". PMID: {pmid}\n"
+                    f.write(ref_str)
             else:
                 f.write("No references found.\n")
         else:

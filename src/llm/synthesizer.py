@@ -45,9 +45,22 @@ def synthesize_answer(picos, lang="KO"):
     # 2. Construct Prompt
     llm = llm_client.LLMClient()
 
-    system_prompt = """You are an expert Systematic Reviewer.
+    if lang == "EN":
+        target_language = "ENGLISH"
+        heading_1 = "## 1. Conclusion"
+        heading_2 = "## 2. Summary of Evidence"
+        heading_3 = "## 3. Confidence in Evidence & GRADE"
+        heading_4 = "## 4. Clinical Implications"
+    else:
+        target_language = "KOREAN"
+        heading_1 = "## 1. 종합 결론 (Conclusion)"
+        heading_2 = "## 2. 근거 요약 (Summary of Evidence)"
+        heading_3 = "## 3. 근거의 신뢰도 및 GRADE 평가 (Confidence in Evidence & GRADE)"
+        heading_4 = "## 4. 임상적 시사점 (Clinical Implications)"
+
+    system_prompt = f"""You are an expert Systematic Reviewer.
 Your task is to synthesize the provided evidence (Extracted Data and Risk of Bias assessment) to answer the user's research question (PICO).
-Write a comprehensive conclusion in KOREAN.
+Write a comprehensive conclusion in {target_language}.
 
 IMPORTANT FORMATTING RULES:
 - NEVER use ** (double asterisks) for bold or emphasis. Write plain text only.
@@ -56,24 +69,22 @@ IMPORTANT FORMATTING RULES:
 - Do NOT use placeholders like [Insert Argument Here] or [Effect].
 - Do NOT output a template. Analyze the specific data provided.
 - Terminology Guide:
-  - Use professional Korean medical terminology.
-  - Translate "dental implant" as "치과 임플란트" or "임플란트", NOT "치아 이식술".
-  - If a Korean term is ambiguous, keep the English term in parentheses, e.g., "치관 변위 판막술 (Coronally Advanced Flap, CAF)".
+  - If {target_language} is KOREAN, use professional Korean medical terminology. Translate "dental implant" as "치과 임플란트" or "임플란트", NOT "치아 이식술". If a Korean term is ambiguous, keep the English term in parentheses.
 
 GRADE EVALUATION RULE (CRITICAL):
 - If any study has a Risk of Bias (RoB) evaluated as "High Risk" or "High" in any domain, you MUST downgrade the certainty of evidence and explicitly state this limitation in your conclusion. Treat evidence from High Risk studies with extreme caution.
 
 Structure your response as follows:
-## 1. 종합 결론 (Conclusion)
+{heading_1}
 Answer the PICO question directly. State clearly if the intervention is effective compared to the comparison based on the evidence.
 
-## 2. 근거 요약 (Summary of Evidence)
+{heading_2}
 Summarize the key findings from the included studies. Mention the quantity and design of studies. Include intervention subcategories and statistical metrics (Mean, SD, N) if they were extracted.
 
-## 3. 근거의 신뢰도 및 GRADE 평가 (Confidence in Evidence & GRADE)
+{heading_3}
 Discuss the overall Risk of Bias. Explicitly mention any studies with "High Risk" and how it downgrades the certainty of your conclusion.
 
-## 4. 임상적 시사점 (Clinical Implications)
+{heading_4}
 Discuss the implications for clinical practice based on the findings.
 
 Output should be in Markdown format. NEVER use ** anywhere.
@@ -95,7 +106,7 @@ Research Question (PICO):
 {rob_data}
 
 ---
-Based on the above, write the Systemic Review Conclusion (Synthesis) in Korean.
+Based on the above, write the Systemic Review Conclusion (Synthesis) in {target_language}.
 """
 
     # 3. Call LLM

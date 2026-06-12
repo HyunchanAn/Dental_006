@@ -1,0 +1,8 @@
+Error: Invalid control character at: line 5 column 159 (char 495)
+Raw Response: {
+  "population": "'Aged'[Mesh] OR 'Aged, 80 and over'[Mesh] OR 'Elderly'[tiab] OR 'Geriatric*'[tiab]",
+  "intervention": "'Dental Implants'[Mesh] OR 'Dental Implant*'[tiab] OR 'Implant-supported'[tiab] OR 'Dental prosthesis'[tiab]",
+  "comparison": "'Denture, Partial, Removable'[Mesh] OR 'Denture*'[tiab] OR 'Partial denture*'[tiab]",
+  "outcome": "'Occlusion'[Mesh] OR 'Bite'[tiab] OR 'Chewing function'[tiab] OR 'Mastication'[tiab] OR 'Treatment Outcome'[Mesh] OR 'Functional outcome'[tiab],
+  "study_design": "'Comparative Study'[pt] OR 'Randomized Controlled Trial'[pt] OR 'Cohort Studies'[Mesh]"
+}

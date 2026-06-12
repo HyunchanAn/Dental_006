@@ -161,6 +161,39 @@ def write_debug_log(pmid, doi, url, status_code, headers, body_snippet, exceptio
         pass
 
 
+def is_valid_pdf(file_path):
+    if not os.path.exists(file_path):
+        return False
+    if os.path.getsize(file_path) < 5120:  # 5KB limit
+        return False
+    try:
+        with open(file_path, "rb") as f:
+            header = f.read(4)
+            if header != b"%PDF":
+                return False
+            f.seek(0)
+            content = f.read(4096)
+            text_content = content.decode("utf-8", errors="ignore").lower()
+            invalid_keywords = ["redirecting", "login", "cloudflare", "403 forbidden", "just a moment", "<html"]
+            for kw in invalid_keywords:
+                if kw in text_content:
+                    return False
+    except Exception:
+        return False
+    return True
+
+
+def is_valid_html_text(text):
+    if len(text) < 500:
+        return False
+    lower_text = text.lower()
+    invalid_keywords = ["redirecting", "login", "cloudflare", "403 forbidden", "just a moment", "please enable javascript"]
+    for kw in invalid_keywords:
+        if kw in lower_text:
+            return False
+    return True
+
+
 async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None, user_data_dir=None):
     print(f"  - Using Async Playwright Headless Browser for {pdf_url}...")
     try:
@@ -215,6 +248,9 @@ async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None, user
                         html_content = await res.text()
                         soup = BeautifulSoup(html_content, "html.parser")
                         text = soup.get_text(separator=" ", strip=True)
+                        if not is_valid_html_text(text):
+                            print("  - HTML fallback rejected due to invalid stub or paywall.")
+                            return False
                         xml_content = f'<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader/><text><body><div><p>{text}</p></div></body></text></TEI>'
                         with open(tei_path, "w", encoding="utf-8") as f:
                             f.write(xml_content)
@@ -224,6 +260,12 @@ async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None, user
                 with open(output_path, "wb") as f:
                     async for chunk in res.content.iter_chunked(8192):
                         f.write(chunk)
+
+                if not is_valid_pdf(output_path):
+                    print("  - Downloaded file is an invalid PDF or paywall stub. Moving to failed folder.")
+                    os.rename(output_path, output_path + ".failed")
+                    return False
+
                 print("  - SUCCESS: Downloaded PDF via Playwright session.")
                 return "pdf"
     except Exception as e:
@@ -253,6 +295,12 @@ async def download_pdf_from_url(
             with open(output_path, "wb") as f:
                 async for chunk in response.content.iter_chunked(8192):
                     f.write(chunk)
+
+            if not is_valid_pdf(output_path):
+                print("  - Downloaded file is an invalid PDF or paywall stub. Moving to failed folder.")
+                os.rename(output_path, output_path + ".failed")
+                return False
+
             return "pdf"
     except aiohttp.ClientError as e:
         print(f"  - Failed to download PDF from {pdf_url}: {e}")

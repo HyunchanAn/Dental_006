@@ -34,9 +34,39 @@ def parse_articles(xml_string):
         title_node = article.find(".//ArticleTitle")
         article_data["title"] = title_node.text if title_node is not None else ""
 
-        # Extract Journal Title
-        journal_title_node = article.find(".//Journal/Title")
-        article_data["journal"] = journal_title_node.text if journal_title_node is not None else ""
+        # Extract Journal Title (Use MedlineTA abbreviation for Vancouver style)
+        medline_ta_node = article.find(".//MedlineJournalInfo/MedlineTA")
+        if medline_ta_node is not None and medline_ta_node.text:
+            article_data["journal"] = medline_ta_node.text
+        else:
+            journal_title_node = article.find(".//Journal/Title")
+            article_data["journal"] = journal_title_node.text if journal_title_node is not None else ""
+
+        # Extract Authors
+        authors = []
+        for author in article.findall(".//AuthorList/Author"):
+            last_name = author.find("LastName")
+            initials = author.find("Initials")
+            if last_name is not None and last_name.text:
+                name = last_name.text
+                if initials is not None and initials.text:
+                    name += f" {initials.text}"
+                authors.append(name)
+
+        if len(authors) > 6:
+            article_data["authors"] = ", ".join(authors[:6]) + ", et al."
+        else:
+            article_data["authors"] = ", ".join(authors)
+
+        # Extract Volume, Issue, Pages
+        vol_node = article.find(".//JournalIssue/Volume")
+        article_data["volume"] = vol_node.text if vol_node is not None else ""
+
+        issue_node = article.find(".//JournalIssue/Issue")
+        article_data["issue"] = issue_node.text if issue_node is not None else ""
+
+        pages_node = article.find(".//Pagination/MedlinePgn")
+        article_data["pages"] = pages_node.text if pages_node is not None else ""
 
         # Extract Publication Year
         pub_year_node = article.find(".//PubDate/Year")

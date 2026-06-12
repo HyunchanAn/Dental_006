@@ -45,6 +45,17 @@ Example Output:
   "Measurement": {"quote": "Outcome measures were objectively recorded...", "reasoning": "Objective measurements reduce the risk of detection bias.", "level": "Low"},
   "Reporting": {"quote": "All pre-specified outcomes were reported...", "reasoning": "No selective reporting bias identified.", "level": "Low"}
 }
+
+CRITICAL INSTRUCTIONS (STRICT COMPLIANCE REQUIRED):
+1. If the provided text is empty, contains less than 100 words, or appears to be a stub/error message (e.g., 'Redirecting', 'Login', '403 Forbidden', 'Cloudflare', 'Just a moment'), DO NOT attempt to assess the risk of bias. DO NOT hallucinate or guess based on outside knowledge.
+2. In such cases of missing data or invalid stubs, you MUST output EXACTLY the following JSON structure and NOTHING ELSE:
+{
+  "Randomization": {"quote": "-", "reasoning": "No valid text provided.", "level": "Not Assessable"},
+  "Deviations": {"quote": "-", "reasoning": "No valid text provided.", "level": "Not Assessable"},
+  "MissingData": {"quote": "-", "reasoning": "No valid text provided.", "level": "Not Assessable"},
+  "Measurement": {"quote": "-", "reasoning": "No valid text provided.", "level": "Not Assessable"},
+  "Reporting": {"quote": "-", "reasoning": "No valid text provided.", "level": "Not Assessable"}
+}
 """
     user_prompt = f"""
 Papers Text:
