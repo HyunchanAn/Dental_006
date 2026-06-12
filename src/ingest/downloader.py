@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import aiohttp
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 
 from .scihub_fallback import SciHubDownloader
 
@@ -117,7 +117,7 @@ async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
             )
             page = await context.new_page()
-            await stealth_async(page)
+            await Stealth().apply_stealth_async(page)
 
             try:
                 await page.goto(pdf_url, wait_until="networkidle", timeout=30000)
