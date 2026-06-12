@@ -170,14 +170,14 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 use_container_width=True,
                 key="screening_editor",
             )
-            
+
             # Check for edits and save them
             editor_state = st.session_state.get("screening_editor", {})
             if editor_state.get("edited_rows"):
                 for row_idx_str, edits in editor_state["edited_rows"].items():
                     row_idx = int(row_idx_str)
                     pmid = str(df.iloc[row_idx]["pmid"])
-                    
+
                     # Update kwargs mapped to DB columns
                     update_kwargs = {"_is_manual": True, "is_user_verified": 1}
                     if "screening_decision" in edits:
@@ -186,9 +186,9 @@ def render(config: dict, state: dict, **callbacks) -> None:
                         update_kwargs["screening_reason"] = edits["screening_reason"]
                     if "exclusion_category" in edits:
                         update_kwargs["exclusion_category"] = edits["exclusion_category"]
-                        
+
                     db_manager.update_article(pmid, **update_kwargs)
-                
+
                 # Clear session state so it doesn't loop, but st.data_editor manages its own state
                 # We need to rerun to refresh DB stats, but wait a moment
                 st.toast("✅ 수동 변경사항이 저장되었습니다.")

@@ -1,19 +1,21 @@
+import asyncio
+import json
 import os
 import time
 
+import aiohttp
 import streamlit as st
 
+from src.extract import pico_extractor
 from src.ingest import downloader
-from src.parse import fallback_parser, grobid_client
+from src.parse import fallback_parser, grobid_client, tei_parser
 from src.rob import assessor
 
 DATA_DIR = "data"
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
-from src.parse import fallback_parser, grobid_client, tei_parser
-from src.extract import pico_extractor
-import asyncio
-import aiohttp
-import json
+TABLES_DIR = os.path.join(DATA_DIR, "tables")
+TEI_DIR = os.path.join(DATA_DIR, "tei")
+PDF_DIR = os.path.join(DATA_DIR, "pdf")
 
 
 def render(config: dict, state: dict, **callbacks) -> None:
@@ -221,18 +223,18 @@ def render(config: dict, state: dict, **callbacks) -> None:
         ready_pmids = df[doc_ready_mask]["pmid"].astype(str).tolist()
 
         status_text.text("병렬 분석 파이프라인 (GROBID -> RoB -> PICO) 시작 중...")
-        
-        GROBID_SEMAPHORE = asyncio.Semaphore(4)
-        LLM_SEMAPHORE = asyncio.Semaphore(1)
-        
+
+        grobid_semaphore = asyncio.Semaphore(4)
+        llm_semaphore = asyncio.Semaphore(1)
+
         async def process_article_pipeline(pmid, session):
             pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
             tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
-            
+
             # Phase 1: GROBID Parsing
             tei_xml = None
             if os.path.exists(pdf_path) and not os.path.exists(tei_path):
-                async with GROBID_SEMAPHORE:
+                async with grobid_semaphore:
                     tei_xml = await grobid_client.process_pdf_async(session, pdf_path)
                 if not tei_xml or len(tei_xml.strip()) < 500:
                     tei_xml = await asyncio.to_thread(fallback_parser.extract_text_from_pdf, pdf_path)
@@ -245,27 +247,35 @@ def render(config: dict, state: dict, **callbacks) -> None:
             elif os.path.exists(tei_path):
                 with open(tei_path, "r", encoding="utf-8") as f:
                     tei_xml = f.read()
-                    
+
             if not tei_xml:
                 return
-                
+
             # Phase 2: RoB & PICO Extraction
-            async with LLM_SEMAPHORE:
+            async with llm_semaphore:
                 # RoB Assess
                 rob_data = await asyncio.to_thread(assessor.assess_risk_of_bias, tei_path)
                 if rob_data:
                     db_manager.update_article(pmid, rob_data=json.dumps(rob_data, ensure_ascii=False))
-                
+
                 # PICO Extract
                 full_text = await asyncio.to_thread(tei_parser.extract_text_from_tei, tei_path, optimize_context=True)
                 if full_text == "CLOUDFLARE_BLOCK":
-                    db_manager.update_article(pmid, pdf_download_status="Failed (Cloudflare Block)", pipeline_status="FAILED", pico_data="", rob_data="")
+                    db_manager.update_article(
+                        pmid,
+                        pdf_download_status="Failed (Cloudflare Block)",
+                        pipeline_status="FAILED",
+                        pico_data="",
+                        rob_data="",
+                    )
                 elif full_text:
                     text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
                     pico_data = await asyncio.to_thread(pico_extractor.extract_pico_multi_agent, text_snippet)
                     if pico_data:
-                        db_manager.update_article(pmid, pico_data=json.dumps(pico_data, ensure_ascii=False), pipeline_status="EXTRACTED")
-            
+                        db_manager.update_article(
+                            pmid, pico_data=json.dumps(pico_data, ensure_ascii=False), pipeline_status="EXTRACTED"
+                        )
+
         async def run_pipeline():
             async with aiohttp.ClientSession() as session:
                 tasks = [process_article_pipeline(pmid, session) for pmid in ready_pmids]
@@ -277,7 +287,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
                     completed += 1
                     progress_bar.progress(completed / total)
                     status_text.text(f"분석 파이프라인 진행 중... ({completed}/{total})")
-                    
+
         asyncio.run(run_pipeline())
 
         progress_bar.empty()

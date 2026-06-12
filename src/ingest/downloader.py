@@ -18,6 +18,7 @@ DOWNLOAD_SEMAPHORE = asyncio.Semaphore(10)
 def get_request_headers(email=None):
     try:
         from fake_useragent import UserAgent
+
         ua = UserAgent(os="windows", browsers=["chrome", "edge"]).random
     except Exception:
         ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
@@ -170,7 +171,7 @@ async def download_pdf_from_url(session, pdf_url, output_path, email=None, pmid=
                 pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path)
                 if pw_res:
                     return pw_res
-                
+
                 body = await response.text()
                 write_debug_log(pmid, doi, pdf_url, response.status, dict(response.headers), body, Exception("Not PDF"))
                 return False
@@ -242,7 +243,7 @@ async def process_single_article(session, article, output_dir, email, enable_sci
 
 async def download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir):
     scihub_downloader = SciHubDownloader() if enable_scihub_fallback else None
-    
+
     async with aiohttp.ClientSession() as session:
         tasks = [
             process_single_article(session, article, output_dir, email, enable_scihub_fallback, tei_dir, scihub_downloader)
@@ -262,7 +263,7 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None,
         return {}
 
     articles = root.findall(".//PubmedArticle")
-    
+
     if allowed_pmids is not None:
         allowed_pmids_set = set(str(p) for p in allowed_pmids)
         articles = [a for a in articles if a.find(".//PMID") is not None and a.find(".//PMID").text in allowed_pmids_set]
@@ -271,6 +272,6 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None,
         return {}
 
     print(f"Attempting to download PDFs concurrently for {len(articles)} articles...")
-    
+
     # Run async logic synchronously for compatibility with Streamlit caller
     return asyncio.run(download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir))

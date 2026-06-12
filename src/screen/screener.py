@@ -1,8 +1,8 @@
 import json
 import re
+import threading
 
 import pandas as pd
-import threading
 
 from src.llm import client as llm_client
 
@@ -37,10 +37,10 @@ def screen_abstracts(articles_df, picos_data):
     # Check LLM connection
     with LLM_SEMAPHORE:
         if not llm.get_completion([{"role": "user", "content": "Test"}]):
-            for idx, row in articles_df.iterrows():
+            for _idx, row in articles_df.iterrows():
                 pmid = str(row.get("pmid", ""))
             yield (
-                idx + 1,
+                _idx + 1,
                 len(articles_df),
                 pmid,
                 {

@@ -123,14 +123,14 @@ def update_article(pmid, **kwargs):
     c = conn.cursor()
 
     _is_manual = kwargs.pop("_is_manual", False)
-    
+
     if not _is_manual:
         c.execute("SELECT is_user_verified FROM articles WHERE pmid = ?", (str(pmid),))
         row = c.fetchone()
         if row and row["is_user_verified"] == 1:
             for field in ["screening_decision", "screening_reason", "exclusion_category", "pico_data", "rob_data"]:
                 kwargs.pop(field, None)
-                
+
     if not kwargs:
         return
 

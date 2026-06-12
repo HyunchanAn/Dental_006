@@ -1,6 +1,7 @@
 import os
-import requests
+
 import aiohttp
+import requests
 
 # The default URL for the GROBID service started with docker-compose
 GROBID_URL = "http://localhost:8090"
@@ -39,10 +40,7 @@ async def process_pdf_async(session, pdf_path, timeout=60):
     try:
         with open(pdf_path, "rb") as f:
             data = aiohttp.FormData()
-            data.add_field('input',
-                           f.read(),
-                           filename=os.path.basename(pdf_path),
-                           content_type='application/pdf')
+            data.add_field("input", f.read(), filename=os.path.basename(pdf_path), content_type="application/pdf")
 
             async with session.post(GROBID_API_URL, data=data, timeout=timeout) as response:
                 if response.status == 200:
