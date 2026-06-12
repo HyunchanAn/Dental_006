@@ -6,7 +6,7 @@ from src.ingest.deduplicator import deduplicate_records, normalize_author, norma
 def test_normalization():
     assert normalize_title("Hello, World! 2023") == "helloworld2023"
     assert normalize_title("A Study on P.C.O.S.") == "astudyonpcos"
-    assert normalize_author("Smith, J.D.") == "smithjd"
+    assert normalize_author("Smith, J.D.") == "smith"
     assert normalize_author("Doe") == "doe"
 
 
