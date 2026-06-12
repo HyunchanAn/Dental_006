@@ -28,7 +28,8 @@ dependencies = [
     "rouge-score>=0.1.2",
     "playwright>=1.40.0",
     "playwright-stealth>=1.0.6",
-    "fake-useragent>=1.5.1"
+    "fake-useragent>=1.5.1",
+    "aiohttp>=3.9.0"
 ]
 
 [project.optional-dependencies]
@@ -41,6 +42,7 @@ dev = [
 ]
 test = [
     "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
     "pytest-mock>=3.12.0",
 ]
 

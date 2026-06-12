@@ -13,6 +13,7 @@ rouge-score
 playwright
 playwright-stealth
 fake-useragent
+aiohttp
 
 # Note: Other dependencies like PyTorch, vLLM, and Docker for GROBID
 # should be installed on the development machine (home PC) as per the memo.
