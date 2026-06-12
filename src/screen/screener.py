@@ -39,18 +39,18 @@ def screen_abstracts(articles_df, picos_data):
         if not llm.get_completion([{"role": "user", "content": "Test"}]):
             for _idx, row in articles_df.iterrows():
                 pmid = str(row.get("pmid", ""))
-            yield (
-                _idx + 1,
-                len(articles_df),
-                pmid,
-                {
-                    "pmid": pmid,
-                    "screening_decision": "Included",
-                    "screening_reason": "LLM Unavailable",
-                    "exclusion_category": "",
-                },
-            )
-        return
+                yield (
+                    _idx + 1,
+                    len(articles_df),
+                    pmid,
+                    {
+                        "pmid": pmid,
+                        "screening_decision": "Included",
+                        "screening_reason": "LLM Unavailable",
+                        "exclusion_category": "",
+                    },
+                )
+            return
 
     system_prompt = """You are an expert systematic reviewer.
 Your task is to screen research papers based on their Title and Abstract to decide if they should be included in a systematic review.

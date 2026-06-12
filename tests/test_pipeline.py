@@ -40,6 +40,8 @@ def test_screen_abstracts(mocker):
 
     # LLMClient 클래스를 mocking하여 로컬 Ollama 서비스 의존성 격리
     mocker.patch("src.llm.client.LLMClient", return_value=mock_llm_client)
+    mocker.patch("src.utils.db_manager.get_articles_df", return_value=pd.DataFrame())
+    mocker.patch("src.utils.db_manager.update_article")
 
     # 테스트 문헌 데이터프레임
     articles_df = pd.DataFrame(

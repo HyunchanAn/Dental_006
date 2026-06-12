@@ -7,18 +7,17 @@ def normalize_title(title):
     """Removes punctuation and extra spaces, converts to lowercase."""
     if not isinstance(title, str):
         return ""
-    # Remove everything except alphanumeric
-    title = re.sub(r"[^\w\s]", "", title.lower())
-    # Remove extra spaces
-    return re.sub(r"\s+", " ", title).strip()
+    # Remove everything except alphanumeric (including spaces)
+    return re.sub(r"[^\w]", "", title.lower())
 
 
 def normalize_author(author):
     """Extracts last name or removes spaces/punctuation for comparison."""
     if not isinstance(author, str):
         return ""
-    # Just remove all non-alphanumeric to be safe and lowercase
-    return re.sub(r"[^\w]", "", author.lower())
+    # Extract last name (before comma) to improve matching, then remove non-alphanumeric
+    last_name = author.split(",")[0]
+    return re.sub(r"[^\w]", "", last_name.lower())
 
 
 def deduplicate_records(existing_df, new_df):

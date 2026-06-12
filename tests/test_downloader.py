@@ -10,19 +10,16 @@ from src.ingest import downloader
 
 
 @pytest.mark.asyncio
-async def test_write_debug_log_on_download_failure(tmpdir):
+@patch("src.ingest.downloader.download_pdf_with_playwright", new_callable=AsyncMock)
+async def test_write_debug_log_on_download_failure(mock_pw, tmpdir):
+    mock_pw.return_value = False
+
     # Mock the aiohttp response context manager
     mock_response = AsyncMock()
     mock_response.status = 403
     mock_response.text.return_value = "<html><body>Access Denied from cloudflare</body></html>"
-    # To mock response.raise_for_status() raising an aiohttp.ClientResponseError
-    mock_response.raise_for_status.side_effect = aiohttp.ClientResponseError(
-        request_info=MagicMock(),
-        history=(),
-        status=403,
-        message="Forbidden",
-    )
-
+    mock_response.headers = {"Content-Type": "text/html"}
+    
     # Mock the get context manager
     mock_get_ctx = AsyncMock()
     mock_get_ctx.__aenter__.return_value = mock_response

@@ -9,6 +9,7 @@ def test_screen_abstracts_success():
     with (
         patch("src.llm.client.LLMClient") as mock_client_class,
         patch("src.utils.db_manager.get_articles_df", return_value=pd.DataFrame()),
+        patch("src.utils.db_manager.update_article"),
     ):
         mock_instance = MagicMock()
         mock_client_class.return_value = mock_instance
@@ -40,6 +41,7 @@ def test_screen_abstracts_failure():
     with (
         patch("src.llm.client.LLMClient") as mock_client_class,
         patch("src.utils.db_manager.get_articles_df", return_value=pd.DataFrame()),
+        patch("src.utils.db_manager.update_article"),
     ):
         mock_instance = MagicMock()
         mock_client_class.return_value = mock_instance
