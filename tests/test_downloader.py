@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.ingest import downloader
+from src.ingest.downloader import _apply_institutional_proxy
 
 
 @pytest.mark.asyncio
@@ -54,3 +55,19 @@ async def test_write_debug_log_on_download_failure(mock_pw, tmpdir):
     assert "Access Denied" in log_data["anti_bot_sign"]["detected_signs"]
     assert "Cloudflare" in log_data["anti_bot_sign"]["detected_signs"]
     assert log_data["anti_bot_sign"]["has_anti_bot"] is True
+
+
+def test_apply_institutional_proxy():
+    url = "https://link.springer.com/article/10.1007/s00221-020-05833-2"
+    prefix = "https://ezproxy.snu.ac.kr"
+    expected = "https://link-springer-com.ezproxy.snu.ac.kr/article/10.1007/s00221-020-05833-2"
+    result = _apply_institutional_proxy(url, prefix)
+    assert result == expected
+
+    # Test empty values
+    assert _apply_institutional_proxy("", prefix) == ""
+    assert _apply_institutional_proxy(url, "") == url
+
+    # Test already proxied or no dot domain
+    url_no_dot = "https://localhost/test"
+    assert _apply_institutional_proxy(url_no_dot, prefix) == "https://localhost.ezproxy.snu.ac.kr/test"

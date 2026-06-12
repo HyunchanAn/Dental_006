@@ -3,16 +3,70 @@ import datetime
 import json
 import os
 import xml.etree.ElementTree as ET
+from urllib.parse import urlparse, urlunparse
 
 import aiohttp
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
+from . import metadata_resolver
 from .scihub_fallback import SciHubDownloader
 
 # External download connection limit
 DOWNLOAD_SEMAPHORE = asyncio.Semaphore(10)
+
+
+def get_default_chrome_user_data_dir():
+    """
+    Auto-detect Windows default Chrome User Data Directory if config is empty.
+    """
+    if os.name == "nt":
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        if local_app_data:
+            chrome_path = os.path.join(local_app_data, "Google", "Chrome", "User Data")
+            if os.path.exists(chrome_path):
+                return chrome_path
+    return None
+
+
+def _apply_institutional_proxy(url: str, ezproxy_prefix: str) -> str:
+    """
+    Rewrites the domain of a URL for EZproxy.
+    Example:
+        url: https://link.springer.com/article/10...
+        prefix: https://ezproxy.snu.ac.kr
+        result: https://link-springer-com.ezproxy.snu.ac.kr/article/10...
+    Note: Some EZproxies use a different format (e.g. prefix/login?url=...).
+    We use the domain substitution method as requested.
+    """
+    if not url or not ezproxy_prefix:
+        return url
+
+    try:
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+        if not domain:
+            return url
+
+        # Replace dots with hyphens for the domain part
+        hyphenated_domain = domain.replace(".", "-")
+
+        # Parse the proxy prefix
+        proxy_parsed = urlparse(ezproxy_prefix)
+        proxy_netloc = proxy_parsed.netloc
+        proxy_scheme = proxy_parsed.scheme
+
+        # Construct new netloc: hyphenated_domain.proxy_netloc
+        new_netloc = f"{hyphenated_domain}.{proxy_netloc}"
+
+        new_url = urlunparse(
+            (proxy_scheme, new_netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
+        )
+        return new_url
+    except Exception as e:
+        print(f"  - Failed to apply institutional proxy: {e}")
+        return url
 
 
 def get_request_headers(email=None):
@@ -107,15 +161,29 @@ def write_debug_log(pmid, doi, url, status_code, headers, body_snippet, exceptio
         pass
 
 
-async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
+async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None, user_data_dir=None):
     print(f"  - Using Async Playwright Headless Browser for {pdf_url}...")
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(
-                viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            )
+            context = None
+            if user_data_dir and os.path.exists(os.path.dirname(user_data_dir)):
+                try:
+                    context = await p.chromium.launch_persistent_context(
+                        user_data_dir=user_data_dir,
+                        headless=True,
+                        viewport={"width": 1920, "height": 1080},
+                        args=["--disable-blink-features=AutomationControlled"],
+                    )
+                except Exception as e:
+                    print(f"  - Persistent context locked/failed, fallback to ephemeral: {e}")
+
+            if not context:
+                browser = await p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+                context = await browser.new_context(
+                    viewport={"width": 1920, "height": 1080},
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                )
+
             page = await context.new_page()
             await Stealth().apply_stealth_async(page)
 
@@ -131,7 +199,11 @@ async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
                 "Cookie": cookie_str,
             }
-            await browser.close()
+
+            # Close browser/context safely
+            await context.close()
+            if hasattr(context, "browser") and context.browser:
+                await context.browser.close()
 
         # Re-try the final URL with aiohttp using the cookies obtained by playwright
         async with aiohttp.ClientSession() as session:
@@ -159,7 +231,9 @@ async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
         return False
 
 
-async def download_pdf_from_url(session, pdf_url, output_path, email=None, pmid=None, doi=None, tei_path=None):
+async def download_pdf_from_url(
+    session, pdf_url, output_path, email=None, pmid=None, doi=None, tei_path=None, user_data_dir=None
+):
     if "angle.org/doi/pdf" in pdf_url:
         pdf_url = pdf_url.replace("www.angle.org/doi/pdf", "meridian.allenpress.com/angle-orthodontist/article-pdf")
 
@@ -168,7 +242,7 @@ async def download_pdf_from_url(session, pdf_url, output_path, email=None, pmid=
             content_type = response.headers.get("Content-Type", "").lower()
             if "application/pdf" not in content_type:
                 print(f"  - Target URL returned {content_type}, trying Playwright fallback...")
-                pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path)
+                pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path, user_data_dir)
                 if pw_res:
                     return pw_res
 
@@ -183,7 +257,7 @@ async def download_pdf_from_url(session, pdf_url, output_path, email=None, pmid=
     except aiohttp.ClientError as e:
         print(f"  - Failed to download PDF from {pdf_url}: {e}")
         # Try Playwright fallback on failure
-        pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path)
+        pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path, user_data_dir)
         if pw_res:
             return pw_res
         write_debug_log(pmid, doi, pdf_url, None, None, None, e)
@@ -192,7 +266,9 @@ async def download_pdf_from_url(session, pdf_url, output_path, email=None, pmid=
     return False
 
 
-async def process_single_article(session, article, output_dir, email, enable_scihub_fallback, tei_dir, scihub_downloader):
+async def process_single_article(
+    session, article, output_dir, email, enable_scihub_fallback, tei_dir, scihub_downloader, ezproxy_prefix, user_data_dir
+):
     pmid_node = article.find(".//PMID")
     pmid = pmid_node.text if pmid_node is not None else "unknown"
     output_filename = os.path.join(output_dir, f"{pmid}.pdf")
@@ -205,32 +281,49 @@ async def process_single_article(session, article, output_dir, email, enable_sci
     doi = doi_node.text if doi_node is not None else None
 
     async with DOWNLOAD_SEMAPHORE:
-        # Strategy 1: Unpaywall
+        # Strategy 1: Open Access (Unpaywall, Semantic Scholar)
         if doi:
             pdf_url = await get_unpaywall_pdf_url(session, doi, email=email)
             if pdf_url:
                 print(f"  - Found Unpaywall OA link for {doi}.")
                 tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
-                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path, user_data_dir)
                 if res == "pdf":
                     return pmid, "Downloaded (Unpaywall)"
                 elif res == "html":
                     return pmid, "Downloaded (HTML Fallback)"
 
-        # Strategy 2: Semantic Scholar
         paper_id = f"DOI:{doi}" if doi else (f"PMID:{pmid}" if pmid else None)
         if paper_id:
             pdf_url = await get_semantic_scholar_pdf_url(session, paper_id, email=email)
             if pdf_url:
                 print(f"  - Found Semantic Scholar OA link for {paper_id}.")
                 tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
-                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path, user_data_dir)
                 if res == "pdf":
                     return pmid, "Downloaded (SemanticScholar)"
                 elif res == "html":
                     return pmid, "Downloaded (HTML Fallback)"
 
-        # Strategy 3: Sci-Hub Fallback
+        # Strategy 2: Publisher URL via Metadata Resolver & Institutional EZproxy
+        if doi:
+            pub_url = await metadata_resolver.resolve_publisher_url(session, doi, email)
+            if pub_url:
+                if ezproxy_prefix:
+                    proxied_url = _apply_institutional_proxy(pub_url, ezproxy_prefix)
+                    print(f"  - Attempting Institutional EZproxy: {proxied_url}")
+                    pub_url = proxied_url
+                else:
+                    print(f"  - Attempting Direct Publisher URL: {pub_url}")
+
+                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
+                res = await download_pdf_from_url(session, pub_url, output_filename, email, pmid, doi, tei_path, user_data_dir)
+                if res == "pdf":
+                    return pmid, "Downloaded (Publisher/Proxy)"
+                elif res == "html":
+                    return pmid, "Downloaded (HTML Fallback)"
+
+        # Strategy 3: Sci-Hub Fallback (Async Playwright Stealth)
         if enable_scihub_fallback and doi and scihub_downloader:
             downloaded = await scihub_downloader.download_by_doi(doi, output_filename)
             if downloaded:
@@ -241,19 +334,38 @@ async def process_single_article(session, article, output_dir, email, enable_sci
         return pmid, "No OA Source Found"
 
 
-async def download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir):
-    scihub_downloader = SciHubDownloader() if enable_scihub_fallback else None
+async def download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir, ezproxy_prefix, user_data_dir):
+    scihub_downloader = SciHubDownloader(user_data_dir=user_data_dir) if enable_scihub_fallback else None
 
     async with aiohttp.ClientSession() as session:
         tasks = [
-            process_single_article(session, article, output_dir, email, enable_scihub_fallback, tei_dir, scihub_downloader)
+            process_single_article(
+                session,
+                article,
+                output_dir,
+                email,
+                enable_scihub_fallback,
+                tei_dir,
+                scihub_downloader,
+                ezproxy_prefix,
+                user_data_dir,
+            )
             for article in articles
         ]
         results = await asyncio.gather(*tasks)
         return dict(results)
 
 
-def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None, enable_scihub_fallback=False, tei_dir=None):
+def download_pdfs_from_xml(
+    xml_path,
+    output_dir,
+    allowed_pmids=None,
+    email=None,
+    enable_scihub_fallback=False,
+    tei_dir=None,
+    ezproxy_prefix=None,
+    user_data_dir=None,
+):
     os.makedirs(output_dir, exist_ok=True)
     try:
         tree = ET.parse(xml_path)
@@ -273,5 +385,11 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None,
 
     print(f"Attempting to download PDFs concurrently for {len(articles)} articles...")
 
+    # Resolve User Data Dir if empty
+    if not user_data_dir:
+        user_data_dir = get_default_chrome_user_data_dir()
+
     # Run async logic synchronously for compatibility with Streamlit caller
-    return asyncio.run(download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir))
+    return asyncio.run(
+        download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir, ezproxy_prefix, user_data_dir)
+    )

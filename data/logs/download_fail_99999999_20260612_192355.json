@@ -6,10 +6,9 @@
     },
     "network_context": {
         "request_headers": {
-            "User-Agent": "test-agent"
+            "Content-Type": "text/html"
         },
-        "user_agent": "test-agent",
-        "proxy_vpn_used": "None"
+        "user_agent": "Unknown"
     },
     "http_status": {
         "status_code": 403,
@@ -22,5 +21,5 @@
         ],
         "has_anti_bot": true
     },
-    "exception": "403 Forbidden"
+    "exception": "Not PDF"
 }

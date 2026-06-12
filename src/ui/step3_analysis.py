@@ -71,6 +71,8 @@ def render(config: dict, state: dict, **callbacks) -> None:
             email=config.get("email"),
             enable_scihub_fallback=config.get("enable_scihub_fallback", False),
             tei_dir=TEI_DIR,
+            ezproxy_prefix=config.get("institutional_ezproxy_prefix", ""),
+            user_data_dir=config.get("user_data_dir", ""),
         )
         for pmid, status in pdf_download_status.items():
             db_manager.update_article(pmid, pdf_download_status=status)
