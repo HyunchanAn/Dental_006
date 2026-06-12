@@ -1,13 +1,11 @@
 import glob
 import json
 import os
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import aiohttp
 import pytest
 
 from src.ingest import downloader
-
 
 @pytest.mark.asyncio
 @patch("src.ingest.downloader.download_pdf_with_playwright", new_callable=AsyncMock)
@@ -19,7 +17,7 @@ async def test_write_debug_log_on_download_failure(mock_pw, tmpdir):
     mock_response.status = 403
     mock_response.text.return_value = "<html><body>Access Denied from cloudflare</body></html>"
     mock_response.headers = {"Content-Type": "text/html"}
-    
+
     # Mock the get context manager
     mock_get_ctx = AsyncMock()
     mock_get_ctx.__aenter__.return_value = mock_response
