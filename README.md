@@ -12,16 +12,51 @@
 ### Architecture Diagram
 ```mermaid
 graph TD
-    A["User Input (PICO)"] --> B["PubMed API (Ingestion)"]
-    B --> C["Metadata & Abstract Database"]
-    C --> D["LLM Screening (Ollama/Gemma4)"]
-    D --> E["PDF Downloader (Unpaywall/PMC)"]
-    E --> F["Manual Download Helper"]
-    E --> G["PDF Parsing (GROBID)"]
-    F --> G
-    G --> H["Data Extraction & RoB Assessment"]
-    H --> I["AI Synthesis Module"]
-    I --> J["Final Markdown Report (PRISMA)"]
+    %% 스타일 정의
+    classDef user fill:#2c3e50,stroke:#34495e,stroke-width:2px,color:#fff;
+    classDef async fill:#2980b9,stroke:#2980b9,stroke-width:2px,color:#fff;
+    classDef db fill:#27ae60,stroke:#27ae60,stroke-width:2px,color:#fff;
+    classDef hitl fill:#e67e22,stroke:#d35400,stroke-width:2px,color:#fff;
+
+    %% 1. Ingestion Layer
+    subgraph Ingestion_Layer [1. Data Ingestion & Deduplication]
+        A[User Input: PICO Query]:::user --> B[PubMed API Engine]
+        B --> C[Metadata Resolver: Crossref / OpenAlex API]
+        C --> D[Fuzzy Matching Deduplication Engine]
+    end
+
+    %% 2. DB Layer (State Machine Core)
+    D --> E[SQLite / Prisma Database<br>Status: PENDING]:::db
+
+    %% 3. Async Pipeline Backend
+    subgraph Async_Pipeline [2. Async AI-driven Backend Loop]
+        E --> F{PDF Link Type?}
+        
+        F -- Open Access --> G[aiohttp Downloader]
+        F -- Paywall / Closed --> H[Institutional EZproxy Router]
+        F -- Anti-Bot Blocked --> I[async_playwright + Stealth Context<br>Persistent User Session Share]
+        
+        G & H & I --> J[Status: DOWNLOADED]:::db
+        J --> K[GROBID PDF Parser<br>TEI / XML Structured Output]
+        K --> L[Status: PARSED]:::db
+        
+        L --> M[Ollama Gemma 4 Inference<br>VRAM Protection Semaphore=1]:::async
+        M --> N[Data Extraction & RoB Assessment]
+        N --> O[Status: SCREENED]:::db
+    end
+
+    %% 4. UI & HiTL Layer
+    subgraph UI_HiTL_Layer [3. Human-in-the-Loop Realtime UI]
+        E -. Realtime Polling / Stream .-> P[Streamlit Web Dashboard]:::hitl
+        O -. Progressive Row Update .-> P
+        P --> Q{User Verification / Override}:::hitl
+        Q -- Manual Override --> R[State Lock: is_user_verified=1<br>Prevent AI Overwrite]:::db
+        Q -- Manual Helper --> S[Manual PDF Drop / Skip Helper] --> J
+    end
+
+    %% 5. Output
+    R --> T[AI Synthesis Module]
+    T --> U[Final Markdown Report<br>PRISMA & References Automated]:::user
 ```
 
 ## 1. 개요
