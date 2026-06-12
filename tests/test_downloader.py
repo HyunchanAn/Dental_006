@@ -7,6 +7,7 @@ import pytest
 
 from src.ingest import downloader
 
+
 @pytest.mark.asyncio
 @patch("src.ingest.downloader.download_pdf_with_playwright", new_callable=AsyncMock)
 async def test_write_debug_log_on_download_failure(mock_pw, tmpdir):
