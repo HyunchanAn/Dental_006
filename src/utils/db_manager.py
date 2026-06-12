@@ -184,5 +184,59 @@ def get_article(pmid):
     return dict(row) if row else None
 
 
+def import_external_results(df):
+    """
+    Imports external database search results into the database.
+    Ignores existing PMIDs to avoid overwriting state.
+    """
+    if df.empty:
+        return
+
+    conn = _get_conn()
+    df_clean = df.fillna("")
+    records = df_clean.to_dict("records")
+
+    c = conn.cursor()
+    for row in records:
+        c.execute(
+            """
+            INSERT OR IGNORE INTO articles
+            (pmid, doi, title, journal, pub_year, abstract, pipeline_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                str(row.get("pmid", "")),
+                str(row.get("doi", "")),
+                str(row.get("title", "")),
+                str(row.get("journal", "")),
+                str(row.get("pub_year", "")),
+                str(row.get("abstract", "")),
+                "PENDING",
+            ),
+        )
+    conn.commit()
+
+
+def set_meta(key, value):
+    """Stores key-value metadata in a meta table."""
+    conn = _get_conn()
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+    c.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (str(key), str(value)))
+    conn.commit()
+
+
+def get_meta(key, default=None):
+    """Retrieves metadata value by key."""
+    conn = _get_conn()
+    c = conn.cursor()
+    try:
+        c.execute("SELECT value FROM meta WHERE key = ?", (str(key),))
+        row = c.fetchone()
+        return row["value"] if row else default
+    except sqlite3.OperationalError:
+        return default
+
+
 # Auto-initialize on import
 init_db()
