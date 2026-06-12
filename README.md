@@ -80,24 +80,23 @@ graph TD
 ## 3. 프로젝트 구조
 
 ```text
-.
-├── data/             # 파이프라인 실행 중 생성되는 모든 데이터 및 최종 보고서 저장 폴더
-├── models/           # 대규모 언어 모델 파일 저장 (Ollama 사용 시 불필요하나 구조 유지)
-├── src/              # 파이프라인의 핵심 로직을 담고 있는 소스 코드 디렉터리
-│   ├── ingest/       # PubMed 검색 및 PDF 획득 모듈
-│   ├── parse/        # GROBID 파싱 및 텍스트 추출 모듈
-│   ├── screen/       # LLM 기반 스크리닝 모듈
-│   ├── rob/          # 비뚤림 위험(RoB) 평가 모듈
-│   ├── llm/          # Ollama 클라이언트 및 종합 분석(Synthesizer) 모듈
-│   ├── extract/      # 데이터(PICO 등) 추출 모듈
-│   ├── report/       # 마크다운 보고서(References, PRISMA 포함) 생성 모듈
-│   └── utils/        # SQLite DB 관리, 상태 업데이트 등 공통 유틸리티 모듈
-├── tests/            # Pytest 기반의 유닛 테스트 코드
-├── picos_config.yaml # PICO 연구 질문 설정 파일 (CLI 모드용 기본값)
-├── app.py            # Streamlit 웹 애플리케이션 (주요 컨트롤러 역할)
-├── main.py           # CLI 기반 메인 파이프라인 실행 스크립트
-├── requirements.txt  # Python 라이브러리 의존성 목록
-└── reference_materials/ # 개발 로그 및 참고 자료
+ .
+├── data/                     # 파이프라인 실행 데이터 및 SQLite DB(app_state.db) 적재
+├── src/                      # 파이프라인 백엔드 코어 소스 코드
+│   ├── ingest/               # 비동기 하이브리드 문헌 수집 및 다운로드 엔진
+│   │   ├── downloader.py     # aiohttp 기반 비동기 PDF 다운로드 및 전체 워크플로우 제어
+│   │   ├── metadata_resolver.py # Crossref / OpenAlex API 연동 및 DOI 분석 (Polite Pool 적용)
+│   │   └── scihub_fallback.py # async_playwright Stealth 기반 유료 장벽 우회 모듈
+│   ├── parse/                # GROBID 텍스트 구조화 파싱 레이어
+│   ├── screen/               # 로컬 Gemma 4 추론 및 VRAM 상한 제어 (Semaphore=1)
+│   ├── rob/                  # 비뚤림 위험(Risk of Bias) 자동 평가
+│   ├── extract/              # PICO 프레임워크 기반 데이터 추출
+│   ├── report/               # 마크다운 보고서 및 PRISMA 데이터 생성
+│   └── utils/                # 공통 유틸리티 (db_manager.py: 문자열 상태 전이 및 State Lock 관리)
+├── tests/                    # Pytest 기반 유닛/통합 테스트 (비동기 Mock 테스트 포함)
+├── app.py                    # Streamlit 웹 대시보드 (HiTL 실시간 프로그레시브 스트리밍 UI)
+├── main.py                   # Full AI-driven Scoping 모드 실행 CLI 엔트리포인트
+└── picos_config.yaml         # PICO 연구 질문 설정 파일
 ```
 
 ## 4. Installation & Deployment
