@@ -89,7 +89,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 raw_pmid = str(row["pmid"]).replace("https://pubmed.ncbi.nlm.nih.gov/", "").replace("/", "")
                 pico_dict = row.to_dict()
                 pico_dict["pmid"] = raw_pmid
-                db_manager.update_article(raw_pmid, pico_data=json.dumps(pico_dict, ensure_ascii=False))
+                db_manager.update_article(raw_pmid, pico_data=json.dumps(pico_dict, ensure_ascii=False), _is_manual=True, is_user_verified=1)
 
         for _, row in edited_rob.iterrows():
             if pd.notna(row.get("pmid")):
@@ -107,7 +107,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
                             quote = parts[0].replace("Quote: '", "")
                             reasoning = parts[1]
                     rob_dict[domain] = {"quote": quote, "reasoning": reasoning, "level": level}
-                db_manager.update_article(raw_pmid, rob_data=json.dumps(rob_dict, ensure_ascii=False))
+                db_manager.update_article(raw_pmid, rob_data=json.dumps(rob_dict, ensure_ascii=False), _is_manual=True, is_user_verified=1)
 
         callbacks["update_state"]("human_verified", True)
         st.success("데이터가 확정되었습니다! 이제 다음 단계로 넘어갈 수 있습니다.")

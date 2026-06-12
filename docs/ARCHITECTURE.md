@@ -13,13 +13,13 @@ Systematic Reviewer AI는 연구자가 입력한 PICO(Population, Intervention, 
 
 ```mermaid
 graph TD
-    A["PubMed API (Search Ingestion)"] -->|PMID & Metadata|    C --> D["LLM Screening (Ollama/Gemma4)"]
-    B -->|Included PMIDs| C["PDF Downloader (downloader.py)"]
-    C -->|Local PDFs| D["GROBID PDF Parsing (Docker Service)"]
-    D -->|TEI-XML Structure| E["RoB Assessment (assessor.py)"]
-    E -->|Bias Analysis| F["PICO Data Extraction (extractor.py)"]
-    F -->|Extracted CSV| G["AI Synthesis (synthesizer.py)"]
-    G -->|Comprehensive Conclusions| H["Automated Reporting (report_generator)"]
+    A["PubMed API (Search Ingestion)"] -->|PMID & Metadata| B["Fuzzy Deduplication (deduplicator.py)"]
+    B -->|Unique PMIDs| C["LLM Screening (screener.py)"]
+    C -->|Included PMIDs| D["Async PDF Downloader (downloader.py)"]
+    D -->|Local PDFs| E["GROBID PDF Parsing (grobid_client.py)"]
+    E -->|TEI-XML Structure| F["RoB Assessment (assessor.py)"]
+    F -->|Bias Analysis| G["PICO Data Extraction (pico_extractor.py)"]
+    G -->|Extracted JSON/CSV| H["AI Synthesis & Reporting (step5_report.py)"]
     H -->|Markdown Report & PRISMA| I["Streamlit Web Dashboard (app.py)"]
 ```
 
@@ -64,3 +64,9 @@ graph TD
   - 입력: 전체 수집 과정 통계 및 AI 종합 결론
   - 처리: PRISMA Flow Diagram Mermaid 코드 자동 생성 및 마크다운 파일 조립
   - 출력: 최종 마크다운 보고서(data/reports/) 파일 생성
+
+## 4. 고도화 아키텍처 (Advanced Architecture)
+
+- **상태 머신(State Machine) & 체크포인트**: DB에 `pipeline_status` (PENDING, SCREENED, DOWNLOADED, PARSED, EXTRACTED) 및 `is_user_verified` 필드를 두어 프로세스가 중단되더라도 완벽한 Resume(이어서 실행)를 지원합니다. 유저의 수동 오버라이드는 State Lock 방어 기제로 보호됩니다.
+- **비동기 파이프라인 (Async I/O)**: `aiohttp`와 `async_playwright`를 통해 병목 구간인 PDF 다운로드를 비동기/병렬화하고, GROBID 파싱 구간에도 비동기 처리를 도입했습니다.
+- **세마포어(Semaphore) 하드웨어 최적화**: 로컬 연산 자원(VRAM) 한계를 넘지 않도록 외부 네트워크 다운로드(`Semaphore(10)`), 로컬 CPU/네트워크 파싱(`Semaphore(4)`), 로컬 VRAM LLM 호출(`Semaphore(1)`)의 동시성을 철저하게 분리 및 제어합니다.

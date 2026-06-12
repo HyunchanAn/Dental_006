@@ -57,7 +57,7 @@ def render(config: dict, state: dict, **callbacks) -> None:
                         pmid,
                         screening_decision=result["screening_decision"],
                         screening_reason=result["screening_reason"],
-                        pipeline_status=1,
+                        pipeline_status="SCREENED",
                     )
                 else:
                     status_text.text(f"[{current_idx}/{total_count}] Skipping PMID {pmid} (Already screened)")
@@ -169,8 +169,33 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 },
                 use_container_width=True,
                 key="screening_editor",
-                on_change=callbacks["handle_data_editor_change"],
             )
+            
+            # Check for edits and save them
+            editor_state = st.session_state.get("screening_editor", {})
+            if editor_state.get("edited_rows"):
+                for row_idx_str, edits in editor_state["edited_rows"].items():
+                    row_idx = int(row_idx_str)
+                    pmid = str(df.iloc[row_idx]["pmid"])
+                    
+                    # Update kwargs mapped to DB columns
+                    update_kwargs = {"_is_manual": True, "is_user_verified": 1}
+                    if "screening_decision" in edits:
+                        update_kwargs["screening_decision"] = edits["screening_decision"]
+                    if "screening_reason" in edits:
+                        update_kwargs["screening_reason"] = edits["screening_reason"]
+                    if "exclusion_category" in edits:
+                        update_kwargs["exclusion_category"] = edits["exclusion_category"]
+                        
+                    db_manager.update_article(pmid, **update_kwargs)
+                
+                # Clear session state so it doesn't loop, but st.data_editor manages its own state
+                # We need to rerun to refresh DB stats, but wait a moment
+                st.toast("✅ 수동 변경사항이 저장되었습니다.")
+                time.sleep(0.5)
+                # To clear the edited state, we can increment a key or just let Streamlit handle it
+                # Streamlit clears edited_rows upon rerun!
+                st.rerun()
 
             # Navigation Button (Step 2 -> Step 3)
             if stats.get("included", 0) > 0:

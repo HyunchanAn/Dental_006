@@ -2,8 +2,11 @@ import json
 import re
 
 import pandas as pd
+import threading
 
 from src.llm import client as llm_client
+
+LLM_SEMAPHORE = threading.Semaphore(1)
 
 
 def screen_abstracts(articles_df, picos_data):
@@ -32,9 +35,10 @@ def screen_abstracts(articles_df, picos_data):
                 screened_results[pmid_str] = r.to_dict()
 
     # Check LLM connection
-    if not llm.get_completion([{"role": "user", "content": "Test"}]):
-        for idx, row in articles_df.iterrows():
-            pmid = str(row.get("pmid", ""))
+    with LLM_SEMAPHORE:
+        if not llm.get_completion([{"role": "user", "content": "Test"}]):
+            for idx, row in articles_df.iterrows():
+                pmid = str(row.get("pmid", ""))
             yield (
                 idx + 1,
                 len(articles_df),
@@ -104,7 +108,8 @@ Is this paper relevant? Return JSON.
         ]
 
         try:
-            response = llm.get_completion(messages)
+            with LLM_SEMAPHORE:
+                response = llm.get_completion(messages)
             decision = "Included"
             reason = "Parse Error"
             category = ""

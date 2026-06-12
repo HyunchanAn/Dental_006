@@ -2,22 +2,22 @@ import asyncio
 import datetime
 import json
 import os
-import time
 import xml.etree.ElementTree as ET
 
-import requests
+import aiohttp
+from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright
+from playwright_stealth import stealth_async
 
 from .scihub_fallback import SciHubDownloader
 
+# External download connection limit
+DOWNLOAD_SEMAPHORE = asyncio.Semaphore(10)
+
 
 def get_request_headers(email=None):
-    """
-    Constructs HTTP headers with a randomized modern User-Agent to bypass simple WAF rules,
-    and includes modern browser hints.
-    """
     try:
         from fake_useragent import UserAgent
-
         ua = UserAgent(os="windows", browsers=["chrome", "edge"]).random
     except Exception:
         ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
@@ -35,59 +35,39 @@ def get_request_headers(email=None):
     }
 
 
-def get_unpaywall_pdf_url(doi, email=None):
-    """
-    Queries the Unpaywall API to find a direct PDF link for a given DOI.
-    """
+async def get_unpaywall_pdf_url(session, doi, email=None):
     if not doi:
         return None
     try:
-        # Using a more compliant email address as recommended by Unpaywall
         contact_email = email if email else "systematic-reviewer-ai@example.com"
         url = f"https://api.unpaywall.org/v2/{doi}?email={contact_email}"
-
-        # We don't strictly need custom headers for Unpaywall based on their docs (just email param),
-        # but good practice to identify anyway.
-        response = requests.get(url, headers=get_request_headers(email), timeout=20)
-        response.raise_for_status()
-        data = response.json()
-
-        if data.get("best_oa_location") and data["best_oa_location"].get("url_for_pdf"):
-            return data["best_oa_location"]["url_for_pdf"]
-    except requests.exceptions.RequestException:
-        # This is expected for non-existent DOIs, so we don't need to be too loud.
-        pass
+        async with session.get(url, headers=get_request_headers(email), timeout=20) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data.get("best_oa_location") and data["best_oa_location"].get("url_for_pdf"):
+                    return data["best_oa_location"]["url_for_pdf"]
     except Exception as e:
         print(f"  - An unexpected error occurred while processing DOI {doi} with Unpaywall: {e}")
     return None
 
 
-def get_semantic_scholar_pdf_url(paper_id, email=None):
-    """
-    Queries the Semantic Scholar API to find a direct PDF link.
-    paper_id can be DOI (e.g., 'DOI:10.1038/nature12345') or PMID (e.g., 'PMID:12345').
-    """
+async def get_semantic_scholar_pdf_url(session, paper_id, email=None):
     if not paper_id:
         return None
     try:
-        # Semantic Scholar API endpoint for paper details
         url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}?fields=openAccessPdf"
-
-        response = requests.get(url, headers=get_request_headers(email), timeout=20)
-        if response.status_code == 200:
-            data = response.json()
-            oa_pdf = data.get("openAccessPdf")
-            if oa_pdf and oa_pdf.get("url"):
-                return oa_pdf["url"]
+        async with session.get(url, headers=get_request_headers(email), timeout=20) as response:
+            if response.status == 200:
+                data = await response.json()
+                oa_pdf = data.get("openAccessPdf")
+                if oa_pdf and oa_pdf.get("url"):
+                    return oa_pdf["url"]
     except Exception as e:
         print(f"  - Error querying Semantic Scholar for {paper_id}: {e}")
     return None
 
 
-def write_debug_log(pmid, doi, url, response, exception=None):
-    """
-    Writes a debug log in JSON format for a failed PDF download attempt.
-    """
+def write_debug_log(pmid, doi, url, status_code, headers, body_snippet, exception=None):
     log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "logs")
     os.makedirs(log_dir, exist_ok=True)
 
@@ -95,38 +75,25 @@ def write_debug_log(pmid, doi, url, response, exception=None):
     pmid_str = str(pmid) if pmid else "unknown"
     log_filename = os.path.join(log_dir, f"download_fail_{pmid_str}_{timestamp}.json")
 
-    headers = {}
-    status_code = None
-    body_snippet = ""
     anti_bot_signs = []
-
-    if response is not None:
-        headers = dict(response.request.headers) if hasattr(response, "request") and response.request else {}
-        status_code = response.status_code
-        try:
-            body_snippet = response.text[:1000]
-            lower_body = response.text.lower()
-            if "access denied" in lower_body:
-                anti_bot_signs.append("Access Denied")
-            if "cloudflare" in lower_body:
-                anti_bot_signs.append("Cloudflare")
-            if "captcha" in lower_body:
-                anti_bot_signs.append("Captcha")
-            if "just a moment" in lower_body:
-                anti_bot_signs.append("Just a moment")
-        except Exception:
-            body_snippet = "Could not decode body"
-
-    proxy_used = os.environ.get("HTTP_PROXY") or os.environ.get("HTTPS_PROXY") or "None"
+    if body_snippet:
+        lower_body = body_snippet.lower()
+        if "access denied" in lower_body:
+            anti_bot_signs.append("Access Denied")
+        if "cloudflare" in lower_body:
+            anti_bot_signs.append("Cloudflare")
+        if "captcha" in lower_body:
+            anti_bot_signs.append("Captcha")
+        if "just a moment" in lower_body:
+            anti_bot_signs.append("Just a moment")
 
     log_data = {
         "target_identifiers": {"pmid": pmid, "doi": doi, "url": url},
         "network_context": {
             "request_headers": headers,
-            "user_agent": headers.get("User-Agent", "Unknown"),
-            "proxy_vpn_used": proxy_used,
+            "user_agent": headers.get("User-Agent", "Unknown") if headers else "Unknown",
         },
-        "http_status": {"status_code": status_code, "body_snippet": body_snippet},
+        "http_status": {"status_code": status_code, "body_snippet": body_snippet[:1000] if body_snippet else ""},
         "anti_bot_sign": {"detected_signs": anti_bot_signs, "has_anti_bot": len(anti_bot_signs) > 0},
         "exception": str(exception) if exception else None,
     }
@@ -135,147 +102,158 @@ def write_debug_log(pmid, doi, url, response, exception=None):
         with open(log_filename, "w", encoding="utf-8") as f:
             json.dump(log_data, f, ensure_ascii=False, indent=4)
         print(f"  - Debug log written to {log_filename}")
-    except Exception as e:
-        print(f"  - Failed to write debug log: {e}")
+    except Exception:
+        pass
 
 
-def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
-    """
-    Fallback downloader using Playwright Headless Browser to bypass WAF, Cloudflare and Meta redirects.
-    """
+async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
+    print(f"  - Using Async Playwright Headless Browser for {pdf_url}...")
     try:
-        from playwright.sync_api import sync_playwright
-        from playwright_stealth import stealth_sync
-    except ImportError:
-        print("  - Playwright or stealth not installed, skipping advanced fallback.")
-        return False
-
-    print(f"  - Using Playwright Headless Browser for {pdf_url}...")
-    try:
-        with sync_playwright() as p:
-            # We use chromium
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
                 viewport={"width": 1920, "height": 1080},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
             )
-            page = context.new_page()
+            page = await context.new_page()
+            await stealth_async(page)
 
-            # Apply stealth to bypass bot detection
-            stealth_sync(page)
-
-            # Setup route to intercept the PDF download if it triggers automatically
-            # Or just goto the URL and wait for PDF
             try:
-                # Wait until network is mostly idle to let JS redirects happen
-                page.goto(pdf_url, wait_until="networkidle", timeout=30000)
+                await page.goto(pdf_url, wait_until="networkidle", timeout=30000)
             except Exception:
-                # Might throw if it navigates to a PDF directly in some versions
                 pass
 
-            # If the current URL is a PDF or if there is a PDF viewer, we can just fetch the current page url
-            # But the best way to get a PDF from a page is to use the request context to fetch the final URL.
             final_url = page.url
-
-            # Some publishers render the PDF using pdf.js, so we grab the content if it's application/pdf
-            # Actually, `page.goto` response might be the PDF
-            # A more robust way to download the PDF using the browser context:
-            cookies = context.cookies()
+            cookies = await context.cookies()
             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
-
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
                 "Cookie": cookie_str,
             }
+            await browser.close()
 
-            browser.close()
+        # Re-try the final URL with aiohttp using the cookies obtained by playwright
+        async with aiohttp.ClientSession() as session:
+            async with session.get(final_url, headers=headers, timeout=60) as res:
+                content_type = res.headers.get("Content-Type", "").lower()
+                if "application/pdf" not in content_type:
+                    if tei_path:
+                        print("  - URL returned HTML. Extracting full text via BeautifulSoup...")
+                        html_content = await res.text()
+                        soup = BeautifulSoup(html_content, "html.parser")
+                        text = soup.get_text(separator=" ", strip=True)
+                        xml_content = f'<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader/><text><body><div><p>{text}</p></div></body></text></TEI>'
+                        with open(tei_path, "w", encoding="utf-8") as f:
+                            f.write(xml_content)
+                        return "html"
+                    return False
 
-        # Re-try the final URL with requests using the cookies obtained by playwright
-        res = requests.get(final_url, headers=headers, stream=True, timeout=60)
-        res.raise_for_status()
-
-        if "application/pdf" not in res.headers.get("Content-Type", "").lower():
-            if tei_path:
-                print("  - URL returned HTML. Extracting full text via BeautifulSoup...")
-                html_content = res.text
-                from bs4 import BeautifulSoup
-
-                soup = BeautifulSoup(html_content, "html.parser")
-                text = soup.get_text(separator=" ", strip=True)
-                xml_content = f'<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader/><text><body><div><p>{text}</p></div></body></text></TEI>'
-                with open(tei_path, "w", encoding="utf-8") as f:
-                    f.write(xml_content)
-                print("  - SUCCESS: Extracted HTML text to TEI XML.")
-                return "html"
-            return False
-
-        with open(output_path, "wb") as f:
-            for chunk in res.iter_content(chunk_size=8192):
-                f.write(chunk)
-        print("  - SUCCESS: Downloaded PDF via Playwright session.")
-        return "pdf"
+                with open(output_path, "wb") as f:
+                    async for chunk in res.content.iter_chunked(8192):
+                        f.write(chunk)
+                print("  - SUCCESS: Downloaded PDF via Playwright session.")
+                return "pdf"
     except Exception as e:
         print(f"  - Playwright fallback failed: {e}")
         return False
 
 
-def download_pdf_from_url(pdf_url, output_path, email=None, pmid=None, doi=None, tei_path=None):
-    """
-    Downloads a PDF from a URL and saves it to the specified path.
-    """
-    # 1. URL Parsing Rule Update (Angle Orthodontist)
+async def download_pdf_from_url(session, pdf_url, output_path, email=None, pmid=None, doi=None, tei_path=None):
     if "angle.org/doi/pdf" in pdf_url:
         pdf_url = pdf_url.replace("www.angle.org/doi/pdf", "meridian.allenpress.com/angle-orthodontist/article-pdf")
 
-    response = None
     try:
-        response = requests.get(pdf_url, headers=get_request_headers(email), stream=True, timeout=60)
-        response.raise_for_status()
+        async with session.get(pdf_url, headers=get_request_headers(email), timeout=60) as response:
+            content_type = response.headers.get("Content-Type", "").lower()
+            if "application/pdf" not in content_type:
+                print(f"  - Target URL returned {content_type}, trying Playwright fallback...")
+                pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path)
+                if pw_res:
+                    return pw_res
+                
+                body = await response.text()
+                write_debug_log(pmid, doi, pdf_url, response.status, dict(response.headers), body, Exception("Not PDF"))
+                return False
 
-        # Sometimes it returns HTML instead of PDF
-        if "application/pdf" not in response.headers.get("Content-Type", "").lower():
-            # If standard request returns HTML (possibly WAF or redirect), try playwright fallback
-            print(f"  - Target URL returned {response.headers.get('Content-Type')}, trying Playwright fallback...")
-            pw_res = download_pdf_with_playwright(pdf_url, output_path, tei_path)
-            if pw_res:
-                return pw_res
-
-            write_debug_log(pmid, doi, pdf_url, response, Exception("Content-Type is not application/pdf"))
-            return False
-
-        with open(output_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        return "pdf"
-    except requests.exceptions.RequestException as e:
+            with open(output_path, "wb") as f:
+                async for chunk in response.content.iter_chunked(8192):
+                    f.write(chunk)
+            return "pdf"
+    except aiohttp.ClientError as e:
         print(f"  - Failed to download PDF from {pdf_url}: {e}")
-        # If it failed due to 403 or other WAF rules, attempt Playwright fallback
-        if response and response.status_code in [403, 404, 429, 503]:
-            print("  - Received HTTP Error. Attempting Playwright fallback...")
-            pw_res = download_pdf_with_playwright(pdf_url, output_path, tei_path)
-            if pw_res:
-                return pw_res
-        write_debug_log(pmid, doi, pdf_url, response, e)
+        # Try Playwright fallback on failure
+        pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path)
+        if pw_res:
+            return pw_res
+        write_debug_log(pmid, doi, pdf_url, None, None, None, e)
+    except Exception as e:
+        print(f"  - Unknown Error {pdf_url}: {e}")
     return False
 
 
+async def process_single_article(session, article, output_dir, email, enable_scihub_fallback, tei_dir, scihub_downloader):
+    pmid_node = article.find(".//PMID")
+    pmid = pmid_node.text if pmid_node is not None else "unknown"
+    output_filename = os.path.join(output_dir, f"{pmid}.pdf")
+
+    if os.path.exists(output_filename):
+        print(f"  - PDF already exists for {pmid}.")
+        return pmid, "Already Downloaded"
+
+    doi_node = article.find(".//ArticleId[@IdType='doi']")
+    doi = doi_node.text if doi_node is not None else None
+
+    async with DOWNLOAD_SEMAPHORE:
+        # Strategy 1: Unpaywall
+        if doi:
+            pdf_url = await get_unpaywall_pdf_url(session, doi, email=email)
+            if pdf_url:
+                print(f"  - Found Unpaywall OA link for {doi}.")
+                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
+                if res == "pdf":
+                    return pmid, "Downloaded (Unpaywall)"
+                elif res == "html":
+                    return pmid, "Downloaded (HTML Fallback)"
+
+        # Strategy 2: Semantic Scholar
+        paper_id = f"DOI:{doi}" if doi else (f"PMID:{pmid}" if pmid else None)
+        if paper_id:
+            pdf_url = await get_semantic_scholar_pdf_url(session, paper_id, email=email)
+            if pdf_url:
+                print(f"  - Found Semantic Scholar OA link for {paper_id}.")
+                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
+                if res == "pdf":
+                    return pmid, "Downloaded (SemanticScholar)"
+                elif res == "html":
+                    return pmid, "Downloaded (HTML Fallback)"
+
+        # Strategy 3: Sci-Hub Fallback
+        if enable_scihub_fallback and doi and scihub_downloader:
+            downloaded = await scihub_downloader.download_by_doi(doi, output_filename)
+            if downloaded:
+                return pmid, "Downloaded (Sci-Hub)"
+
+        print(f"  - No OA source found for {pmid}.")
+        write_debug_log(pmid, doi, None, None, None, None, Exception("No OA Source Found"))
+        return pmid, "No OA Source Found"
+
+
+async def download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir):
+    scihub_downloader = SciHubDownloader() if enable_scihub_fallback else None
+    
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            process_single_article(session, article, output_dir, email, enable_scihub_fallback, tei_dir, scihub_downloader)
+            for article in articles
+        ]
+        results = await asyncio.gather(*tasks)
+        return dict(results)
+
+
 def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None, enable_scihub_fallback=False, tei_dir=None):
-    """
-    Parses a PubMed XML file, extracts DOIs and PMCIDs, and attempts to download open-access PDFs
-    using a fallback strategy (Unpaywall -> PMC).
-
-    Args:
-        xml_path (str): Path to the PubMed XML file.
-        output_dir (str): Directory to save downloaded PDFs.
-        allowed_pmids (list, optional): List of PMIDs to download. If provided, only articles
-                                        with PMIDs in this list will be processed.
-        email (str, optional): User email for API headers.
-
-    Returns:
-        dict: A dictionary of PMID to download status.
-    """
     os.makedirs(output_dir, exist_ok=True)
-
     try:
         tree = ET.parse(xml_path)
         root = tree.getroot()
@@ -284,110 +262,15 @@ def download_pdfs_from_xml(xml_path, output_dir, allowed_pmids=None, email=None,
         return {}
 
     articles = root.findall(".//PubmedArticle")
-    total_found_xml = len(articles)
-
-    # Filter articles if allowed_pmids is provided
+    
     if allowed_pmids is not None:
         allowed_pmids_set = set(str(p) for p in allowed_pmids)
-        articles_to_process = []
-        for article in articles:
-            pmid_node = article.find(".//PMID")
-            pmid = pmid_node.text if pmid_node is not None else None
-            if pmid and pmid in allowed_pmids_set:
-                articles_to_process.append(article)
-        articles = articles_to_process
-        print(f"Filtered XML from {total_found_xml} to {len(articles)} articles based on screening results.")
+        articles = [a for a in articles if a.find(".//PMID") is not None and a.find(".//PMID").text in allowed_pmids_set]
 
-    total_articles = len(articles)
-    if total_articles == 0:
+    if not articles:
         return {}
 
-    print(
-        f"Attempting to download PDFs for {total_articles} articles using fallback strategy (Unpaywall -> SemanticScholar -> SciHub)..."
-    )
-    download_status = {}
-    download_count = 0
-
-    scihub_downloader = SciHubDownloader() if enable_scihub_fallback else None
-
-    for i, article in enumerate(articles):
-        pmid_node = article.find(".//PMID")
-        pmid = pmid_node.text if pmid_node is not None else f"unknown_{i + 1}"
-        print(f"\n[{i + 1}/{total_articles}] Processing PMID: {pmid}")
-
-        output_filename = os.path.join(output_dir, f"{pmid}.pdf")
-        if os.path.exists(output_filename):
-            print("  - PDF already exists.")
-            download_status[pmid] = "Already Downloaded"
-            download_count += 1
-            continue
-
-        downloaded = False
-
-        # --- Strategy 1: Try Unpaywall ---
-        doi_node = article.find(".//ArticleId[@IdType='doi']")
-        doi = doi_node.text if doi_node is not None else None
-        if doi:
-            pdf_url = get_unpaywall_pdf_url(doi, email=email)
-            if pdf_url:
-                print(f"  - Found Unpaywall OA link for DOI {doi}. Attempting download...")
-                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
-                res = download_pdf_from_url(pdf_url, output_filename, email=email, pmid=pmid, doi=doi, tei_path=tei_path)
-                if res == "pdf":
-                    download_status[pmid] = "Downloaded (Unpaywall)"
-                    downloaded = True
-                elif res == "html":
-                    download_status[pmid] = "Downloaded (HTML Fallback)"
-                    downloaded = True
-                else:
-                    download_status[pmid] = "Download Failed (Unpaywall)"
-
-        # --- Strategy 2: Try Semantic Scholar (if Unpaywall failed) ---
-        if not downloaded:
-            # Try by DOI first, then by PMID
-            paper_id = f"DOI:{doi}" if doi else (f"PMID:{pmid}" if pmid else None)
-            if paper_id:
-                pdf_url = get_semantic_scholar_pdf_url(paper_id, email=email)
-                if pdf_url:
-                    print(f"  - Found Semantic Scholar OA link for {paper_id}. Attempting download...")
-                    tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
-                    res = download_pdf_from_url(pdf_url, output_filename, email=email, pmid=pmid, doi=doi, tei_path=tei_path)
-                    if res == "pdf":
-                        download_status[pmid] = "Downloaded (SemanticScholar)"
-                        downloaded = True
-                    elif res == "html":
-                        download_status[pmid] = "Downloaded (HTML Fallback)"
-                        downloaded = True
-
-        # --- Strategy 3: Try Sci-Hub Direct Fallback (if enabled and others failed) ---
-        if not downloaded and enable_scihub_fallback and doi:
-            downloaded = asyncio.run(scihub_downloader.download_by_doi(doi, output_filename))
-            if downloaded:
-                download_status[pmid] = "Downloaded (Sci-Hub)"
-
-        if not downloaded:
-            print("  - No open access source found via Unpaywall, Semantic Scholar, or Sci-Hub.")
-            download_status[pmid] = "No OA Source Found"
-            write_debug_log(pmid, doi, None, None, Exception("No OA Source Found via Unpaywall, Semantic Scholar, or Sci-Hub"))
-
-        if downloaded:
-            download_count += 1
-
-        time.sleep(1)  # Be polite to APIs
-
-    print(f"\nPDF 다운로드 시도 완료: 총 {total_articles}개 중 {download_count}개 성공 또는 이미 존재.")
-    return download_status
-
-
-if __name__ == "__main__":
-    # This allows the script to be run directly for testing purposes.
-    current_dir = os.path.dirname(__file__)
-    project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
-    xml_file_path = os.path.join(project_root, "data", "raw", "articles.xml")
-    pdf_output_dir = os.path.join(project_root, "data", "pdf")
-
-    if not os.path.exists(xml_file_path):
-        print(f"Error: XML file not found at {xml_file_path}")
-        print("Please run main.py first to generate the articles.xml file.")
-    else:
-        download_pdfs_from_xml(xml_file_path, pdf_output_dir)
+    print(f"Attempting to download PDFs concurrently for {len(articles)} articles...")
+    
+    # Run async logic synchronously for compatibility with Streamlit caller
+    return asyncio.run(download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir))

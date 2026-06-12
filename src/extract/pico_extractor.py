@@ -1,7 +1,10 @@
 import json
 import re
+import threading
 
 from src.llm import client as llm_client
+
+LLM_SEMAPHORE = threading.Semaphore(1)
 
 
 def extract_pico_multi_agent(text_snippet):
@@ -102,7 +105,8 @@ Return a JSON object with EXACTLY these keys:
 
     def _call_and_parse(messages):
         try:
-            resp = llm.get_completion(messages)
+            with LLM_SEMAPHORE:
+                resp = llm.get_completion(messages)
             if resp:
                 match = re.search(r"({[\s\S]*})", resp)
                 if match:

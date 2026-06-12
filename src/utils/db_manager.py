@@ -39,7 +39,8 @@ def init_db():
             pdf_download_status TEXT,
             pico_data TEXT,
             rob_data TEXT,
-            pipeline_status INTEGER DEFAULT 0
+            pipeline_status TEXT DEFAULT 'PENDING',
+            is_user_verified INTEGER DEFAULT 0
         )
     """)
 
@@ -56,6 +57,11 @@ def init_db():
 
     try:
         c.execute("ALTER TABLE articles ADD COLUMN exclusion_category TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        c.execute("ALTER TABLE articles ADD COLUMN is_user_verified INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
 
@@ -99,7 +105,7 @@ def import_pubmed_results(df):
                 str(row.get("journal", "")),
                 str(row.get("pub_year", "")),
                 str(row.get("abstract", "")),
-                0,  # Fetched
+                "PENDING",  # Fetched
             ),
         )
     conn.commit()
@@ -108,13 +114,25 @@ def import_pubmed_results(df):
 def update_article(pmid, **kwargs):
     """
     Updates specific fields for an article.
-    Example: update_article("1234", screening_decision="Included", pipeline_status=1)
+    Example: update_article("1234", screening_decision="Included", pipeline_status="SCREENED")
     """
     if not kwargs:
         return
 
     conn = _get_conn()
     c = conn.cursor()
+
+    _is_manual = kwargs.pop("_is_manual", False)
+    
+    if not _is_manual:
+        c.execute("SELECT is_user_verified FROM articles WHERE pmid = ?", (str(pmid),))
+        row = c.fetchone()
+        if row and row["is_user_verified"] == 1:
+            for field in ["screening_decision", "screening_reason", "exclusion_category", "pico_data", "rob_data"]:
+                kwargs.pop(field, None)
+                
+    if not kwargs:
+        return
 
     # Sanitize: convert string 'nan', 'NaN', and Python None/NaN to empty string ""
     sanitized_kwargs = {}

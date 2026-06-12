@@ -268,3 +268,14 @@
 1. db_manager.py 파일이 마크다운 체크리스트 내용으로 덮어씌워져 발생한 SyntaxError 193건 확인. 코드를 이전 정상 상태로 복구하고, 마크다운 체크리스트는 docs/DEDUPLICATION_CHECKLIST.md 파일로 안전하게 분리 저장함.
 2. .gitmodules 파일 없이 디렉토리만 남아 Git Checkout 액션에서 128 에러를 유발하던 깨진 서브모듈(tools/asreview) 제거 조치.
 3. test_deduplicator.py 등 코드베이스 전반의 잔여 포맷팅 오류를 ruff check --fix 및 ruff format을 통해 자동 수정(총 12건) 완료하여 파이프라인 통과 조건 충족.
+
+
+[2026-06-12 13:26:50]
+작업자: Antigravity
+작업 내용: 파이프라인 비동기화, 상태머신 전환 및 GPU 직렬화 완료
+- db_manager.py: is_user_verified 필드 추가 및 문자열 상태머신 적용 완료.
+- step2_screen.py / step3_analysis.py / step4_extraction.py: 문자열 기반 파이프라인 상태 확인, st.session_state 로직 강화.
+- downloader.py: aiohttp 기반으로 완전 비동기 재작성, Semaphore(10) 할당.
+- step3_analysis.py: asyncio 파이프라인(Producer-Consumer 형태) 구조화, GROBID (Semaphore 4) 및 RoB/PICO (Semaphore 1) 할당하여 VRAM 보호.
+- screener.py / pico_extractor.py: threading.Semaphore(1) 적용하여 다중 요청 시 LLM 보호.
+- docs/ARCHITECTURE.md 업데이트 완료.

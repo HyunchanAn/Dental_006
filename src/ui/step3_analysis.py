@@ -9,9 +9,11 @@ from src.rob import assessor
 
 DATA_DIR = "data"
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
-TABLES_DIR = os.path.join(DATA_DIR, "tables")
-TEI_DIR = os.path.join(DATA_DIR, "tei")
-PDF_DIR = os.path.join(DATA_DIR, "pdf")
+from src.parse import fallback_parser, grobid_client, tei_parser
+from src.extract import pico_extractor
+import asyncio
+import aiohttp
+import json
 
 
 def render(config: dict, state: dict, **callbacks) -> None:
@@ -201,7 +203,8 @@ def render(config: dict, state: dict, **callbacks) -> None:
     auto_analyze = False
     if state.get("run_mode") == "scoping" and state.get("scoping_agreed"):
         if not df.empty and "pipeline_status" in df.columns:
-            unparsed_mask = ready_mask & (df["pipeline_status"].fillna(0) < 2)
+            # PENDING or SCREENED are before PARSED
+            unparsed_mask = ready_mask & (~df["pipeline_status"].isin(["PARSED", "EXTRACTED"]))
             if unparsed_mask.any():
                 auto_analyze = True
 
@@ -217,70 +220,65 @@ def render(config: dict, state: dict, **callbacks) -> None:
         doc_ready_mask = df["pdf_download_status"].astype(str).str.contains(r"Downloaded|Exists|Parsed", case=False, na=False)
         ready_pmids = df[doc_ready_mask]["pmid"].astype(str).tolist()
 
-        status_text.text("PDF 텍스트 추출 (GROBID)...")
-        total_ready = len(ready_pmids)
-        for idx, pmid in enumerate(ready_pmids):
-            status_text.text(f"[{idx + 1}/{total_ready}] Parsing PDF for PMID {pmid}...")
+        status_text.text("병렬 분석 파이프라인 (GROBID -> RoB -> PICO) 시작 중...")
+        
+        GROBID_SEMAPHORE = asyncio.Semaphore(4)
+        LLM_SEMAPHORE = asyncio.Semaphore(1)
+        
+        async def process_article_pipeline(pmid, session):
             pdf_path = os.path.join(PDF_DIR, f"{pmid}.pdf")
             tei_path = os.path.join(TEI_DIR, f"{pmid}.xml")
+            
+            # Phase 1: GROBID Parsing
+            tei_xml = None
             if os.path.exists(pdf_path) and not os.path.exists(tei_path):
-                tei_xml = grobid_client.process_pdf(pdf_path)
+                async with GROBID_SEMAPHORE:
+                    tei_xml = await grobid_client.process_pdf_async(session, pdf_path)
                 if not tei_xml or len(tei_xml.strip()) < 500:
-                    status_text.text(f"[{idx + 1}/{total_ready}] GROBID failed for {pmid}. Using Fallback Parser...")
-                    tei_xml = fallback_parser.extract_text_from_pdf(pdf_path)
-                    db_manager.update_article(pmid, pdf_download_status="Parsed (Fallback)", pipeline_status=2)
+                    tei_xml = await asyncio.to_thread(fallback_parser.extract_text_from_pdf, pdf_path)
+                    db_manager.update_article(pmid, pdf_download_status="Parsed (Fallback)", pipeline_status="PARSED")
                 else:
-                    db_manager.update_article(pmid, pdf_download_status="Parsed (GROBID)", pipeline_status=2)
-
+                    db_manager.update_article(pmid, pdf_download_status="Parsed (GROBID)", pipeline_status="PARSED")
                 if tei_xml:
                     with open(tei_path, "w", encoding="utf-8") as f:
                         f.write(tei_xml)
-        progress_bar.progress(50)
-
-        if os.path.exists(TEI_DIR):
-            status_text.text("비뚤림 위험(RoB) 평가 진행 중...")
-            rob_gen = assessor.batch_assess_rob(TEI_DIR, allowed_pmids=ready_pmids)
-            if rob_gen:
-                for current_idx, total_count, pmid in rob_gen:
-                    status_text.text(f"[{current_idx}/{total_count}] Completed Risk of Bias for PMID {pmid}.")
-                    progress = 50 + int((current_idx / total_count) * 25)
-                    progress_bar.progress(progress)
-        progress_bar.progress(75)
-
-        status_text.text("데이터 추출 중...")
-        tei_files = [f for f in os.listdir(TEI_DIR) if f.endswith(".xml") and f.replace(".xml", "") in ready_pmids]
-
-        if tei_files:
-            import json
-
-            from src.extract import pico_extractor
-            from src.parse import tei_parser
-
-            total_tei = len(tei_files)
-            for idx, tei_file in enumerate(tei_files):
-                try:
-                    pmid = tei_file.replace(".xml", "")
-                    status_text.text(f"[{idx + 1}/{total_tei}] Extracting PICO for PMID {pmid}...")
-                    progress = 75 + int(((idx + 1) / total_tei) * 25)
-                    progress_bar.progress(progress)
-
-                    full_text = tei_parser.extract_text_from_tei(os.path.join(TEI_DIR, tei_file), optimize_context=True)
-                    if full_text == "CLOUDFLARE_BLOCK":
-                        db_manager.update_article(
-                            pmid,
-                            pdf_download_status="Failed (Cloudflare Block)",
-                            pipeline_status=-1,
-                            pico_data="",
-                            rob_data="",
-                        )
-                        continue
-                    elif full_text:
-                        text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
-                        data = pico_extractor.extract_pico_multi_agent(text_snippet)
-                        if data:
-                            db_manager.update_article(pmid, pico_data=json.dumps(data, ensure_ascii=False))
-                except Exception as e:
-                    print(f"Error extracting PICO for {tei_file}: {e}")
+            elif os.path.exists(tei_path):
+                with open(tei_path, "r", encoding="utf-8") as f:
+                    tei_xml = f.read()
+                    
+            if not tei_xml:
+                return
+                
+            # Phase 2: RoB & PICO Extraction
+            async with LLM_SEMAPHORE:
+                # RoB Assess
+                rob_data = await asyncio.to_thread(assessor.assess_risk_of_bias, tei_path)
+                if rob_data:
+                    db_manager.update_article(pmid, rob_data=json.dumps(rob_data, ensure_ascii=False))
+                
+                # PICO Extract
+                full_text = await asyncio.to_thread(tei_parser.extract_text_from_tei, tei_path, optimize_context=True)
+                if full_text == "CLOUDFLARE_BLOCK":
+                    db_manager.update_article(pmid, pdf_download_status="Failed (Cloudflare Block)", pipeline_status="FAILED", pico_data="", rob_data="")
+                elif full_text:
+                    text_snippet = (full_text[:8000] + "...") if len(full_text) > 8000 else full_text
+                    pico_data = await asyncio.to_thread(pico_extractor.extract_pico_multi_agent, text_snippet)
+                    if pico_data:
+                        db_manager.update_article(pmid, pico_data=json.dumps(pico_data, ensure_ascii=False), pipeline_status="EXTRACTED")
+            
+        async def run_pipeline():
+            async with aiohttp.ClientSession() as session:
+                tasks = [process_article_pipeline(pmid, session) for pmid in ready_pmids]
+                # To update progress bar, we can use as_completed
+                total = len(tasks)
+                completed = 0
+                for f in asyncio.as_completed(tasks):
+                    await f
+                    completed += 1
+                    progress_bar.progress(completed / total)
+                    status_text.text(f"분석 파이프라인 진행 중... ({completed}/{total})")
+                    
+        asyncio.run(run_pipeline())
 
         progress_bar.empty()
         status_text.empty()
