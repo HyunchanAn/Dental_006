@@ -127,14 +127,14 @@ def render(config: dict, state: dict, **callbacks) -> None:
         st.markdown("PubMed 외 Embase, Cochrane 등에서 익스포트한 **RIS** 또는 **CSV/TSV** 파일을 업로드하세요.")
         source_db = st.selectbox("출처 DB (Source DB)", ["embase", "cochrane", "scopus", "other_external"])
         uploaded_file = st.file_uploader("파일 업로드 (RIS, CSV, TSV)", type=["ris", "csv", "tsv"])
-        
+
         if uploaded_file and st.button("업로드 및 중복 제거 실행"):
             with st.spinner("파일 파싱 및 중복 제거 중..."):
-                from src.ingest import external_parser, deduplicator
+                from src.ingest import deduplicator, external_parser
                 from src.utils import db_manager
-                
+
                 # Parse
-                file_ext = uploaded_file.name.split('.')[-1].lower()
+                file_ext = uploaded_file.name.split(".")[-1].lower()
                 if file_ext == "ris":
                     # ris expects string content
                     string_content = uploaded_file.getvalue().decode("utf-8")
@@ -142,24 +142,27 @@ def render(config: dict, state: dict, **callbacks) -> None:
                 else:
                     # csv/tsv expects file stream
                     new_df = external_parser.parse_csv(uploaded_file, source_db=source_db)
-                
+
                 # Deduplicate
                 existing_df = db_manager.get_articles_df()
                 deduped_df, stats = deduplicator.deduplicate_records(existing_df, new_df)
-                
+
                 # Save
                 db_manager.import_external_results(deduped_df)
-                
+
                 # Update stats
                 old_uploaded = int(db_manager.get_meta("total_external_uploaded", 0))
                 old_dups = int(db_manager.get_meta("total_duplicates_removed", 0))
-                
+
                 db_manager.set_meta("total_external_uploaded", old_uploaded + stats["total_uploaded"])
                 db_manager.set_meta("total_duplicates_removed", old_dups + stats["duplicates_removed"])
-                
-                st.success(f"업로드 완료! (총 업로드: {stats['total_uploaded']}건, 중복 제거: {stats['duplicates_removed']}건, 신규 적재: {stats['new_records']}건)")
-                callbacks["update_state"]("stats", {"total_found": len(existing_df) + stats["new_records"]}) # update local state stats to enable next step
 
+                st.success(
+                    f"업로드 완료! (총 업로드: {stats['total_uploaded']}건, 중복 제거: {stats['duplicates_removed']}건, 신규 적재: {stats['new_records']}건)"
+                )
+                callbacks["update_state"](
+                    "stats", {"total_found": len(existing_df) + stats["new_records"]}
+                )  # update local state stats to enable next step
 
     # Navigation Button (Step 1 -> Step 2)
     stats = state.get("stats", {})

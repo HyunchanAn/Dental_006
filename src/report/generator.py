@@ -62,7 +62,7 @@ def generate_prisma_mermaid(stats, lang="EN"):
     """
     s = stats
     t = REPORT_TRANSLATIONS.get(lang, REPORT_TRANSLATIONS["EN"])
-    
+
     if lang == "KO":
         prisma_id = "식별(Identification)<br/>데이터베이스 검색 결과"
         prisma_dups = "스크리닝 전 제외됨<br/>(중복 문헌)"
@@ -285,13 +285,13 @@ def generate_report(
 
     if not articles_df.empty:
         recalculated_stats["total_found"] = len(articles_df)
-        
+
         # Pull duplicates stats from DB metadata
         try:
             total_dups = int(db_manager.get_meta("total_duplicates_removed", 0))
         except Exception:
             total_dups = 0
-            
+
         recalculated_stats["duplicates_removed"] = total_dups
         recalculated_stats["gross_total_found"] = len(articles_df) + total_dups
 

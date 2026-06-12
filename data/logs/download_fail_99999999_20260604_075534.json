@@ -1,0 +1,26 @@
+{
+    "target_identifiers": {
+        "pmid": "99999999",
+        "doi": "10.1234/test",
+        "url": "https://example.com/test.pdf"
+    },
+    "network_context": {
+        "request_headers": {
+            "User-Agent": "test-agent"
+        },
+        "user_agent": "test-agent",
+        "proxy_vpn_used": "None"
+    },
+    "http_status": {
+        "status_code": 403,
+        "body_snippet": "<html><body>Access Denied from cloudflare</body></html>"
+    },
+    "anti_bot_sign": {
+        "detected_signs": [
+            "Access Denied",
+            "Cloudflare"
+        ],
+        "has_anti_bot": true
+    },
+    "exception": "403 Forbidden"
+}

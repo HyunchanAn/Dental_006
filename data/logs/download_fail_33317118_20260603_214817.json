@@ -1,0 +1,34 @@
+{
+    "target_identifiers": {
+        "pmid": "33317118",
+        "doi": "10.3390/ijerph17249204",
+        "url": "https://www.mdpi.com/1660-4601/17/24/9204/pdf?version=1607655436"
+    },
+    "network_context": {
+        "request_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            "Accept-Encoding": "gzip, deflate, zstd",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Connection": "keep-alive",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Ch-Ua": "\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\"",
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": "\"Windows\"",
+            "Upgrade-Insecure-Requests": "1",
+            "Email": "chemahc94@pusan.ac.kr"
+        },
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+        "proxy_vpn_used": "None"
+    },
+    "http_status": {
+        "status_code": 403,
+        "body_snippet": "<HTML><HEAD>\n<TITLE>Access Denied</TITLE>\n</HEAD><BODY>\n<H1>Access Denied</H1>\n \nYou don't have permission to access \"http&#58;&#47;&#47;www&#46;mdpi&#46;com&#47;1660&#45;4601&#47;17&#47;24&#47;9204&#47;pdf&#63;\" on this server.<P>\nReference&#32;&#35;18&#46;55483b17&#46;1780490897&#46;1c9cc5e\n<P>https&#58;&#47;&#47;errors&#46;edgesuite&#46;net&#47;18&#46;55483b17&#46;1780490897&#46;1c9cc5e</P>\n</BODY>\n</HTML>\n"
+    },
+    "anti_bot_sign": {
+        "detected_signs": [
+            "Access Denied"
+        ],
+        "has_anti_bot": true
+    },
+    "exception": "403 Client Error: Forbidden for url: https://www.mdpi.com/1660-4601/17/24/9204/pdf?version=1607655436"
+}
