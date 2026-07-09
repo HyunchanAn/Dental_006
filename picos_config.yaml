@@ -1,9 +1,10 @@
 picos:
-  population: '"Aged"[Mesh] OR "Aged, 80 and over"[Mesh] OR "Elderly"[tiab]'
-  intervention: '"Dental Implants"[Mesh] OR "Dental Implant*"[tiab]'
-  comparison: '"Denture, Partial, Removable"[Mesh] OR "Denture*"[tiab] OR "Partial
-    denture*"[tiab]'
-  outcome: '"Occlusion"[Mesh] OR "Mastication"[Mesh] OR "Function"[Mesh] OR "Success
-    rate"[tiab]'
-  study_design: '"Comparative Study"[pt] OR "Review"[pt] OR "Randomized Controlled
-    Trial"[pt]'
+  population: '"Aged"[Mesh] OR "Aged, 60 to 69"[Mesh] OR "Aged, 70 to 79"[Mesh] OR
+    "Aged, 80 and over"[Mesh] OR "Elderly"[tiab]'
+  intervention: '"Orthodontic"[Mesh] OR "Orthodontist*"[tiab] OR "Brace*"[tiab] OR
+    "Periodontal Disease"[Mesh] OR "Periodontitis"[tiab]'
+  comparison: '"Orthodontic"[Mesh] OR "Orthodontist*"[tiab] OR "Brace*"[tiab]'
+  outcome: '"Success Rate"[tiab] OR "Treatment Outcome"[Mesh] OR "Periodontal Status"[Mesh]
+    OR "Bone Loss"[Mesh]'
+  study_design: '"Randomized Controlled Trial"[pt] OR "Comparative Study"[pt] OR "Cohort
+    Study"[pt]'
