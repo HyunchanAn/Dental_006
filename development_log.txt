@@ -289,3 +289,7 @@
 [2026-06-12 22:53:00] [Hyunchan An] README.md Architecture Diagram 갱신 완료 및 Issue #47 닫힘 처리
 2 0 2 6 - 0 6 - 1 3 :   F i x e d   I s s u e   # 4 8 ,   i m p l e m e n t e d   d o w n l o a d   v a l i d a t i o n ,   n e g a t i v e   p r o m p t s   f o r   P I C O   a n d   R o B ,   a n d   P r i s m a   d i a g r a m   s y n c .   M e r g i n g   b r a n c h e s   t o   m a i n .  
  
+## 2026-07-10
+- Dental_006 모듈의 각 단계별 유닛 테스트 검증 진행.
+- 의존성 누락 문제(playwright, pytest-asyncio 등)를 해결하기 위해 pip install -e ".[dev]" 및 크로뮴 브라우저 엔진 설치 수행함.
+- pytest-asyncio 추가 설치 후 pytest tests/ -v 실행 결과, 29개 유닛/통합 테스트 모두 통과(ALL PASSED)함. E2E 테스트 대신 각 단계별 검증으로 모델 및 시스템 동작 건전성을 확보함.
