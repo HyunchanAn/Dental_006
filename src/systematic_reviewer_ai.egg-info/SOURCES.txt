@@ -8,6 +8,7 @@ src/ingest/__init__.py
 src/ingest/deduplicator.py
 src/ingest/downloader.py
 src/ingest/external_parser.py
+src/ingest/metadata_resolver.py
 src/ingest/pubmed.py
 src/ingest/scihub_fallback.py
 src/llm/__init__.py
@@ -45,7 +46,9 @@ tests/test_db_manager.py
 tests/test_deduplicator.py
 tests/test_downloader.py
 tests/test_integration.py
+tests/test_metadata_resolver.py
 tests/test_pico_extractor.py
 tests/test_pipeline.py
 tests/test_pubmed_parser.py
 tests/test_screener.py
+tests/test_validation.py

@@ -435,14 +435,14 @@ def generate_report(
             if not ref_df.empty:
                 for _, row in ref_df.iterrows():
                     title = row.get("title", "No Title")
-                    if title and not title.endswith('.'):
+                    if title and not title.endswith("."):
                         title += "."
                     journal = row.get("journal", "Unknown Journal")
                     year = row.get("pub_year", "n.d.")
                     authors = row.get("authors", "")
                     if not authors:
                         authors = "Anonymous."
-                    elif not authors.endswith('.'):
+                    elif not authors.endswith("."):
                         authors += "."
                     volume = row.get("volume", "")
                     issue = row.get("issue", "")
