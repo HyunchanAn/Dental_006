@@ -189,3 +189,8 @@ python main.py
 - Sterne, J. A., Savović, J., Page, M. J., Elbers, R. G., Blencowe, N. S., Boutron, I., ... & Higgins, J. P. (2019). RoB 2: a revised tool for assessing risk of bias in randomised trials. *BMJ*, 366, l4898. (비뚤림 위험 평가 설계)
 - GROBID (GeneRation Of BIbliographic Data). (2008-2024). https://github.com/kermitt2/grobid (PDF 텍스트 구조화 파싱)
 - Google DeepMind. (2024). Gemma 4 Open Models. (스크리닝 및 PICO 추출 핵심 LLM 백엔드)
+
+## 설치 및 실행 방법
+```bash
+pip install -r requirements.txt
+```
