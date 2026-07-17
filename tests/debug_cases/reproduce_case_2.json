@@ -1,7 +1,0 @@
-{
-  "population": "\"Tooth Loss\"[Mesh] OR \"Missing teeth\"[tiab]",
-  "intervention": "\"Dental Implants\"[Mesh] OR \"Dental Implant*\"[tiab]",
-  "comparison": "\"Denture, Partial, Removable\"[Mesh] OR \"Denture*\"[tiab] OR \"Bridge*\"[tiab]",
-  "outcome": "\"Treatment Outcome\"[Mesh] OR \"Success\"[tiab]",
-  "study_design": "\"Comparative Study\"[pt]"
-}

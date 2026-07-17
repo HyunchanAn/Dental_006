@@ -1,7 +1,0 @@
-{
-  "population": "\"Aged\"[Mesh] OR \"Aged, 80 and over\"[Mesh] OR \"Elderly\"[tiab]",
-  "intervention": "\"Dental Implants\"[Mesh] OR \"Dental Implant*\"[tiab]",
-  "comparison": "\"Denture, Partial, Removable\"[Mesh] OR \"Denture*\"[tiab] OR \"Bridge*\"[tiab]",
-  "outcome": "\"Patient Satisfaction\"[Mesh] OR \"Satisfaction\"[tiab]",
-  "study_design": "\"Comparative Study\"[pt]"
-}
