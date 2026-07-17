@@ -310,7 +310,6 @@
 - step3_analysis.py: asyncio 파이프라인(Producer-Consumer 형태) 구조화, GROBID (Semaphore 4) 및 RoB/PICO (Semaphore 1) 할당하여 VRAM 보호.
 - screener.py / pico_extractor.py: threading.Semaphore(1) 적용하여 다중 요청 시 LLM 보호.
 - docs/ARCHITECTURE.md 업데이트 완료.
-2 0 2 6 - 0 6 - 1 2   0 4 : 5 5 : 0 0   -   C I / C D   <��  ��t�  ��P�  tհ�  D�̸.   ( r u f f   l i n t ,   t e s t _ d e d u p l i c a t o r   a s s e r t   ��  D�̸) 
  
  
 ## 2026-06-12
