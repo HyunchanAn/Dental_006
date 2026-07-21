@@ -1,0 +1,15 @@
+name: Centralized CI Pipeline
+
+on:
+  push:
+    branches: [ main, "feature/**" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  call-central-workflow:
+    uses: HyunchanAn/Dental_000/.github/workflows/reusable-ci.yml@main
+    with:
+      python_version: "3.10"
+      install_opencv: true
+      test_command: "PYTHONPATH=${{ github.workspace }} pytest Dental_000/tests/tests_006 -v"
