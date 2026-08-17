@@ -2,9 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install uv for fast dependency management
+# Install git and uv for fast dependency management
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 RUN pip install uv
-
 # Copy dependency specifications
 COPY pyproject.toml requirements.txt ./
 
