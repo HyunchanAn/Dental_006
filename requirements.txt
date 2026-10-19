@@ -11,8 +11,6 @@ asreview-makita
 streamlit
 rouge-score
 playwright
-playwright-stealth
-fake-useragent
 aiohttp
 beautifulsoup4
 

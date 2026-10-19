@@ -293,10 +293,7 @@ def main():
             pdf_dir,
             allowed_pmids=included_pmids,
             email=picos_config.get("email"),
-            enable_scihub_fallback=picos_config.get("enable_scihub_fallback", False),
             tei_dir=TEI_DIR,
-            ezproxy_prefix=picos_config.get("institutional_ezproxy_prefix", ""),
-            user_data_dir=picos_config.get("user_data_dir", ""),
         )  # Update database with PDF download status
         print("\nUpdating database with PDF download status...")
         try:

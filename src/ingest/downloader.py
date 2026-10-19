@@ -2,95 +2,32 @@ import asyncio
 import datetime
 import json
 import os
+import shutil
+import tempfile
 import xml.etree.ElementTree as ET
-from urllib.parse import urlparse, urlunparse
 
 import aiohttp
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
-from playwright_stealth import Stealth
 
 from . import metadata_resolver
-from .scihub_fallback import SciHubDownloader
 
 # External download connection limit
 DOWNLOAD_SEMAPHORE = asyncio.Semaphore(10)
 
 
-def get_default_chrome_user_data_dir():
-    """
-    Auto-detect Windows default Chrome User Data Directory if config is empty.
-    """
-    if os.name == "nt":
-        local_app_data = os.environ.get("LOCALAPPDATA", "")
-        if local_app_data:
-            chrome_path = os.path.join(local_app_data, "Google", "Chrome", "User Data")
-            if os.path.exists(chrome_path):
-                return chrome_path
-    return None
-
-
-def _apply_institutional_proxy(url: str, ezproxy_prefix: str) -> str:
-    """
-    Rewrites the domain of a URL for EZproxy.
-    Example:
-        url: https://link.springer.com/article/10...
-        prefix: https://ezproxy.snu.ac.kr
-        result: https://link-springer-com.ezproxy.snu.ac.kr/article/10...
-    Note: Some EZproxies use a different format (e.g. prefix/login?url=...).
-    We use the domain substitution method as requested.
-    """
-    if not url or not ezproxy_prefix:
-        return url
-
-    try:
-        parsed_url = urlparse(url)
-        domain = parsed_url.netloc
-        if not domain:
-            return url
-
-        # Replace dots with hyphens for the domain part
-        hyphenated_domain = domain.replace(".", "-")
-
-        # Parse the proxy prefix
-        proxy_parsed = urlparse(ezproxy_prefix)
-        proxy_netloc = proxy_parsed.netloc
-        proxy_scheme = proxy_parsed.scheme
-
-        # Construct new netloc: hyphenated_domain.proxy_netloc
-        new_netloc = f"{hyphenated_domain}.{proxy_netloc}"
-
-        new_url = urlunparse(
-            (proxy_scheme, new_netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
-        )
-        return new_url
-    except Exception as e:
-        print(f"  - Failed to apply institutional proxy: {e}")
-        return url
-
-
 def get_request_headers(email=None):
-    try:
-        from fake_useragent import UserAgent
-
-        ua = UserAgent(os="windows", browsers=["chrome", "edge"]).random
-    except Exception:
-        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-
     contact = email if email else "systematic-reviewer-ai@example.com"
     return {
-        "User-Agent": ua,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "User-Agent": f"SystematicReviewerAI/1.0 (mailto:{contact})",
+        "Accept": "application/pdf,text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Sec-Ch-Ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Upgrade-Insecure-Requests": "1",
         "Email": contact,
     }
 
 
 async def get_unpaywall_pdf_url(session, doi, email=None):
+    """Query Unpaywall API for a legal Open Access PDF URL."""
     if not doi:
         return None
     try:
@@ -99,18 +36,75 @@ async def get_unpaywall_pdf_url(session, doi, email=None):
         async with session.get(url, headers=get_request_headers(email), timeout=20) as response:
             if response.status == 200:
                 data = await response.json()
-                if data.get("best_oa_location") and data["best_oa_location"].get("url_for_pdf"):
-                    return data["best_oa_location"]["url_for_pdf"]
+                if data.get("is_oa") and data.get("best_oa_location"):
+                    pdf_url = data["best_oa_location"].get("url_for_pdf")
+                    if pdf_url:
+                        return pdf_url
     except Exception as e:
         print(f"  - An unexpected error occurred while processing DOI {doi} with Unpaywall: {e}")
     return None
 
 
+async def get_pmc_oa_pdf_url(session, pmcid=None, email=None):
+    """Query NCBI PubMed Central Open Access Web Service for a legal OA PDF link."""
+    if not pmcid:
+        return None
+    try:
+        clean_pmcid = pmcid if str(pmcid).upper().startswith("PMC") else f"PMC{pmcid}"
+        url = f"https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id={clean_pmcid}"
+        async with session.get(url, headers=get_request_headers(email), timeout=20) as response:
+            if response.status == 200:
+                xml_text = await response.text()
+                root = ET.fromstring(xml_text)
+                for link in root.findall(".//link"):
+                    if link.attrib.get("format") == "pdf" and link.attrib.get("href"):
+                        href = link.attrib["href"]
+                        if href.startswith("ftp://ftp.ncbi.nlm.nih.gov/"):
+                            href = href.replace("ftp://ftp.ncbi.nlm.nih.gov/", "https://ftp.ncbi.nlm.nih.gov/", 1)
+                        return href
+    except Exception as e:
+        print(f"  - Error querying PMC OA service for {pmcid}: {e}")
+    return None
+
+
+async def get_europe_pmc_pdf_url(session, pmid=None, doi=None, email=None):
+    """Query Europe PMC REST API for Open Access PDF links."""
+    query = None
+    if pmid and str(pmid) != "unknown":
+        query = f"EXT_ID:{pmid} AND SRC:MED"
+    elif doi:
+        query = f'DOI:"{doi}"'
+    if not query:
+        return None
+
+    try:
+        url = f"https://www.ebi.ac.uk/europepmc/webservices/rest/search?query={query}&resultType=core&format=json"
+        async with session.get(url, headers=get_request_headers(email), timeout=20) as response:
+            if response.status == 200:
+                data = await response.json()
+                results = data.get("resultList", {}).get("result", [])
+                for item in results:
+                    if item.get("isOpenAccess") != "Y":
+                        continue
+                    url_list = item.get("fullTextUrlList", {}).get("fullTextUrl", [])
+                    for entry in url_list:
+                        if entry.get("documentStyle") == "pdf" and entry.get("availabilityCode") in ("OA", "F"):
+                            if entry.get("url"):
+                                return entry["url"]
+                    pmcid = item.get("pmcid")
+                    if pmcid:
+                        return f"https://europepmc.org/backend/ptpmcrender.fcgi?accid={pmcid}&blobtype=pdf"
+    except Exception as e:
+        print(f"  - Error querying Europe PMC for PMID={pmid} DOI={doi}: {e}")
+    return None
+
+
 async def get_semantic_scholar_pdf_url(session, paper_id, email=None):
+    """Query Semantic Scholar Graph API for an Open Access PDF link."""
     if not paper_id:
         return None
     try:
-        url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}?fields=openAccessPdf"
+        url = f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}?fields=isOpenAccess,openAccessPdf"
         async with session.get(url, headers=get_request_headers(email), timeout=20) as response:
             if response.status == 200:
                 data = await response.json()
@@ -119,6 +113,35 @@ async def get_semantic_scholar_pdf_url(session, paper_id, email=None):
                     return oa_pdf["url"]
     except Exception as e:
         print(f"  - Error querying Semantic Scholar for {paper_id}: {e}")
+    return None
+
+
+async def get_crossref_tdm_pdf_url(session, doi, email=None):
+    """Resolve Open Access or licensed Crossref TDM / OpenAlex OA PDF links."""
+    if not doi:
+        return None
+    try:
+        crossref_data = await metadata_resolver.fetch_crossref_metadata(session, doi, email)
+        if crossref_data:
+            licenses = crossref_data.get("license", [])
+            has_open_license = any(
+                "creativecommons.org" in str(lic.get("URL", "")).lower()
+                or lic.get("content-version") in ("vor", "am", "tdm")
+                for lic in licenses
+            )
+            if has_open_license:
+                for link in crossref_data.get("link", []):
+                    content_type = str(link.get("content-type", "")).lower()
+                    if link.get("URL") and "pdf" in content_type:
+                        return str(link["URL"])
+
+        openalex_data = await metadata_resolver.fetch_openalex_metadata(session, doi, email)
+        if openalex_data:
+            oa_info = openalex_data.get("open_access", {})
+            if oa_info.get("is_oa") and oa_info.get("oa_url"):
+                return str(oa_info["oa_url"])
+    except Exception as e:
+        print(f"  - Error checking Crossref TDM / OpenAlex OA for {doi}: {e}")
     return None
 
 
@@ -194,31 +217,21 @@ def is_valid_html_text(text):
     return True
 
 
-async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None, user_data_dir=None):
-    print(f"  - Using Async Playwright Headless Browser for {pdf_url}...")
+async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None):
+    """
+    Use an isolated temporary Playwright browser profile (never the user's real Chrome profile)
+    to resolve standard Open Access redirects.
+    """
+    print(f"  - Using isolated headless browser session for OA URL {pdf_url}...")
+    temp_profile_dir = tempfile.mkdtemp(prefix="sr_oa_browser_")
     try:
         async with async_playwright() as p:
-            context = None
-            if user_data_dir and os.path.exists(os.path.dirname(user_data_dir)):
-                try:
-                    context = await p.chromium.launch_persistent_context(
-                        user_data_dir=user_data_dir,
-                        headless=True,
-                        viewport={"width": 1920, "height": 1080},
-                        args=["--disable-blink-features=AutomationControlled"],
-                    )
-                except Exception as e:
-                    print(f"  - Persistent context locked/failed, fallback to ephemeral: {e}")
-
-            if not context:
-                browser = await p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
-                context = await browser.new_context(
-                    viewport={"width": 1920, "height": 1080},
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                )
-
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir=temp_profile_dir,
+                headless=True,
+                viewport={"width": 1280, "height": 800},
+            )
             page = await context.new_page()
-            await Stealth().apply_stealth_async(page)
 
             try:
                 await page.goto(pdf_url, wait_until="networkidle", timeout=30000)
@@ -229,22 +242,18 @@ async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None, user
             cookies = await context.cookies()
             cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies])
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                "User-Agent": "SystematicReviewerAI/1.0",
                 "Cookie": cookie_str,
             }
 
-            # Close browser/context safely
             await context.close()
-            if hasattr(context, "browser") and context.browser:
-                await context.browser.close()
 
-        # Re-try the final URL with aiohttp using the cookies obtained by playwright
         async with aiohttp.ClientSession() as session:
             async with session.get(final_url, headers=headers, timeout=60) as res:
                 content_type = res.headers.get("Content-Type", "").lower()
                 if "application/pdf" not in content_type:
                     if tei_path:
-                        print("  - URL returned HTML. Extracting full text via BeautifulSoup...")
+                        print("  - OA URL returned HTML. Extracting full text via BeautifulSoup...")
                         html_content = await res.text()
                         soup = BeautifulSoup(html_content, "html.parser")
                         text = soup.get_text(separator=" ", strip=True)
@@ -266,25 +275,24 @@ async def download_pdf_with_playwright(pdf_url, output_path, tei_path=None, user
                     os.rename(output_path, output_path + ".failed")
                     return False
 
-                print("  - SUCCESS: Downloaded PDF via Playwright session.")
+                print("  - SUCCESS: Downloaded OA PDF.")
                 return "pdf"
     except Exception as e:
-        print(f"  - Playwright fallback failed: {e}")
+        print(f"  - Playwright OA download fallback failed: {e}")
         return False
+    finally:
+        shutil.rmtree(temp_profile_dir, ignore_errors=True)
 
 
 async def download_pdf_from_url(
-    session, pdf_url, output_path, email=None, pmid=None, doi=None, tei_path=None, user_data_dir=None
+    session, pdf_url, output_path, email=None, pmid=None, doi=None, tei_path=None
 ):
-    if "angle.org/doi/pdf" in pdf_url:
-        pdf_url = pdf_url.replace("www.angle.org/doi/pdf", "meridian.allenpress.com/angle-orthodontist/article-pdf")
-
     try:
         async with session.get(pdf_url, headers=get_request_headers(email), timeout=60) as response:
             content_type = response.headers.get("Content-Type", "").lower()
             if "application/pdf" not in content_type:
-                print(f"  - Target URL returned {content_type}, trying Playwright fallback...")
-                pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path, user_data_dir)
+                print(f"  - Target URL returned {content_type}, trying isolated browser fallback...")
+                pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path)
                 if pw_res:
                     return pw_res
 
@@ -304,8 +312,7 @@ async def download_pdf_from_url(
             return "pdf"
     except aiohttp.ClientError as e:
         print(f"  - Failed to download PDF from {pdf_url}: {e}")
-        # Try Playwright fallback on failure
-        pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path, user_data_dir)
+        pw_res = await download_pdf_with_playwright(pdf_url, output_path, tei_path)
         if pw_res:
             return pw_res
         write_debug_log(pmid, doi, pdf_url, None, None, None, e)
@@ -314,9 +321,7 @@ async def download_pdf_from_url(
     return False
 
 
-async def process_single_article(
-    session, article, output_dir, email, enable_scihub_fallback, tei_dir, scihub_downloader, ezproxy_prefix, user_data_dir
-):
+async def process_single_article(session, article, output_dir, email, tei_dir):
     pmid_node = article.find(".//PMID")
     pmid = pmid_node.text if pmid_node is not None else "unknown"
     output_filename = os.path.join(output_dir, f"{pmid}.pdf")
@@ -327,64 +332,72 @@ async def process_single_article(
 
     doi_node = article.find(".//ArticleId[@IdType='doi']")
     doi = doi_node.text if doi_node is not None else None
+    pmc_node = article.find(".//ArticleId[@IdType='pmc']")
+    pmcid = pmc_node.text if pmc_node is not None else None
+    tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
 
     async with DOWNLOAD_SEMAPHORE:
-        # Strategy 1: Open Access (Unpaywall, Semantic Scholar)
+        # 1. Unpaywall Open Access API
         if doi:
             pdf_url = await get_unpaywall_pdf_url(session, doi, email=email)
             if pdf_url:
                 print(f"  - Found Unpaywall OA link for {doi}.")
-                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
-                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path, user_data_dir)
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
                 if res == "pdf":
                     return pmid, "Downloaded (Unpaywall)"
                 elif res == "html":
                     return pmid, "Downloaded (HTML Fallback)"
 
+        # 2. PubMed Central OA Web Service
+        if pmcid:
+            pdf_url = await get_pmc_oa_pdf_url(session, pmcid=pmcid, email=email)
+            if pdf_url:
+                print(f"  - Found PMC OA link for {pmcid}.")
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
+                if res == "pdf":
+                    return pmid, "Downloaded (PMC)"
+                elif res == "html":
+                    return pmid, "Downloaded (HTML Fallback)"
+
+        # 3. Europe PMC Open Access REST API
+        pdf_url = await get_europe_pmc_pdf_url(session, pmid=pmid, doi=doi, email=email)
+        if pdf_url:
+            print(f"  - Found Europe PMC OA link for {pmid}.")
+            res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
+            if res == "pdf":
+                return pmid, "Downloaded (EuropePMC)"
+            elif res == "html":
+                return pmid, "Downloaded (HTML Fallback)"
+
+        # 4. Semantic Scholar Open Access link
         paper_id = f"DOI:{doi}" if doi else (f"PMID:{pmid}" if pmid else None)
         if paper_id:
             pdf_url = await get_semantic_scholar_pdf_url(session, paper_id, email=email)
             if pdf_url:
                 print(f"  - Found Semantic Scholar OA link for {paper_id}.")
-                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
-                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path, user_data_dir)
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
                 if res == "pdf":
                     return pmid, "Downloaded (SemanticScholar)"
                 elif res == "html":
                     return pmid, "Downloaded (HTML Fallback)"
 
-        # Strategy 2: Publisher URL via Metadata Resolver & Institutional EZproxy
+        # 5. Crossref TDM / OpenAlex Open Access link
         if doi:
-            pub_url = await metadata_resolver.resolve_publisher_url(session, doi, email)
-            if pub_url:
-                if ezproxy_prefix:
-                    proxied_url = _apply_institutional_proxy(pub_url, ezproxy_prefix)
-                    print(f"  - Attempting Institutional EZproxy: {proxied_url}")
-                    pub_url = proxied_url
-                else:
-                    print(f"  - Attempting Direct Publisher URL: {pub_url}")
-
-                tei_path = os.path.join(tei_dir, f"{pmid}.xml") if tei_dir else None
-                res = await download_pdf_from_url(session, pub_url, output_filename, email, pmid, doi, tei_path, user_data_dir)
+            pdf_url = await get_crossref_tdm_pdf_url(session, doi, email=email)
+            if pdf_url:
+                print(f"  - Found Crossref TDM / OpenAlex OA link for {doi}.")
+                res = await download_pdf_from_url(session, pdf_url, output_filename, email, pmid, doi, tei_path)
                 if res == "pdf":
-                    return pmid, "Downloaded (Publisher/Proxy)"
+                    return pmid, "Downloaded (Crossref TDM)"
                 elif res == "html":
                     return pmid, "Downloaded (HTML Fallback)"
 
-        # Strategy 3: Sci-Hub Fallback (Async Playwright Stealth)
-        if enable_scihub_fallback and doi and scihub_downloader:
-            downloaded = await scihub_downloader.download_by_doi(doi, output_filename)
-            if downloaded:
-                return pmid, "Downloaded (Sci-Hub)"
-
-        print(f"  - No OA source found for {pmid}.")
+        print(f"  - No OA source found for {pmid}. Please use Manual PDF Upload Helper.")
         write_debug_log(pmid, doi, None, None, None, None, Exception("No OA Source Found"))
         return pmid, "No OA Source Found"
 
 
-async def download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir, ezproxy_prefix, user_data_dir):
-    scihub_downloader = SciHubDownloader(user_data_dir=user_data_dir) if enable_scihub_fallback else None
-
+async def download_pdfs_async(articles, output_dir, email, tei_dir):
     async with aiohttp.ClientSession() as session:
         tasks = [
             process_single_article(
@@ -392,11 +405,7 @@ async def download_pdfs_async(articles, output_dir, email, enable_scihub_fallbac
                 article,
                 output_dir,
                 email,
-                enable_scihub_fallback,
                 tei_dir,
-                scihub_downloader,
-                ezproxy_prefix,
-                user_data_dir,
             )
             for article in articles
         ]
@@ -409,10 +418,7 @@ def download_pdfs_from_xml(
     output_dir,
     allowed_pmids=None,
     email=None,
-    enable_scihub_fallback=False,
     tei_dir=None,
-    ezproxy_prefix=None,
-    user_data_dir=None,
 ):
     os.makedirs(output_dir, exist_ok=True)
     try:
@@ -431,13 +437,8 @@ def download_pdfs_from_xml(
     if not articles:
         return {}
 
-    print(f"Attempting to download PDFs concurrently for {len(articles)} articles...")
+    print(f"Attempting to download Open Access PDFs concurrently for {len(articles)} articles...")
 
-    # Resolve User Data Dir if empty
-    if not user_data_dir:
-        user_data_dir = get_default_chrome_user_data_dir()
-
-    # Run async logic synchronously for compatibility with Streamlit caller
     return asyncio.run(
-        download_pdfs_async(articles, output_dir, email, enable_scihub_fallback, tei_dir, ezproxy_prefix, user_data_dir)
+        download_pdfs_async(articles, output_dir, email, tei_dir)
     )

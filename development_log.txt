@@ -327,3 +327,9 @@
 - Dental_006 모듈의 각 단계별 유닛 테스트 검증 진행.
 - 의존성 누락 문제(playwright, pytest-asyncio 등)를 해결하기 위해 pip install -e ".[dev]" 및 크로뮴 브라우저 엔진 설치 수행함.
 - pytest-asyncio 추가 설치 후 pytest tests/ -v 실행 결과, 29개 유닛/통합 테스트 모두 통과(ALL PASSED)함. E2E 테스트 대신 각 단계별 검증으로 모델 및 시스템 동작 건전성을 확보함.
+
+## 2026-10-20
+- [랩탑 개발팀] Issue #51 조치: `src/ingest/scihub_fallback.py` 모듈 삭제 및 `src/ingest/downloader.py`에서 Sci-Hub 폴백, `playwright-stealth`, 사용자 실제 Chrome 프로필(`get_default_chrome_user_data_dir`) 연결, 기관 EZproxy 도메인 재작성(`_apply_institutional_proxy`) 로직 전면 제거.
+- 합법적 오픈 액세스 경로(Unpaywall API, PubMed Central OA, Europe PMC REST API, Semantic Scholar OA, Crossref TDM 라이선스 링크)와 격리된 임시 브라우저 디렉터리(`tempfile.mkdtemp()`)만 사용하도록 다운로드 엔진 개편.
+- `src/ui/translations.py`, `src/ui/step3_analysis.py`, `main.py`, `README.md`, `requirements.txt`, `pyproject.toml`에서 비준수 옵션 및 의존성 제거 후 라이선스 정책 명시.
+- [랩탑 개발팀] Issue #52 조치: `reference_materials/` 내 출판사 저작권 논문 PDF 4편을 Git 추적에서 제거(`git rm`)하고 `reference_materials/README.md`에 정식 서지 정보와 공식 DOI 링크로 대체.

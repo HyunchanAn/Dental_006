@@ -27,8 +27,6 @@ dependencies = [
     "pydantic-settings>=2.1.0",
     "rouge-score>=0.1.2",
     "playwright>=1.40.0",
-    "playwright-stealth>=1.0.6",
-    "fake-useragent>=1.5.1",
     "aiohttp>=3.9.0",
     "beautifulsoup4>=4.12.0"
 ]
