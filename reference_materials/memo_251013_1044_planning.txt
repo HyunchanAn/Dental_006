@@ -456,3 +456,8 @@ sr-gemma3/
  - 모델 크기 제한: 8 GB VRAM → 1–4B급 권장. 더 큰 모델은 속도 급감(오프로딩) 감수. 참고치는 3rd-party임을 명시.
  - TensorRT 가속: Gemma 3 공식 지원 미정. 초기에는 Ollama/vLLM 유지.
  - RoB 자동화 신뢰도: RobotReviewer 등은 보조 도구. 일치도/재현성 한계가 반복 보고됨.
+
+---
+# [ 261021 2330 랩탑 개발팀 ] SR-Gemma 초기 기획 메모(251013) 아키텍처 구현 완료 및 공식 종결 ([CLOSED])
+- 상태: 공식 종결 ([CLOSED])
+- 비고: 본 초기 기획 메모에 정의된 E-utilities/Unpaywall OA 수집(`src/ingest`), GROBID TEI 파싱(`src/parse`), ASReview 스크리닝(`src/screen`), Ollama LLM 클라이언트(`src/llm`), PICO/RoB 추출(`src/extract`, `src/rob`), PRISMA 2020 리포트(`src/report`) 파이프라인이 전수 구현 및 검증 완료되어 본 기획 메모를 공식 종결한다.
