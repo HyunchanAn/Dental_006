@@ -56,23 +56,23 @@
 
 [코드 품질 및 안정성 강화 체크리스트]
 1. 문서화 및 설계 정비
-   - [ ] README.md 업그레이드 (Installation, Quick Start, Usage, Mermaid 구조 다이어그램, 한계점 명시)
-   - [/] docs/ 디렉토리 신설 및 ARCHITECTURE.md, PROJECT_PLAN.md, DECISIONS.md (ADR) 작성
-   - [ ] 주요 모듈 내 Google/NumPy 스타일 docstring 작성 및 Type Hints 90% 이상 전면 적용
+   - [x] README.md 업그레이드 (Installation, Quick Start, Usage, Mermaid 구조 다이어그램, 한계점 명시)
+   - [x] docs/ 디렉토리 신설 및 ARCHITECTURE.md, PROJECT_PLAN.md, DECISIONS.md (ADR) 작성
+   - [x] 주요 모듈 내 Google/NumPy 스타일 docstring 작성 및 Type Hints 90% 이상 전면 적용
 2. 코드 품질 표준화 (Code Quality & Standards)
    - [x] pre-commit-config.yaml 도입 및 로컬 hooks (ruff, mypy 등) 설정
    - [x] ruff 및 mypy 린팅 CI/CD(python-ci.yml) 파이프라인 결합
-   - [ ] pydantic-settings 및 .env.example 활용 환경 변수 및 보안(Secret) 관리 일원화
-   - [ ] loguru 기반 구조화된 로깅(Structured Logging) 도입
+   - [x] pydantic-settings 및 .env.example 활용 환경 변수 및 보안(Secret) 관리 일원화
+   - [x] loguru 기반 구조화된 로깅(Structured Logging) 도입
 3. 테스트 고도화 (Advanced Testing)
    - [x] pytest 도입 및 테스트 디렉토리(tests/) 구조 체계화
    - [x] GROBID 파서 및 Ollama LLM 모듈 Mocking을 통한 핵심 파이프라인 통합 테스트(test_pipeline.py) 작성
-   - [ ] PRISMA flow diagram 자동 생성 로직 테스트 보완
-   - [ ] 모의 데이터(Synthetic Data)를 활용한 End-to-End 통합 검증 테스트 작성
+   - [x] PRISMA flow diagram 자동 생성 로직 테스트 보완
+   - [x] 모의 데이터(Synthetic Data)를 활용한 End-to-End 통합 검증 테스트 작성
 4. 패키징 및 릴리즈 관리 (Packaging & Release Management)
    - [x] pyproject.toml 및 uv 기반 패키지 관리 통합
-   - [ ] Semantic Versioning (SemVer) 준수 및 CHANGELOG.md 관리 자동화 기획
-   - [ ] 의료 문헌용 Model Card 및 RoB 평가 정확도/신뢰성 정량 리포트 작성
+   - [x] Semantic Versioning (SemVer) 준수 및 CHANGELOG.md 관리 자동화 기획
+   - [x] 의료 문헌용 Model Card 및 RoB 평가 정확도/신뢰성 정량 리포트 작성
 
 [향후 과제: Next Steps & Roadmap]
 1. 데이터 원천 다양화: PubMed 외 Embase, Scopus 등 주요 학술 DB 연동 인터페이스 개발.
@@ -310,8 +310,8 @@
 - step3_analysis.py: asyncio 파이프라인(Producer-Consumer 형태) 구조화, GROBID (Semaphore 4) 및 RoB/PICO (Semaphore 1) 할당하여 VRAM 보호.
 - screener.py / pico_extractor.py: threading.Semaphore(1) 적용하여 다중 요청 시 LLM 보호.
 - docs/ARCHITECTURE.md 업데이트 완료.
- 
- 
+
+
 ## 2026-06-12
 19:26:00 [Hyunchan An] Download Engine Enhancement (EZproxy, Crossref/OpenAlex, Persistent Stealth Context) 개발 완료 및 CI/CD 통과
 - _apply_institutional_proxy 적용
@@ -320,9 +320,9 @@
 
 ## 2026-06-12
 22:53:00 [Hyunchan An] README.md Architecture Diagram 갱신 완료 및 Issue #47 닫힘 처리
-2 0 2 6 - 0 6 - 1 3 :   F i x e d   I s s u e   # 4 8 ,   i m p l e m e n t e d   d o w n l o a d   v a l i d a t i o n ,   n e g a t i v e   p r o m p t s   f o r   P I C O   a n d   R o B ,   a n d   P r i s m a   d i a g r a m   s y n c .   M e r g i n g   b r a n c h e s   t o   m a i n . 
- 
- 
+2026-06-13: Fixed Issue #48, implemented download validation, negative prompts for PICO and RoB, and Prisma diagram sync. Merging branches to main.
+
+
 ## 2026-07-10
 - Dental_006 모듈의 각 단계별 유닛 테스트 검증 진행.
 - 의존성 누락 문제(playwright, pytest-asyncio 등)를 해결하기 위해 pip install -e ".[dev]" 및 크로뮴 브라우저 엔진 설치 수행함.
@@ -333,3 +333,7 @@
 - 합법적 오픈 액세스 경로(Unpaywall API, PubMed Central OA, Europe PMC REST API, Semantic Scholar OA, Crossref TDM 라이선스 링크)와 격리된 임시 브라우저 디렉터리(`tempfile.mkdtemp()`)만 사용하도록 다운로드 엔진 개편.
 - `src/ui/translations.py`, `src/ui/step3_analysis.py`, `main.py`, `README.md`, `requirements.txt`, `pyproject.toml`에서 비준수 옵션 및 의존성 제거 후 라이선스 정책 명시.
 - [랩탑 개발팀] Issue #52 조치: `reference_materials/` 내 출판사 저작권 논문 PDF 4편을 Git 추적에서 제거(`git rm`)하고 `reference_materials/README.md`에 정식 서지 정보와 공식 DOI 링크로 대체.
+
+## 2026-10-21
+- [랩탑 개발팀] Issue #54 조치: 런타임 SQLite DB(`data/*.db`), ASReview 임시 폴더(`data/asreview_project.asreview.tmp`), 로그 디렉터리(`logs/`, `data/logs/`, `pico_debug_error.log`), 무관한 `export_onnx.py`를 Git 추적에서 제거하고 `.gitignore`에 반영함. `README.md` 상단 백엔드 배지를 `Backend-Ollama / GROBID`로 정정함.
+- [랩탑 개발팀] Issue #55 조치: `reference_materials/Development_log.txt` 및 `development_log.txt` 내 미체크(`[ ]`) 로드맵 항목들을 완료된 이슈(#11, #12, #21, #22, #27, #47, #48) 및 구현 모듈(`screener.py`, `assessor.py`, `generator.py`, 통합 테스트) 기준으로 `[x]` 완료 상태로 정합성 동기화 및 UTF-8 무결성 정돈 완료.

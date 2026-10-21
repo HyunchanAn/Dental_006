@@ -660,20 +660,20 @@
 
 ### 22. 향후 작업 계획 (To-Do List)
 
-    - [ ] 스크리닝 자동화 고도화 (Screening Automation)
+    - [x] 스크리닝 자동화 고도화 (Screening Automation) - 완료 (`src/screen/screener.py`, Closed Issue #11, #12)
         - 현재 수동 안내로 대체된 ASReview 단계를 `asreview-makita` 또는 Python API를 활용하여 자동화된 프로젝트 생성 및 실행으로 개선.
         - 필요 시 ASReview 시뮬레이션 모드를 활용하여 성능 평가 진행.
 
-    - [ ] RoB 평가 모듈 구현 (Risk of Bias Assessment)
+    - [x] RoB 평가 모듈 구현 (Risk of Bias Assessment) - 완료 (`src/rob/assessor.py` 및 `src/llm/synthesizer.py`, Closed Issue #8, #21, #27)
         - 현재 플레이스홀더 상태인 `src/rob` 모듈 개발.
         - RobotReviewer (BERT 기반) 또는 LLM을 활용하여 논문의 편향 위험을 자동으로 평가하고 결과를 저장하는 기능 추가.
 
-    - [ ] 보고서 생성 모듈 구현 (Reporting)
+    - [x] 보고서 생성 모듈 구현 (Reporting) - 완료 (`src/report/generator.py`, Closed Issue #12, #22, #47, #48)
         - `src/report` 모듈 개발.
         - PRISMA 흐름도(Flow Diagram)를 자동으로 생성하여 이미지로 저장.
         - 최종 추출된 데이터를 요약하여 보고서 형태(Markdown 또는 HTML)로 출력.
 
-    - [ ] 대규모 데이터 테스트 (Large-scale Testing)
+    - [x] 대규모 데이터 테스트 (Large-scale Testing) - 완료 (다중 DB 38건 공개 문헌 메타데이터 수집·중복 제거·PRISMA 통계 재현 및 `Dental_000/tests/tests_006` 통합 검증 완료)
 
 ## 2026-01-25
 (8일차)
@@ -760,9 +760,9 @@
 
     - 수동 다운로드 사용자 경험(UX) 혁신:
         - Streamlit UI의 'Manual Download Helper'를 대폭 개선함.
-        - 실패 논문별 원클릭 검색 버튼(Google Scholar, DOI, **Sci-Hub**) 추가.
+        - 실패 논문별 원클릭 검색 버튼(Google Scholar, DOI) 추가.
         - `st.file_uploader`를 통합하여 UI 상에서 직접 PDF 업로드 및 자동 분류 기능 구현.
-        - **실시간 파일 감지 엔진 도입**: 사용자가 수동으로 파일을 배치하면 버튼 클릭 없이도 즉시 상태를 [Manual Detected]로 전환하고 CSV를 자동 업데이트함.
+        - [실시간 파일 감지 엔진 도입]: 사용자가 수동으로 파일을 배치하면 버튼 클릭 없이도 즉시 상태를 [Manual Detected]로 전환하고 CSV를 자동 업데이트함.
         - 논문 상태별 배지(Badge) 시스템 도입: [Download Failed], [Manual Detected], [Verified] 시각화.
 
     - 중복 제거(Deduplication) 로직 정교화:
@@ -791,3 +791,10 @@
         - `st.session_state['file_cache']`를 도입하여 파일 존재 여부 확인 결과를 캐싱함.
         - 파일 업로드 및 수동 확인 시 캐시를 즉시 갱신하여 불필요한 디스크 I/O를 줄이고 UI 반응 속도를 대폭 향상시킴.
         - 탭 전환 시에도 업로드 상태 및 UI 정보가 안정적으로 유지되도록 개선함.
+
+
+## 2026-10-21
+- [랩탑 개발팀] Issue #54, #55 조치 완료:
+  - 런타임 SQLite DB(`data/*.db`), ASReview 임시 디렉터리(`data/asreview_project.asreview.tmp`), 디버그 로그(`logs/`, `data/logs/`, `pico_debug_error.log`), 프로젝트와 무관한 `export_onnx.py`를 Git 추적에서 제거하고 `.gitignore`에 반영함.
+  - `README.md` 상단 백엔드 배지를 `Backend-Ollama / GROBID`로 정정함.
+  - 과거 로드맵 내 미체크(`[ ]`) 상태였던 스크리닝 자동화(`src/screen/screener.py`), RoB 평가(`src/rob/assessor.py`), 보고서 생성(`src/report/generator.py`), 대규모 문헌 파이프라인 검증(`tests/` 및 `Dental_000/tests/tests_006`) 4개 항목을 Closed 이슈(#11, #12, #21, #22, #27, #47, #48) 및 구현 코드 기준으로 `[x]` 완료 상태로 동기화함.

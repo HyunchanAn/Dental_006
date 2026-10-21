@@ -27,6 +27,13 @@ __pycache__/
 /data/tei/*
 !/data/tei/README.md
 /data/runs/*
+/data/logs/*
+data/logs/
+data/*.tmp/
+*.db
+*.sqlite*
+*.log
+logs/
 
 # Ignore backup files
 *.bak
@@ -40,9 +47,4 @@ Thumbs.db
 
 # Security & Hygiene
 .env
-*.pt
-*.pth
-*.onnx
-__pycache__/
 *.egg-info/
-.venv/
