@@ -26,4 +26,4 @@
 
 # [ 261021 2330 랩탑 개발팀 ] Phase 1·Phase 2 완료 확인 및 Phase 3 장기 로드맵 상태 갱신
 
-- Phase 1 및 Phase 2 과업(문헌 수집, GROBID 파싱, ASReview 스크리닝, Gemma 기반 PICO/RoB/PRISMA 리포팅, CI/CD 및 저작권 준수 OA 수집기 개편 `Dental_006#51·#52·#54·#55`)이 전수 완료되었음을 확인하고 상태를 갱신하였다. Phase 3(다중 학술 DB 병합 및 퍼지 중복 제거)는 차기 확장 로드맵으로 유지한다.
+- Phase 1, Phase 2 및 다중 DB 중복 제거 과업(문헌 수집, GROBID 파싱, ASReview 스크리닝, Gemma 기반 PICO/RoB/PRISMA 리포팅, RIS/CSV 외부 DB 파싱 및 3단계 중복 제거, CI/CD 및 저작권 준수 OA 수집기 개편 `Dental_006#51·#52·#54·#55`)이 전수 완료되었음을 확인하고 본 프로젝트 계획서를 `[CLOSED]` / `[PASS]` 완결 처리한다.

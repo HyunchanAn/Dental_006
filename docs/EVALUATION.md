@@ -4,8 +4,8 @@
 
 ## 1. 평가 방식 개요
 거대 언어 모델(LLM, Gemma)을 활용하여 논문에서 PICO(Population, Intervention, Comparison, Outcome)를 추출하는 작업의 정확도를 측정하기 위해 다음과 같은 지표를 사용합니다.
-- **ROUGE-1, ROUGE-L F-Measure**: 생성된 텍스트와 사람이 직접 추출한 정답(Ground Truth) 간의 형태소 및 문장 구조의 유사도를 측정합니다.
-- **Token F1 Score**: 단어 단위의 Precision과 Recall을 결합하여 정보가 누락 없이 정확하게 추출되었는지 평가합니다.
+- [ROUGE-1, ROUGE-L F-Measure]: 생성된 텍스트와 사람이 직접 추출한 정답(Ground Truth) 간의 형태소 및 문장 구조의 유사도를 측정합니다.
+- [Token F1 Score]: 단어 단위의 Precision과 Recall을 결합하여 정보가 누락 없이 정확하게 추출되었는지 평가합니다.
 
 ## 2. 필요 의존성 설치
 평가 스크립트는 `rouge-score` 라이브러리를 필요로 합니다.
@@ -42,3 +42,10 @@ Average Token F1 Score:    0.8120
 
 ## 5. 지속적인 벤치마크
 모델 버전이 업데이트되거나 프롬프트 엔지니어링을 개선할 때마다 본 평가 파이프라인을 실행하여 모델의 성능 변화를 모니터링하시기 바랍니다.
+
+---
+
+# [ 261025 1455 랩탑 개발팀 ] PICO 추출 평가 자동화 가이드 및 벤치마크 파이프라인 구축 완결 (`[CLOSED]` / `[PASS]`)
+
+- 상태: 공식 종결 (`[CLOSED]` / `[PASS]` 완결)
+- 이행 결과: `scripts/evaluate_extraction.py` 기반 ROUGE-1/ROUGE-L 및 Token F1 자동 평가 파이프라인과 단위 테스트(`Dental_000/tests/tests_006/test_evaluate_extraction.py`) 구축이 완료되었으므로 본 문서를 `[CLOSED]` / `[PASS]` 완결로 공식 종결한다.

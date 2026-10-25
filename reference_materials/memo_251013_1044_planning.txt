@@ -460,4 +460,4 @@ sr-gemma3/
 ---
 # [ 261021 2330 랩탑 개발팀 ] SR-Gemma 초기 기획 메모(251013) 아키텍처 구현 완료 및 공식 종결 ([CLOSED])
 - 상태: 공식 종결 ([CLOSED])
-- 비고: 본 초기 기획 메모에 정의된 E-utilities/Unpaywall OA 수집(`src/ingest`), GROBID TEI 파싱(`src/parse`), ASReview 스크리닝(`src/screen`), Ollama LLM 클라이언트(`src/llm`), PICO/RoB 추출(`src/extract`, `src/rob`), PRISMA 2020 리포트(`src/report`) 파이프라인이 전수 구현 및 검증 완료되어 본 기획 메모를 공식 종결한다.
+- 비고: 본 초기 기획 메모에 정의된 E-utilities/Unpaywall OA 수집(`src/ingest`), GROBID TEI 파싱(`src/parse`), ASReview 스크리닝(`src/screen`), Ollama LLM 클라이언트(`src/llm`), PICO/RoB 추출(`src/extract`, `src/rob`), PRISMA 2020 리포트(`src/report`) 파이프라인이 전수 구현 및 검증 완료되어 본 기획 메모를 공식 종결([CLOSED] / [PASS] 완결)한다.
