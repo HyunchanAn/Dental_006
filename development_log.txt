@@ -829,3 +829,6 @@
 2026-10-25
 - `docs/DEDUPLICATION_CHECKLIST.md`, `docs/EVALUATION.md`, `docs/PROJECT_PLAN.md`, `reference_materials/memo_251013_1044_planning.txt` 공식 종결(`[CLOSED]` / `[PASS]` 완결) 명시 완료.
 - 루트 `development_log.txt`와 `reference_materials/Development_log.txt`의 전체 이력(`2025-10-13` ~ `2026-10-25`)을 무생략 통합하고 단일 표준 양식으로 동기화 완료.
+
+2026-10-28
+- `src/llm/client.py` 내 `openai` 패키지 선택적 임포트 가드를 추가하여 경량 CI 환경에서 `src.llm.client.LLMClient` 모킹 및 통합 테스트 수집이 정상 동작하도록 개선 완료.
