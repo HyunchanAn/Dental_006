@@ -43,15 +43,34 @@ def deduplicate_records(existing_df, new_df):
     new_df["norm_title"] = new_df["title"].apply(normalize_title)
     new_df["norm_author"] = new_df["first_author"].apply(normalize_author)
 
-    # First, internally deduplicate new_df (keep first, assuming order or just random)
+    # First, internally deduplicate new_df by pmid (if present) and norm_title
+    if "pmid" in new_df.columns:
+        non_empty_pmid = new_df["pmid"].astype(str).str.strip().replace("nan", "")
+        has_pmid_mask = non_empty_pmid != ""
+        with_pmid = new_df[has_pmid_mask].drop_duplicates(subset=["pmid"])
+        without_pmid = new_df[~has_pmid_mask]
+        new_df = pd.concat([with_pmid, without_pmid], ignore_index=True)
     new_df = new_df.drop_duplicates(subset=["norm_title"])
 
     duplicates_removed = total_uploaded - len(new_df)
+
+    existing_pmids = set()
+    if "pmid" in existing_df.columns and not existing_df.empty:
+        existing_pmids = {
+            str(v).strip()
+            for v in existing_df["pmid"].tolist()
+            if v is not None and str(v).strip() and str(v).strip().lower() != "nan"
+        }
 
     records_to_keep = []
 
     for _, new_row in new_df.iterrows():
         is_duplicate = False
+
+        # 0. PMID Exact Match (PubMed + PubTator 3.0 supplemental merge safety)
+        cand_pmid = str(new_row.get("pmid", "")).strip() if "pmid" in new_row else ""
+        if cand_pmid and cand_pmid.lower() != "nan" and cand_pmid in existing_pmids:
+            is_duplicate = True
 
         # 1. DOI Match
         if new_row["doi"] and str(new_row["doi"]).strip() and str(new_row["doi"]).lower() != "nan":

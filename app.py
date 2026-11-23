@@ -9,7 +9,7 @@ import yaml
 
 sys.path.append(os.getcwd())
 
-from src.ingest import pubmed
+from src.ingest import deduplicator, pubmed, pubtator
 from src.parse import pubmed_parser
 from src.ui import sidebar, step1_search, step2_screen, step3_analysis, step4_extraction, step5_report
 from src.ui.translations import TRANSLATIONS
@@ -155,17 +155,41 @@ def execute_pubmed_search(query, max_ret, config):
     )
     st.session_state["stats"]["total_found"] = total_count
 
-    if total_count > 0:
-        st.info(f"총 {total_count}개의 논문 발견. 상위 {max_ret}개 가져오는 중...")
-        pmids, _ = pubmed.fetch_pmids(
-            query,
-            max_ret=max_ret,
-            mindate=start_date,
-            maxdate=end_date,
-            sort="relevance",
-            email=config.get("email"),
-            api_key=config.get("api_key"),
-        )
+    if total_count > 0 or config.get("use_pubtator_supplement"):
+        pmids = []
+        if total_count > 0:
+            st.info(f"PubMed에서 총 {total_count}개의 논문 발견. 상위 {max_ret}개 가져오는 중...")
+            pmids, _ = pubmed.fetch_pmids(
+                query,
+                max_ret=max_ret,
+                mindate=start_date,
+                maxdate=end_date,
+                sort="relevance",
+                email=config.get("email"),
+                api_key=config.get("api_key"),
+            )
+
+        if config.get("use_pubtator_supplement"):
+            pt_seed = config.get("pubtator_query") or query
+            pt_pmids, _ = pubtator.search_pubtator_pmids(
+                pt_seed,
+                max_ret=max(10, int(max_ret) // 2),
+                email=config.get("email"),
+            )
+            merged_info = pubtator.merge_pubmed_and_pubtator_pmids(
+                pmids, pt_pmids, max_total=max_ret
+            )
+            pmids = merged_info["merged_pmids"]
+            st.session_state["stats"]["total_found"] = max(total_count, len(pmids))
+            if merged_info["supplemental_unique_added"] > 0:
+                st.info(
+                    f"PubTator 3.0 보조 검색으로 고유 PMID {merged_info['supplemental_unique_added']}건을 중복 없이 병합했습니다."
+                )
+
+        if not pmids:
+            st.warning("조건에 맞는 논문을 찾을 수 없습니다.")
+            return
+
         articles_xml = pubmed.fetch_abstracts(pmids, email=config.get("email"), api_key=config.get("api_key"))
 
         # Filter by Year
@@ -190,7 +214,10 @@ def execute_pubmed_search(query, max_ret, config):
 
         df_parsed = pubmed_parser.parse_articles(filtered_articles_xml)
         if df_parsed is not None and not df_parsed.empty:
-            db_manager.import_pubmed_results(df_parsed)
+            existing_df = db_manager.get_articles_df()
+            deduped_df, _ = deduplicator.deduplicate_records(existing_df, df_parsed)
+            if not deduped_df.empty:
+                db_manager.import_pubmed_results(deduped_df)
         st.success(f"{len(filtered_articles_elements)}개의 논문을 성공적으로 가져오고 파싱했습니다!")
 
         if st.session_state.get("run_mode") == "scoping" and st.session_state.get("scoping_agreed"):

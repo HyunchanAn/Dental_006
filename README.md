@@ -1,4 +1,4 @@
-![Status](https://img.shields.io/badge/Status-v1.0%20Release-brightgreen "Status") ![Python](https://img.shields.io/badge/Python-3.12%2B-blue "Python") ![Backend](https://img.shields.io/badge/Backend-Ollama%20%2F%20GROBID-orange "Backend") ![UI](https://img.shields.io/badge/UI-Streamlit-orange "UI") ![License](https://img.shields.io/badge/License-MIT-green "License") ![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD%20Pipeline-passing-brightgreen?logo=github "CI/CD Pipeline")
+![Status](https://img.shields.io/badge/Status-v1.1%20Release-brightgreen "Status") ![Python](https://img.shields.io/badge/Python-3.12%2B-blue "Python") ![Backend](https://img.shields.io/badge/Backend-Ollama%20%2F%20GROBID-orange "Backend") ![UI](https://img.shields.io/badge/UI-Streamlit-orange "UI") ![License](https://img.shields.io/badge/License-MIT-green "License") ![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD%20Pipeline-passing-brightgreen?logo=github "CI/CD Pipeline")
 
 # Dental_006: Systematic Reviewer AI (SR-Gemma4 기반 체계적 문헌고찰 자동화 파이프라인)
 
@@ -62,7 +62,9 @@ graph TD
 
 ### 2. 핵심 기능 및 구성 요소
 - [다중 모드 지원 (Execution Modes)]: 연구자가 직접 개입하며 데이터를 수정하는 `Human-in-the-Loop Mode`와 대규모 문헌의 예비 타당성을 초고속으로 검토하는 `Full AI-driven Scoping Mode`를 분리하여 제공합니다.
-- [문헌 검색 및 수집 (Ingestion)]: PubMed API를 활용하여 PICO 질문에 기반한 검색 쿼리를 자동 생성하고 문헌 메타데이터를 수집합니다.
+- [문헌 검색 및 수집 (Ingestion & 3-Scope Hit Count Preview)]:
+  - 평문 연구 질문 입력 시 `Gemma 4`가 검색 폭이 다른 3가지 PICO + Boolean 검색식 후보(`Option A: Narrow/Precision`, `Option B: Balanced`, `Option C: Broad/Recall`)를 생성하고, PubMed E-utilities 경량 카운트 API(`rettype=count`)로 예상 논문 건수와 적합도(`TOO_NARROW` / `OPTIMAL` / `TOO_BROAD`)를 실시간 표시하여 선택·편집할 수 있습니다.
+  - 약물·전신질환·유전자 연계 문헌고찰 시 선택적으로 `NCBI PubTator 3.0 REST API`(`src/ingest/pubtator.py`) 개념·관계 보조 검색을 활성화하여 동의어 누락 PMID를 중복 없이 병합할 수 있습니다.
 - [자동 스크리닝 및 수동 검토 (Screening & Override)]: LLM을 활용하여 논문의 적합성을 판별하며, Streamlit 데이터 에디터에서 포함(`Included`)/제외(`Excluded`) 여부를 수동으로 변경(`Override`)할 수 있습니다.
 - [합법적 오픈 액세스 PDF 수집 및 수동 업로드 (Copyright-Compliant OA PDF Ingestion)]: 저작권 및 출판사 이용 약관을 준수하기 위해 공식 Open Access 경로(Unpaywall API, NCBI PubMed Central OA, Europe PMC REST API, Semantic Scholar OA, Crossref TDM 라이선스 링크)만을 통해 원문 PDF를 다운로드합니다. 페이월 우회 도구나 기관 프록시 자동 스크래핑, 사용자 개인 Chrome 프로필 연동은 일절 사용하지 않으며, 브라우저 리다이렉트 처리가 필요한 경우 격리된 임시 디렉터리(`tempfile.mkdtemp()`)만 사용합니다. 자동 다운로드되지 않은 구독형 문헌은 수동 업로드 도우미(Manual PDF Upload Helper)를 통해 추가할 수 있습니다.
 - [PDF 구조화 파싱 (Parsing)]: GROBID를 이용해 PDF를 구조화된 TEI/XML 형식으로 변환하여 핵심 본문과 메타데이터를 추출합니다.

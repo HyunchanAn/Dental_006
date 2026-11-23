@@ -12,4 +12,4 @@ jobs:
     with:
       python_version: "3.10"
       install_opencv: true
-      test_command: "PYTHONPATH=${{ github.workspace }} pytest Dental_000/tests/tests_006 -v"
+      test_command: "PYTHONPATH=${{ github.workspace }} pytest tests Dental_000/tests/tests_006 -v"

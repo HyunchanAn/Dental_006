@@ -58,6 +58,70 @@ def fetch_pmids(
         return [], 0
 
 
+def fetch_hit_count(
+    query: str,
+    api_key=None,
+    mindate=None,
+    maxdate=None,
+    email=None,
+    timeout: int = 10,
+) -> int:
+    """
+    Lightweight PubMed E-utilities hit-count lookup (`rettype=count`) without transferring PMID lists.
+    """
+    if not query or not str(query).strip():
+        return 0
+    search_url = f"{EUTILS_BASE_URL}esearch.fcgi"
+    params = {
+        "db": "pubmed",
+        "term": str(query).strip(),
+        "rettype": "count",
+        "retmode": "json",
+    }
+    if api_key:
+        params["api_key"] = api_key
+    if mindate and maxdate:
+        params["datetype"] = "edat"
+        params["mindate"] = mindate
+        params["maxdate"] = maxdate
+
+    try:
+        response = requests.get(
+            search_url,
+            params=params,
+            headers=get_request_headers(email),
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return int(data.get("esearchresult", {}).get("count", 0))
+    except (requests.exceptions.RequestException, ValueError, TypeError) as exc:
+        print(f"An error occurred during PubMed hit count lookup: {exc}")
+        return 0
+
+
+def classify_hit_count_suitability(count: int) -> dict:
+    """
+    Evaluates whether a candidate query's hit count is too narrow (< 10),
+    optimal (10..10000), or overly broad (> 10000) for systematic review screening.
+    """
+    n = max(0, int(count))
+    if n < 10:
+        return {
+            "status": "TOO_NARROW",
+            "guidance": "검색 건수가 10건 미만으로 과도하게 협소합니다. 동의어를 확장한 후보를 권장합니다.",
+        }
+    if n > 10000:
+        return {
+            "status": "TOO_BROAD",
+            "guidance": "검색 건수가 10,000건을 초과하여 스크리닝 부담이 큽니다. 조건을 구체화한 후보를 권장합니다.",
+        }
+    return {
+        "status": "OPTIMAL",
+        "guidance": "체계적 문헌고찰 스크리닝에 적합한 검색 규모입니다.",
+    }
+
+
 def fetch_abstracts(pmids, api_key=None, email=None):
     """
     Fetches abstracts and other metadata for a list of PMIDs.

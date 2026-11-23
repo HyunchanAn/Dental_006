@@ -832,3 +832,11 @@
 
 2026-10-28
 - `src/llm/client.py` 내 `openai` 패키지 선택적 임포트 가드를 추가하여 경량 CI 환경에서 `src.llm.client.LLMClient` 모킹 및 통합 테스트 수집이 정상 동작하도록 개선 완료.
+
+2026-11-23
+- 이슈 #57 해결 (`[P2][Feat] 평문 -> PICO 쿼리 변환 시 3가지 스코프 후보 및 PubMed 예상 검색 건수(Hit Count) 선택 UI`):
+  - `src/ingest/pubmed.py`: `esearch.fcgi?rettype=count` 경량 건수 조회(`fetch_hit_count`) 및 적정 범위 분류(`classify_hit_count_suitability`: `< 10` `TOO_NARROW`, `10..10000` `OPTIMAL`, `> 10000` `TOO_BROAD`) 구현.
+  - `src/llm/pico_extractor.py` 및 `src/ui/step1_search.py`: 3가지 스코프 후보(`Narrow / Precision`, `Balanced`, `Broad / Recall`) 생성·비교·선택·편집 UI 통합 완료.
+- 이슈 #58 해결 (`[P2][Enhancement] PubTator 3.0 API 기반 생의학 개체·관계 보조 검색 소스 연동 검토`):
+  - `src/ingest/pubtator.py` 신설: NCBI `PubTator 3.0` 개체 정규화 자동완성(`autocomplete_entity`), 12종 관계 쿼리 빌더(`build_pubtator_relation_query`), 보조 PMID 검색(`search_pubtator_pmids`) 및 PubMed 우선 중복 제거 병합기(`merge_pubmed_and_pubtator_pmids`) 구현.
+  - `src/ingest/deduplicator.py`, `src/ui/step1_search.py`, `app.py`: Step 1 보조 검색 토글 연동 및 PMID/DOI/정규화 제목 기준 중복 제거 적재 완료 (`tests/test_scope_and_pubtator.py` 통과).
