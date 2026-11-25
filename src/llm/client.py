@@ -1,24 +1,37 @@
+import os
+
 try:
     import openai
 except ImportError:
     openai = None
 
 
+def _resolve_ollama_v1_url(base_url=None):
+    raw = (
+        base_url
+        or os.getenv("OLLAMA_BASE_URL")
+        or os.getenv("OLLAMA_HOST")
+        or "http://127.0.0.1:11434"
+    ).rstrip("/")
+    return raw if raw.endswith("/v1") else f"{raw}/v1"
+
+
 class LLMClient:
     """
-    A client to interact with the local llamafile server, which is compatible
+    A client to interact with the local Ollama/llamafile server, which is compatible
     with the OpenAI API.
     """
 
-    def __init__(self, base_url="http://127.0.0.1:11434/v1"):
+    def __init__(self, base_url=None):
         """
         Initializes the OpenAI client to connect to the local server.
         Args:
-            base_url (str): The base URL of the local llamafile server.
+            base_url (str): Optional override URL of the local LLM server.
         """
+        resolved_url = _resolve_ollama_v1_url(base_url)
         if openai is not None:
             self.client = openai.OpenAI(
-                base_url=base_url,
+                base_url=resolved_url,
                 api_key="sk-no-key-required",  # API key is not needed for local server
             )
         else:

@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 
@@ -58,7 +59,12 @@ def render(config: dict, state: dict, **callbacks) -> None:
 
         with col_st2:
             try:
-                response = requests.get("http://localhost:11434/", timeout=2)
+                ollama_base = (
+                    os.getenv("OLLAMA_BASE_URL")
+                    or os.getenv("OLLAMA_HOST")
+                    or "http://localhost:11434"
+                ).rstrip("/")
+                response = requests.get(f"{ollama_base}/", timeout=2)
                 if response.status_code == 200:
                     st.success("✅ Ollama", icon="🦙")
                 else:

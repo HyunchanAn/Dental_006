@@ -1,4 +1,4 @@
-![Status](https://img.shields.io/badge/Status-v1.1%20Release-brightgreen "Status") ![Python](https://img.shields.io/badge/Python-3.12%2B-blue "Python") ![Backend](https://img.shields.io/badge/Backend-Ollama%20%2F%20GROBID-orange "Backend") ![UI](https://img.shields.io/badge/UI-Streamlit-orange "UI") ![License](https://img.shields.io/badge/License-MIT-green "License") ![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD%20Pipeline-passing-brightgreen?logo=github "CI/CD Pipeline")
+![Status](https://img.shields.io/badge/Status-v1.1%20Release-brightgreen "Status") ![Python](https://img.shields.io/badge/Python-3.10%2B-blue "Python") ![Backend](https://img.shields.io/badge/Backend-Ollama%20%2F%20GROBID-orange "Backend") ![UI](https://img.shields.io/badge/UI-Streamlit-orange "UI") ![License](https://img.shields.io/badge/License-MIT-green "License") ![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD%20Pipeline-passing-brightgreen?logo=github "CI/CD Pipeline")
 
 # Dental_006: Systematic Reviewer AI (SR-Gemma4 기반 체계적 문헌고찰 자동화 파이프라인)
 
@@ -79,15 +79,19 @@ graph TD
 ├── src/                      # 파이프라인 백엔드 코어 소스 코드
 │   ├── ingest/               # 비동기 오픈 액세스 문헌 수집 및 다운로드 엔진
 │   │   ├── downloader.py     # Unpaywall / PMC OA / Europe PMC / Crossref TDM 기반 합법 OA 다운로드
-│   │   └── metadata_resolver.py # Crossref / OpenAlex API 연동 및 DOI 메타데이터 분석 (Polite Pool 적용)
-│   ├── parse/                # GROBID 텍스트 구조화 파싱 레이어
+│   │   ├── metadata_resolver.py # Crossref / OpenAlex API 연동 및 DOI 메타데이터 분석 (Polite Pool 적용)
+│   │   └── pubtator.py       # NCBI PubTator 3.0 REST API 보조 검색
+│   ├── llm/                  # Ollama / OpenAI 호환 로컬 LLM 클라이언트 (`OLLAMA_BASE_URL`)
+│   ├── parse/                # GROBID 텍스트 구조화 파싱 레이어 (`GROBID_URL`, 기본 포트 8070)
 │   ├── screen/               # 로컬 Gemma 4 추론 및 VRAM 상한 제어 (Semaphore=1)
 │   ├── rob/                  # 비뚤림 위험(Risk of Bias) 자동 평가
 │   ├── extract/              # PICO 프레임워크 기반 데이터 추출
-│   ├── report/               # 마크다운 보고서 및 PRISMA 데이터 생성
+│   ├── report/               # 마크다운 보고서 및 PRISMA 데이터 생성 (`generator.py`)
+│   ├── ui/                   # Streamlit 단계별 UI 모듈 (`sidebar.py`, `step1~5_*.py`)
 │   └── utils/                # 공통 유틸리티 (db_manager.py: 문자열 상태 전이 및 State Lock 관리)
-├── tests/                    # Pytest 기반 유닛/통합 테스트
-├── app.py                    # Streamlit 웹 대시보드 (HiTL 실시간 프로그레시브 스트리밍 UI)
+├── tests/                    # Pytest 기반 로컬 단위 테스트 (`test_scope_and_pubtator.py`)
+├── app.py                    # Streamlit 웹 대시보드 (로컬 기본 포트 8502 / Docker 8501)
+├── run.py                    # 로컬 실행 보조 스크립트
 ├── main.py                   # CLI 엔트리포인트
 └── picos_config.yaml         # PICO 연구 질문 설정 파일
 ```
@@ -116,7 +120,7 @@ graph TD
 ## 설치 및 실행 방법
 
 ### 1. 개발자 환경 구축 (Python + Ollama + GROBID)
-1. 사전 요구사항: Git, Python 3.11 이상, Docker Desktop (GROBID 구동용), Ollama.
+1. 사전 요구사항: Git, Python 3.10 이상, Docker Desktop (GROBID 구동용), Ollama.
 2. Ollama 설치 후 모델 다운로드:
    ```bash
    ollama pull gemma4
@@ -135,13 +139,14 @@ docker exec -it sr_ollama ollama pull gemma4
 
 ### 3. 웹 대시보드 및 CLI 실행
 ```bash
-# Streamlit 웹 대시보드 실행
+# Streamlit 웹 대시보드 실행 (로컬 기본 포트 8502, Docker Compose 환경은 8501)
 streamlit run app.py --server.port 8502
 
 # CLI 일괄 파이프라인 실행 (picos_config.yaml 기준)
 python main.py
 
-# 단위 테스트 실행
+# 로컬 단위 테스트 실행
+pytest tests/test_scope_and_pubtator.py -v
 pytest ../Dental_000/tests/tests_006 -v
 ```
 

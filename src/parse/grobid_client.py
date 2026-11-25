@@ -4,7 +4,7 @@ import aiohttp
 import requests
 
 # The default URL for the GROBID service started with docker-compose
-GROBID_URL = "http://localhost:8090"
+GROBID_URL = os.getenv("GROBID_URL", "http://localhost:8070").rstrip("/")
 GROBID_API_URL = f"{GROBID_URL}/api/processFulltextDocument"
 
 
